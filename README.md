@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Khung dự án Node.js + React
 
 Cấu trúc này được xây dựng theo đúng mô hình kiến trúc và cây thư mục trong 3 ảnh bạn gửi:
@@ -120,3 +121,7 @@ client/src/pages/Staff/StaffDashboard.jsx  # trang nhân viên nhận đơn real
 - Đã có sẵn ví dụ đầy đủ cho module **User**: route → middleware → controller → service → database (server) và service → page Home hiển thị danh sách user (client).
 - Bạn chỉ cần copy pattern này (Order, User) để thêm các module khác (Product, Voucher,...).
 - File `.env` thật không được commit lên git (đã có trong `.gitignore`), chỉ dùng `.env.example` làm mẫu.
+=======
+# SWP391-Coffe-Shop-Managerment
+A project managerment coffe shop for SWP391 in FPT University
+>>>>>>> d4ea777abc6441da2f71fed62c1f184334092f37
