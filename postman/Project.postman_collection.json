@@ -1,0 +1,43 @@
+{
+  "info": {
+    "name": "Fullstack Project API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:8080/api" }],
+  "item": [
+    {
+      "name": "Product - Lấy danh sách",
+      "request": { "method": "GET", "url": "{{baseUrl}}/products" }
+    },
+    {
+      "name": "Product - Tìm theo tên",
+      "request": { "method": "GET", "url": { "raw": "{{baseUrl}}/products?keyword=chuot", "host": ["{{baseUrl}}"], "path": ["products"], "query": [{ "key": "keyword", "value": "chuot" }] } }
+    },
+    {
+      "name": "Product - Lấy theo id",
+      "request": { "method": "GET", "url": "{{baseUrl}}/products/1" }
+    },
+    {
+      "name": "Product - Thêm mới",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Tai nghe\",\n  \"price\": 450000,\n  \"quantity\": 15,\n  \"description\": \"Chống ồn\"\n}" },
+        "url": "{{baseUrl}}/products"
+      }
+    },
+    {
+      "name": "Product - Cập nhật",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Tai nghe v2\",\n  \"price\": 500000,\n  \"quantity\": 20,\n  \"description\": \"Bản nâng cấp\"\n}" },
+        "url": "{{baseUrl}}/products/1"
+      }
+    },
+    {
+      "name": "Product - Xóa",
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/products/1" }
+    }
+  ]
+}
