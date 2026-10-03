@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /** CONTROLLER = cổng nhận request HTTP từ React/Postman, trả JSON. Không viết logic ở đây. */
+@org.springframework.context.annotation.Profile("legacy-products")
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {

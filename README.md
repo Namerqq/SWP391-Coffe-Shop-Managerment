@@ -1,3 +1,5 @@
+> **Bản KhoiBM tích hợp database freeze:** xem [KHOIBM.md](KHOIBM.md) để chạy luồng khách đặt món Iter 1 trên schema chung. Phần hướng dẫn Product bên dưới là khung mẫu cũ.
+
 # 🚀 Fullstack Project – ReactJS + Spring Boot + MySQL
 
 > Dự án mẫu (khung sườn) để cả nhóm cùng code. Đã có sẵn **1 module mẫu: Quản lý sản phẩm (Product) – CRUD đầy đủ**.

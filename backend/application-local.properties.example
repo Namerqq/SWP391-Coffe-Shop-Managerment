@@ -1,0 +1,4 @@
+# Copy to application-local.properties (ignored by Git), then fill in your local configuration.
+spring.datasource.url=${DB_URL:jdbc:mysql://127.0.0.1:3306/cafe_management?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true}
+spring.datasource.username=${DB_USER:root}
+spring.datasource.password=${DB_PASSWORD:}

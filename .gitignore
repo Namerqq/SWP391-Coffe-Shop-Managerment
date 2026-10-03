@@ -16,3 +16,8 @@ backend/src/main/resources/application-local.properties
 # OS
 .DS_Store
 Thumbs.db
+database/sample-data.sql
+
+# Local database credentials and runtime output
+backend/application-local.properties
+*.log

@@ -1,21 +1,19 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import AppNavbar from './components/AppNavbar'
-import ProductList from './pages/ProductList'
-import ProductForm from './pages/ProductForm'
+import { Link, Navigate, useRoutes } from "react-router-dom";
+import { orderRoutes } from "./routes/orderRoutes";
 
-// App = nơi khai báo ĐƯỜNG DẪN (URL) -> TRANG (page) tương ứng.
 export default function App() {
-  return (
-    <>
-      <AppNavbar />
-      <div className="container py-4">
-        <Routes>
-          <Route path="/" element={<Navigate to="/products" />} />
-          <Route path="/products" element={<ProductList />} />
-          <Route path="/products/new" element={<ProductForm />} />
-          <Route path="/products/:id/edit" element={<ProductForm />} />
-        </Routes>
-      </div>
-    </>
-  )
+  return useRoutes([
+    ...orderRoutes,
+    // Standalone demo entry only. Replace with Home when integrating the team app.
+    { path: "/", element: <Navigate to="/menu" replace /> },
+    {
+      path: "*",
+      element: (
+        <main>
+          <h1>Không tìm thấy trang</h1>
+          <Link to="/menu">Về thực đơn</Link>
+        </main>
+      ),
+    },
+  ]);
 }
