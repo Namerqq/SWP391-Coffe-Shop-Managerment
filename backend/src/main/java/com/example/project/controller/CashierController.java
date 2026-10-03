@@ -1,7 +1,13 @@
 package com.example.project.controller;
 
 import com.example.project.dto.cashier.CustomerCreateRequest;
+import com.example.project.dto.cashier.PayRequest;
+import com.example.project.dto.cashier.PaymentResult;
+import com.example.project.dto.cashier.PaymentSettingsView;
+import com.example.project.dto.cashier.ReceiptView;
 import com.example.project.dto.order.CustomerView;
+import com.example.project.entity.User;
+import com.example.project.security.AuthInterceptor;
 import com.example.project.security.RequireRole;
 import com.example.project.service.CashierService;
 import jakarta.validation.Valid;
@@ -36,4 +42,20 @@ public class CashierController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createCustomer(req));
     }
 
+    @GetMapping("/payment-settings")
+    public PaymentSettingsView paymentSettings() {
+        return service.paymentSettings();
+    }
+
+    /** Thanh toán bàn. Body: { "method": "CASH", "customerId": 3, "pointsToRedeem": 10 } */
+    @PostMapping("/sessions/{sessionId}/pay")
+    public PaymentResult paySession(@PathVariable Long sessionId, @Valid @RequestBody PayRequest req,
+                                    @RequestAttribute(AuthInterceptor.CURRENT_USER) User cashier) {
+        return service.paySession(sessionId, req, cashier);
+    }
+
+    @GetMapping("/payments/{paymentId}/receipt")
+    public ReceiptView receipt(@PathVariable Long paymentId) {
+        return service.receipt(paymentId);
+    }
 }
