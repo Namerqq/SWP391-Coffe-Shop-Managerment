@@ -69,7 +69,7 @@ public class UserService {
 
     // UC-AD03 Update Account Detail
     @Transactional
-    public UserResponse update(Long id, UserUpdateRequest req) {
+    public UserResponse update(Long id, UserUpdateRequest req, String currentToken) {
         User u = findOrThrow(id);
         checkUnique(req.username(), req.email(), id);
         u.setFullName(req.fullName().trim());
@@ -78,7 +78,7 @@ public class UserService {
         if (req.newPassword() != null && !req.newPassword().isBlank()) {
             checkPassword(req.newPassword());
             u.setPasswordHash(passwordEncoder.encode(req.newPassword()));
-            tokenStore.revokeAllOf(id); // đổi mật khẩu -> đăng xuất mọi nơi
+            tokenStore.revokeAllOfExcept(id, currentToken); // đổi mật khẩu -> đăng xuất mọi nơi (trừ phiên đang thao tác)
         }
         return UserResponse.from(userRepository.save(u));
     }

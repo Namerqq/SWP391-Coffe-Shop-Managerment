@@ -4,6 +4,7 @@ import com.example.project.dto.*;
 import com.example.project.entity.User;
 import com.example.project.security.AuthInterceptor;
 import com.example.project.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,8 +46,9 @@ public class AdminUserController {
     }
 
     @PutMapping("/users/{id}")
-    public UserResponse update(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest req) {
-        return service.update(id, req);
+    public UserResponse update(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest req,
+                               HttpServletRequest request) {
+        return service.update(id, req, AuthInterceptor.extractToken(request));
     }
 
     @PatchMapping("/users/{id}/role")
