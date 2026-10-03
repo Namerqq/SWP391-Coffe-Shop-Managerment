@@ -39,15 +39,16 @@ public class AuthService {
         User user = userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(id, id)
                 .orElseThrow(() -> ApiException.unauthorized(BAD_CREDENTIALS));
 
-        if (User.LOCKED.equals(user.getStatus())) {
-            throw ApiException.forbidden("Tài khoản đã bị khóa do nhập sai mật khẩu nhiều lần. Vui lòng liên hệ Admin.");
-        }
-
+        // Kiểm tra mật khẩu TRƯỚC, để người ngoài không biết tài khoản có tồn tại / bị khóa hay không.
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
             registerFailure(user);
             throw ApiException.unauthorized(BAD_CREDENTIALS);
         }
         failedAttempts.remove(user.getId());
+
+        if (User.LOCKED.equals(user.getStatus())) {
+            throw ApiException.forbidden("Tài khoản đã bị khóa do nhập sai mật khẩu nhiều lần. Vui lòng liên hệ Admin.");
+        }
 
         if (User.INACTIVE.equals(user.getStatus())) {
             throw ApiException.forbidden("Tài khoản đã bị vô hiệu hóa.");
@@ -72,11 +73,17 @@ public class AuthService {
     private void registerFailure(User user) {
         long max = settings.maxLoginAttempts();
         int count = failedAttempts.merge(user.getId(), 1, Integer::sum);
-        if (max > 0 && count >= max && User.ACTIVE.equals(user.getStatus())) {
+        if (max > 0 && count >= max && User.ACTIVE.equals(user.getStatus()) && !isLastActiveAdmin(user)) {
             user.setStatus(User.LOCKED);
             userRepository.save(user);
             failedAttempts.remove(user.getId());
             throw ApiException.forbidden("Bạn đã nhập sai " + max + " lần. Tài khoản đã bị khóa, vui lòng liên hệ Admin.");
         }
+    }
+
+    /** Không khóa Admin cuối cùng đang hoạt động, nếu không sẽ không còn ai mở khóa được. */
+    private boolean isLastActiveAdmin(User user) {
+        return "ADMIN".equals(user.getRole().getName())
+                && userRepository.countByRole_NameAndStatus("ADMIN", User.ACTIVE) <= 1;
     }
 }

@@ -45,6 +45,9 @@ public class SystemSettingService {
                 s.setUpdatedBy(updatedBy);
             }
         });
+        String open = raw("shop.open_time", "07:00");
+        String close = raw("shop.close_time", "22:00");
+        if (open.compareTo(close) >= 0) throw ApiException.badRequest("Giờ mở cửa phải trước giờ đóng cửa.");
         repository.flush();
         return getAll();
     }
@@ -61,6 +64,9 @@ public class SystemSettingService {
                     throw ApiException.badRequest(label + ": phải là số.");
                 }
                 if (n.signum() < 0) throw ApiException.badRequest(label + ": không được âm.");
+                if ((s.getKey().startsWith("security.") || s.getKey().endsWith("_minutes")) && n.stripTrailingZeros().scale() > 0) {
+                    throw ApiException.badRequest(label + ": phải là số nguyên.");
+                }
                 if (s.getKey().endsWith("_percent") && n.compareTo(BigDecimal.valueOf(100)) > 0) {
                     throw ApiException.badRequest(label + ": tối đa 100.");
                 }
@@ -76,7 +82,7 @@ public class SystemSettingService {
                 if (!v.isEmpty() && !EMAIL.matcher(v).matches()) throw ApiException.badRequest(label + ": email không hợp lệ.");
             }
             case "URL", "IMAGE" -> {
-                if (!v.isEmpty() && !(v.startsWith("http://") || v.startsWith("https://") || v.startsWith("/"))) {
+                if (!v.isEmpty() && !(v.startsWith("http://") || v.startsWith("https://") || (v.startsWith("/") && !v.startsWith("//")))) {
                     throw ApiException.badRequest(label + ": đường dẫn phải bắt đầu bằng http://, https:// hoặc /.");
                 }
             }

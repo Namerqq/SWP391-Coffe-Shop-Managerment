@@ -49,6 +49,9 @@ public class AuthInterceptor implements HandlerInterceptor {
             throw ApiException.unauthorized("Tài khoản không còn hoạt động.");
         }
         String role = user.getRole().getName();
+        if (settings.maintenanceMode() && !"ADMIN".equals(role)) {
+            throw ApiException.forbidden("Hệ thống đang bảo trì, vui lòng quay lại sau.");
+        }
         if (request.getRequestURI().startsWith("/api/admin") && !"ADMIN".equals(role)) {
             throw ApiException.forbidden("Bạn không có quyền truy cập chức năng quản trị.");
         }

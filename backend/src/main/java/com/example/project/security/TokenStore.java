@@ -49,4 +49,9 @@ public class TokenStore {
     public void revokeAllOf(Long userId) {
         sessions.values().removeIf(s -> s.userId().equals(userId));
     }
+
+    /** Đăng xuất user khỏi mọi thiết bị KHÁC, giữ lại phiên đang dùng (vd Admin tự đổi mật khẩu). */
+    public void revokeAllOfExcept(Long userId, String keepToken) {
+        sessions.entrySet().removeIf(e -> e.getValue().userId().equals(userId) && !e.getKey().equals(keepToken));
+    }
 }
