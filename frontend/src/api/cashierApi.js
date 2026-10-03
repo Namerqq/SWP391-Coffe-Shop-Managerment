@@ -6,6 +6,7 @@ const cashierApi = {
   createCustomer: (data) => axiosClient.post('/cashier/customers', data),
   getPaymentSettings: () => axiosClient.get('/cashier/payment-settings'),
   paySession: (sessionId, data) => axiosClient.post(`/cashier/sessions/${sessionId}/pay`, data),
+  takeaway: (data) => axiosClient.post('/cashier/takeaway', data),
   getReceipt: (paymentId) => axiosClient.get(`/cashier/payments/${paymentId}/receipt`),
 }
 

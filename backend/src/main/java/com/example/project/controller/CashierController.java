@@ -5,6 +5,7 @@ import com.example.project.dto.cashier.PayRequest;
 import com.example.project.dto.cashier.PaymentResult;
 import com.example.project.dto.cashier.PaymentSettingsView;
 import com.example.project.dto.cashier.ReceiptView;
+import com.example.project.dto.cashier.TakeawayRequest;
 import com.example.project.dto.order.CustomerView;
 import com.example.project.entity.User;
 import com.example.project.security.AuthInterceptor;
@@ -52,6 +53,13 @@ public class CashierController {
     public PaymentResult paySession(@PathVariable Long sessionId, @Valid @RequestBody PayRequest req,
                                     @RequestAttribute(AuthInterceptor.CURRENT_USER) User cashier) {
         return service.paySession(sessionId, req, cashier);
+    }
+
+    /** Bán mang đi: tạo đơn + thu tiền cùng lúc. */
+    @PostMapping("/takeaway")
+    public PaymentResult takeaway(@Valid @RequestBody TakeawayRequest req,
+                                  @RequestAttribute(AuthInterceptor.CURRENT_USER) User cashier) {
+        return service.takeaway(req, cashier);
     }
 
     @GetMapping("/payments/{paymentId}/receipt")

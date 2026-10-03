@@ -5,6 +5,7 @@ import com.example.project.dto.cashier.PayRequest;
 import com.example.project.dto.cashier.PaymentResult;
 import com.example.project.dto.cashier.PaymentSettingsView;
 import com.example.project.dto.cashier.ReceiptView;
+import com.example.project.dto.cashier.TakeawayRequest;
 import com.example.project.dto.order.CustomerView;
 import com.example.project.entity.CafeTable;
 import com.example.project.entity.Customer;
@@ -117,6 +118,35 @@ public class CashierService {
         s.getTable().setStatus(CafeTable.AVAILABLE);
         sessionRepository.save(s);
         return new PaymentResult(p.getId(), p.getPaymentCode(), p.getTotalAmount(), null, null);
+    }
+
+    // ===== UC-C01..C04: bán mang đi, khách trả tiền trước =====
+
+    @Transactional
+    public PaymentResult takeaway(TakeawayRequest req, User cashier) {
+        if (req.items() == null || req.items().isEmpty()) throw ApiException.badRequest("Chưa chọn món nào.");
+        Customer customer = findCustomerOrNull(req.customerId());
+
+        Order o = new Order();
+        o.setOrderNumber(support.nextOrderNumber());
+        o.setSource(Order.SOURCE_STAFF);
+        o.setFulfillmentType(Order.PICKUP);
+        o.setStatus(Order.PENDING);
+        o.setCreatedBy(cashier);
+        o.setCustomerNote(OrderSupportService.blankToNull(req.note()));
+        if (customer != null) {
+            o.setCustomer(customer);
+            o.setCustomerName(customer.getFullName());
+            o.setCustomerPhone(customer.getPhoneNumber());
+        }
+        req.items().forEach(i -> o.addItem(support.buildItem(i)));
+        o.recalcTotal();
+        orderRepository.save(o);
+
+        Payment p = new Payment();
+        p.setOrder(o);
+        settle(p, o.getTotalAmount(), req.method(), customer, req.pointsToRedeem(), cashier, null);
+        return new PaymentResult(p.getId(), p.getPaymentCode(), p.getTotalAmount(), o.getId(), o.getOrderNumber());
     }
 
     // ===== UC-C09: hóa đơn =====
