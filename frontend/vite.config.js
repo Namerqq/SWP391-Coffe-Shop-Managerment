@@ -3,5 +3,6 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  server: { port: 5173 },
+  // open: '/' -> chạy "npm run dev" sẽ tự mở trình duyệt ở trang home của khách
+  server: { port: 5173, open: '/' },
 })
