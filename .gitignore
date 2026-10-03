@@ -16,6 +16,3 @@ backend/src/main/resources/application-local.properties
 # OS
 .DS_Store
 Thumbs.db
-# Ảnh upload (mỗi máy tự có, không commit)
-backend/uploads/
-uploads/
