@@ -1,0 +1,36 @@
+/* KhoiBM: Assist Order (Phục vụ gọi món giúp). Lớp as-*, dùng biến màu trong theme.css. */
+.as-step { font-weight: 700; margin-bottom: 0.6rem; }
+.as-tables { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.as-table {
+  display: flex; flex-direction: column; align-items: flex-start; min-width: 92px;
+  border: 1.5px solid var(--cf-border); background: var(--cf-surface); color: var(--cf-text);
+  border-radius: 0.7rem; padding: 0.45rem 0.75rem;
+}
+.as-table small { color: var(--cf-muted); font-size: 0.75rem; }
+.as-table.busy { border-left: 4px solid #2f6db3; }
+.as-table.active { border-color: var(--cf-primary); background: var(--cf-primary-soft); }
+.as-done {
+  display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; padding: 0.7rem 1rem;
+  background: #e5f4ec; color: #22603f; border-radius: 0.7rem;
+}
+.as-done a { color: #22603f; font-weight: 600; }
+.as-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 1rem; align-items: start; }
+.as-cart { position: sticky; top: 84px; }
+.as-cart-lines { max-height: calc(100vh - 360px); min-height: 60px; overflow-y: auto; }
+.as-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.6rem; }
+.as-item {
+  text-align: left; border: 1px solid var(--cf-border); background: var(--cf-surface); color: inherit;
+  border-radius: 0.7rem; padding: 0.75rem 0.85rem; min-height: 78px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 0.35rem;
+}
+.as-item:hover { border-color: var(--cf-primary); background: var(--cf-primary-soft); }
+.as-item-name { font-weight: 600; font-size: 0.92rem; line-height: 1.3; }
+.as-line { padding: 0.65rem 0; border-bottom: 1px dashed var(--cf-border); }
+.as-line-name { border: 0; background: none; padding: 0; text-align: left; font-weight: 600; color: var(--cf-text); }
+.as-line-name:hover { color: var(--cf-primary-hover); text-decoration: underline; }
+.as-remove { color: var(--cf-danger); text-decoration: none; }
+@media (max-width: 991.98px) {
+  .as-layout { grid-template-columns: 1fr; }
+  .as-cart { position: static; }
+  .as-cart-lines { max-height: none; }
+}
