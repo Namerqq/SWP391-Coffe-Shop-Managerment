@@ -2,6 +2,7 @@ import { Route } from 'react-router-dom'
 import ProtectedRoute from '../components/ProtectedRoute'
 import StaffLayout from '../layouts/StaffLayout'
 import BaristaBoard from '../pages/barista/BaristaBoard'
+import BaristaInventory from '../pages/barista/BaristaInventory'
 import WaiterTables from '../pages/waiter/WaiterTables'
 import WaiterTableDetail from '../pages/waiter/WaiterTableDetail'
 import ReadyOrders from '../pages/serving/ReadyOrders'
@@ -11,6 +12,7 @@ export const danmtRoutes = (
   <>
     <Route path="/barista" element={<ProtectedRoute roles={['BARISTA']}><StaffLayout /></ProtectedRoute>}>
       <Route index element={<BaristaBoard />} />
+      <Route path="inventory" element={<BaristaInventory />} />
     </Route>
 
     <Route path="/waiter" element={<ProtectedRoute roles={['WAITER']}><StaffLayout /></ProtectedRoute>}>
