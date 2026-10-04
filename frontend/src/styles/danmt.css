@@ -1,0 +1,71 @@
+/* =========================================================
+   DanMT: Pha chế (Kanban), Phục vụ, Món chờ mang ra.
+   Dùng biến màu trong theme.css và các lớp chung trong staff.css.
+   ========================================================= */
+
+/* ---------- Bảng pha chế ---------- */
+.kds-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.kds-summary { position: sticky; top: 84px; }
+.kds-sum-item {
+  display: flex; align-items: center; gap: 0.75rem; width: 100%;
+  border: 1px solid transparent; background: transparent; border-radius: 0.6rem;
+  padding: 0.5rem 0.6rem; color: var(--cf-text);
+}
+.kds-sum-item:hover { background: var(--cf-bg); }
+.kds-sum-item.active { background: #fbf1df; border-color: #e9c98f; }
+.kds-sum-qty { font-size: 1.25rem; font-weight: 800; }
+
+.kds-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: #fbf1df; border: 1px solid #efd9ad; border-radius: 0.7rem;
+  padding: 0.6rem 1rem; margin-bottom: 1rem;
+}
+
+.kds-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.kds-col-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-weight: 600; padding-bottom: 0.5rem; margin-bottom: 0.75rem;
+  border-bottom: 2px solid var(--tone);
+}
+.kds-col-head .count { color: var(--tone); font-weight: 800; }
+
+.kds-card {
+  background: var(--cf-surface); border: 1px solid var(--cf-border);
+  border-top: 4px solid var(--tone); border-radius: 0.9rem; margin-bottom: 0.85rem;
+}
+.kds-card.highlight { box-shadow: 0 0 0 2px var(--cf-warning); }
+.kds-card-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem 0.25rem; }
+.kds-no { border: 0; background: none; padding: 0; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; color: var(--cf-text); }
+.kds-no:hover { color: var(--cf-primary); }
+.kds-place {
+  background: var(--cf-primary-soft); color: var(--cf-primary-hover);
+  font-size: 0.75rem; font-weight: 600; border-radius: 0.4rem; padding: 0.15rem 0.45rem;
+}
+.kds-time { margin-left: auto; color: var(--cf-muted); font-size: 0.8rem; white-space: nowrap; }
+.kds-items { list-style: none; margin: 0; padding: 0 1rem; }
+.kds-items li { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.5rem 0; border-bottom: 1px dashed var(--cf-border); }
+.kds-items li:last-child { border-bottom: 0; }
+.kds-items li.match { background: #fbf1df; margin: 0 -1rem; padding: 0.5rem 1rem; box-shadow: inset 3px 0 0 var(--cf-warning); }
+.kds-actions { padding: 0.75rem 1rem 1rem; }
+.kds-cancel { display: block; width: 100%; margin-top: 0.25rem; color: var(--cf-danger); font-size: 0.82rem; text-decoration: none; }
+.kds-cancel:hover { color: #a33232; }
+.kds-waiting { padding: 0.5rem 1rem 0.9rem; color: var(--cf-success); font-size: 0.85rem; font-weight: 500; }
+
+.btn-ready { background: var(--cf-warning); border-color: var(--cf-warning); color: #fff; }
+.btn-ready:hover, .btn-ready:focus { background: #ad760f; border-color: #ad760f; color: #fff; }
+.btn-ready:disabled { background: var(--cf-warning); border-color: var(--cf-warning); color: #fff; opacity: 0.65; }
+
+.recipe-list { padding-left: 1.2rem; margin-bottom: 0; }
+.recipe-list li { padding: 0.15rem 0; }
+
+@media (max-width: 1199.98px) {
+  .kds-layout { grid-template-columns: 1fr; }
+  .kds-summary { position: static; }
+}
+@media (max-width: 767.98px) { .kds-columns { grid-template-columns: 1fr; } }
+
+/* ---------- Món chờ mang ra ---------- */
+.ready-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.ready-card { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; border-top: 4px solid var(--cf-success); }
+.ready-card.late { border-top-color: var(--cf-warning); }
+.ready-dest { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; }
