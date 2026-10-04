@@ -1,30 +1,30 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import Icon from "../components/Icon";
-const ToastContext = createContext(null);
-export const useToast = () => useContext(ToastContext);
+import { createContext, useCallback, useContext, useState } from 'react'
+
+const ToastContext = createContext(null)
+
+// toast('Đã lưu')  hoặc  toast('Lỗi...', 'error')
 export function ToastProvider({ children }) {
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo({ top: 0 });
-    setError("");
-  }, [pathname]);
-  useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(""), 4500);
-    return () => clearTimeout(timer);
-  }, [notice]);
+  const [toasts, setToasts] = useState([])
+
+  const show = useCallback((message, type = 'success') => {
+    const id = Date.now() + Math.random()
+    setToasts((t) => [...t, { id, message, type }])
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500)
+  }, [])
+
   return (
-    <ToastContext.Provider value={{ error, setError, setNotice }}>
+    <ToastContext.Provider value={show}>
       {children}
-      {notice && (
-        <div className="toast" role="status">
-          <Icon name="check" size={18} />
-          {notice}
-        </div>
-      )}
+      <div className="cf-toast-wrap" role="status" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.id} className={`cf-toast ${t.type}`}>
+            <i className={`bi ${t.type === 'error' ? 'bi-exclamation-circle' : 'bi-check-circle'}`} />
+            <span>{t.message}</span>
+          </div>
+        ))}
+      </div>
     </ToastContext.Provider>
-  );
+  )
 }
+
+export const useToast = () => useContext(ToastContext)

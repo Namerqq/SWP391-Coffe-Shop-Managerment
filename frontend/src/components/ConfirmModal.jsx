@@ -1,26 +1,23 @@
-import Modal from "./Modal";
-export default function ConfirmModal({
-  title,
-  children,
-  onClose,
-  onConfirm,
-  cancelLabel = "Quay lại",
-  confirmLabel = "Xác nhận",
-  busy = false,
-}) {
+import Modal from './Modal'
+
+// Hộp xác nhận cho các thao tác quan trọng (vô hiệu hóa, xóa...).
+export default function ConfirmModal({ show, title, message, confirmText = 'Xác nhận', danger, loading, onConfirm, onClose }) {
   return (
-    <Modal title={title} busy={busy} onClose={onClose}>
-      <div className="modal-body">
-        <p>{children}</p>
-      </div>
-      <div className="modal-footer">
-        <button className="button secondary" disabled={busy} onClick={onClose}>
-          {cancelLabel}
-        </button>
-        <button className="button primary" disabled={busy} onClick={onConfirm}>
-          {confirmLabel}
-        </button>
-      </div>
+    <Modal
+      show={show}
+      title={title}
+      onClose={loading ? undefined : onClose}
+      footer={
+        <>
+          <button className="btn btn-light-soft" onClick={onClose} disabled={loading}>Hủy</button>
+          <button className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm} disabled={loading}>
+            {loading && <span className="spinner-border spinner-border-sm me-2" />}
+            {confirmText}
+          </button>
+        </>
+      }
+    >
+      <div className="cf-muted" style={{ fontSize: '0.95rem' }}>{message}</div>
     </Modal>
-  );
+  )
 }

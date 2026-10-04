@@ -1,322 +1,149 @@
-> **Bản KhoiBM tích hợp database freeze:** xem [KHOIBM.md](KHOIBM.md) để chạy luồng khách đặt món Iter 1 trên schema chung. Phần hướng dẫn Product bên dưới là khung mẫu cũ.
+# Database dùng chung của nhóm
 
-# 🚀 Fullstack Project – ReactJS + Spring Boot + MySQL
+Schema đã chốt gồm **16 bảng nghiệp vụ**:
 
-> Dự án mẫu (khung sườn) để cả nhóm cùng code. Đã có sẵn **1 module mẫu: Quản lý sản phẩm (Product) – CRUD đầy đủ**.
-> Khi làm chức năng mới, chỉ cần **copy theo module Product** và đổi tên.
+`roles`, `users`, `customers`, `categories`, `menu_items`, `cafe_tables`,
+`table_sessions`, `orders`, `order_items`, `deliveries`, `payments`,
+`loyalty_transactions`, `inventory_items`, `stock_receipts`,
+`stock_receipt_items`, `stock_transactions`.
 
----
+## Tạo database bằng MySQL Workbench
 
-## 📑 Mục lục
-1. [Công nghệ sử dụng](#1-công-nghệ-sử-dụng)
-2. [Kiến trúc & luồng chạy](#2-kiến-trúc--luồng-chạy)
-3. [Cấu trúc thư mục](#3-cấu-trúc-thư-mục)
-4. [Nhiệm vụ từng phần](#4-nhiệm-vụ-từng-phần)
-5. [Cài đặt & chạy dự án](#5-cài-đặt--chạy-dự-án)
-6. [Danh sách API](#6-danh-sách-api)
-7. [Hướng dẫn thêm 1 chức năng mới](#7-hướng-dẫn-thêm-1-chức-năng-mới)
-8. [Quy trình làm việc với Git/GitHub](#8-quy-trình-làm-việc-với-gitgithub)
-9. [Gợi ý phân chia công việc trong nhóm](#9-gợi-ý-phân-chia-công-việc-trong-nhóm)
-10. [Lỗi thường gặp](#10-lỗi-thường-gặp)
+1. Mở Workbench, chạy `CREATE DATABASE cafe_management CHARACTER SET utf8mb4;`
+2. Chọn schema `cafe_management`, lần lượt mở và chạy:
+   - `database/V1__schema.sql`: tạo 16 bảng, khóa ngoại, CHECK và index.
+   - `database/V2__reference_data.sql`: tạo 5 role cố định.
+   - `database/V3__system_settings.sql`: tạo bảng cấu hình hệ thống.
+3. Nếu cần dữ liệu thử (danh mục, món, kho), chạy thêm `database/seed-dev.sql`.
 
----
+`database/cafe_management_full.sql` là bản gộp thay cho V1 + V2. File này
+**xóa và tạo lại toàn bộ bảng** (kể cả `users`, `system_settings`), nên chỉ dùng để
+khởi tạo lại môi trường local; chạy xong nhớ chạy lại V3.
 
-## 1. Công nghệ sử dụng
+## Quy ước quan trọng
 
-| Phần | Công nghệ | Vai trò |
+- Tiền dùng `BIGINT` và lưu theo VND, không lưu số thập phân.
+- Số lượng kho dùng `DECIMAL(14,3)` để hỗ trợ kg/lít.
+- `order_items` lưu snapshot giá, size và topping tại thời điểm đặt hàng.
+- DINE_IN gắn với `table_session_id`; PICKUP và DELIVERY không gắn bàn.
+- Một order DELIVERY có đúng tối đa một dòng trong `deliveries`.
+- Thanh toán phải gắn với đúng một trong hai đối tượng: `order_id` hoặc
+  `table_session_id`.
+- Phiếu nhập chỉ làm tăng kho khi chuyển từ DRAFT sang RECEIVED. Việc cập nhật
+  tồn kho và tạo `stock_transactions` phải thực hiện trong cùng một transaction
+  của backend.
+- Không xóa lịch sử thanh toán, tích điểm hay biến động kho; dùng trạng thái.
+
+## Làm việc chung trên Git
+
+- Sau khi V1/V2 đã được mọi thành viên dùng, không sửa nội dung hai migration này.
+- Mọi thay đổi sau đó tạo migration mới: `V3__...sql`, `V4__...sql`.
+- Không commit `.env`, mật khẩu DB hoặc file dữ liệu MySQL.
+- Mỗi thành viên có database local riêng nhưng dùng chung các migration trong Git.
+
+## Lưu ý với backend cũ
+
+Backend hiện tại còn truy vấn tên bảng cũ như `staff_users` và `cafe_orders`.
+Schema mới là bản chuẩn để bắt đầu refactor; cần cập nhật repository/service theo
+tên bảng và cột mới trước khi bật lại seed hoặc chạy toàn bộ API cũ.
+
+## Đăng nhập & Admin Dashboard (ThangDT)
+
+Chức năng: Login (UC chung), UC-AD01 View Account List, UC-AD02 View Account Detail,
+UC-AD03 Update Account Detail, UC-AD04 Assign Role to User, UC-AD05 Deactivate Account,
+thêm / xóa tài khoản, UC-AD06 Configure System Settings.
+
+### Chạy lần đầu
+
+1. Tạo database `cafe_management`, chạy lần lượt `database/V1__schema.sql`,
+   `database/V2__reference_data.sql`, `database/V3__system_settings.sql` (V3 tạo bảng cấu hình).
+2. Backend: mở thư mục `backend` bằng IntelliJ và chạy `ProjectApplication`
+   (DB mặc định `cafe_management`, user `root` / `123456`, đổi bằng biến môi trường
+   `DB_URL`, `DB_USER`, `DB_PASSWORD`).
+   Lần chạy đầu tự tạo Admin mặc định: **admin / Admin@123**. Đổi mật khẩu ngay sau khi đăng nhập.
+3. Frontend: `cd frontend`, `npm install`, `npm run dev`, mở http://localhost:5173.
+
+### API
+
+| Method | URL | Mô tả |
 |---|---|---|
-| Frontend | **ReactJS (Vite)** + **Bootstrap 5** + Axios + React Router | Giao diện người dùng |
-| Backend | **Spring Boot 3 (Java 17)** + Spring Data JPA | Xử lý logic, cung cấp REST API |
-| Database | **MySQL 8** + **MySQL Workbench** | Lưu trữ dữ liệu, quản lý DB bằng giao diện |
-| Test API | **Postman** | Kiểm tra API trước khi ghép với frontend |
-| Source code | **Git + GitHub** | Làm việc nhóm, quản lý phiên bản |
+| POST | `/api/auth/login` | `{ identifier, password }`, identifier là username hoặc email |
+| POST | `/api/auth/logout` | Hủy token |
+| GET | `/api/auth/me` | Người đang đăng nhập |
+| GET | `/api/admin/users?keyword=&roleId=&status=` | Danh sách tài khoản |
+| GET / PUT / DELETE | `/api/admin/users/{id}` | Xem / sửa (`newPassword` trống = giữ nguyên) / xóa |
+| POST | `/api/admin/users` | Thêm tài khoản |
+| PATCH | `/api/admin/users/{id}/role` | `{ roleId }` |
+| PATCH | `/api/admin/users/{id}/status` | `{ status: ACTIVE \| INACTIVE }` (ACTIVE cũng dùng để mở khóa) |
+| GET | `/api/admin/roles` | Danh sách vai trò |
+| GET / PUT | `/api/admin/settings` | Đọc / lưu cấu hình `{ "key": "value" }` |
 
----
+Gửi kèm header `Authorization: Bearer <token>`. `/api/admin/**` chỉ ADMIN gọi được.
 
-## 2. Kiến trúc & luồng chạy
+### Quy tắc đã cài
 
-```
-┌──────────────┐   HTTP (JSON)   ┌───────────────────────────────┐   SQL   ┌─────────┐
-│   FRONTEND   │ ──────────────▶ │           BACKEND             │ ──────▶ │  MySQL  │
-│ React+Bootstrap│ ◀────────────── │ Controller → Service → Repo   │ ◀────── │   DB    │
-│ localhost:5173 │   (response)    │        localhost:8080         │         │  :3306  │
-└──────────────┘                 └───────────────────────────────┘         └─────────┘
-        ▲                                        ▲
-        │                                        │
-     Người dùng                              Postman (test API)
-```
+- Mật khẩu lưu BCrypt. Nhập sai quá `security.max_login_attempts` lần thì tài khoản chuyển sang LOCKED.
+- Tài khoản INACTIVE / LOCKED không đăng nhập được và bị đăng xuất ngay khi Admin vô hiệu hóa.
+- Admin không thể tự xóa, tự vô hiệu hóa hay tự đổi vai trò; hệ thống luôn giữ ít nhất 1 Admin hoạt động.
+- Xóa chỉ thành công khi tài khoản chưa phát sinh dữ liệu (đơn, thanh toán, kho...), nếu đã có thì dùng Vô hiệu hóa.
+- Token lưu trong bộ nhớ backend: khởi động lại backend thì mọi người phải đăng nhập lại.
 
-### Luồng của 1 chức năng (ví dụ: bấm "Lưu" khi thêm sản phẩm)
+## Trang chủ khách hàng + phần nền chung (ThangDT, Iter1)
 
-1. **Người dùng** nhập form ở trang `ProductForm.jsx` rồi bấm **Lưu**.
-2. Trang gọi `productApi.create(data)` (file `api/productApi.js`) → Axios gửi `POST http://localhost:8080/api/products`.
-3. **Controller** (`ProductController`) nhận request, kiểm tra dữ liệu hợp lệ (`@Valid` + `ProductRequest`).
-4. Controller giao cho **Service** (`ProductService`) xử lý logic.
-5. Service gọi **Repository** (`ProductRepository`) → Hibernate/JPA sinh câu `INSERT` → lưu vào **MySQL**.
-6. Kết quả đi ngược lại: Repository → Service → Controller → trả JSON (`ProductResponse`) về React.
-7. React nhận response → chuyển về trang danh sách và hiển thị dữ liệu mới.
+Hướng dẫn đưa code của ThangDT, DanMT, ThangNN lên GitHub: xem `docs/HUONG_DAN_MERGE.md`.
 
-> 💡 **Quy tắc vàng:** mỗi tầng chỉ làm việc của tầng đó. Controller **không** viết logic, Service **không** xử lý HTTP, Repository **chỉ** làm việc với DB.
+### Cập nhật database
 
----
+Chạy thêm `database/V4__home_and_payment_settings.sql` **sau V3**. V4 thêm:
 
-## 3. Cấu trúc thư mục
+- Nhóm cấu hình **HOME**: toàn bộ chữ và ảnh của trang chủ. Admin sửa ở *Cài đặt hệ thống > Trang chủ*.
+- Các cấu hình còn thiếu so với SRS: tài khoản ngân hàng nhận chuyển khoản (VietQR), giá trị 1 điểm khi dùng (mặc định 1 điểm = 1.000đ), địa chỉ web công khai, tồn kho tối thiểu gợi ý.
 
-```
-fullstack-project/
-├── README.md                     ← Tài liệu này
-├── .gitignore
-│
-├── backend/                      ← SPRING BOOT (Java)
-│   ├── pom.xml                   ← Khai báo thư viện (Maven)
-│   └── src/main/
-│       ├── java/com/example/project/
-│       │   ├── ProjectApplication.java   ← Điểm chạy của server
-│       │   ├── config/           ← Cấu hình (CORS, ...)
-│       │   ├── controller/       ← Nhận request HTTP, trả JSON
-│       │   ├── service/          ← Logic nghiệp vụ
-│       │   ├── repository/       ← Truy vấn database
-│       │   ├── entity/           ← Class ánh xạ với bảng MySQL
-│       │   ├── dto/              ← Dữ liệu vào/ra của API
-│       │   └── exception/        ← Xử lý lỗi tập trung
-│       └── resources/
-│           └── application.properties    ← Cấu hình DB, port, CORS
-│
-├── frontend/                     ← REACTJS + BOOTSTRAP
-│   ├── package.json              ← Khai báo thư viện (npm)
-│   ├── vite.config.js
-│   ├── .env.example              ← Mẫu biến môi trường
-│   └── src/
-│       ├── main.jsx              ← Điểm khởi động React
-│       ├── App.jsx               ← Khai báo routes (URL → trang)
-│       ├── api/                  ← Gọi backend (axios)
-│       ├── components/           ← Thành phần giao diện dùng lại nhiều nơi
-│       └── pages/                ← Mỗi file = 1 trang
-│
-├── database/
-│   ├── schema.sql                ← Script tạo DB + bảng (chạy trong Workbench)
-│   └── sample-data.sql           ← Dữ liệu mẫu
-│
-└── postman/
-    └── Project.postman_collection.json   ← Import vào Postman để test API
-```
+Máy nào đã lỡ chạy bản V3 cũ của nhánh develop (bảng `system_settings` có cột `setting_id`) thì chạy
+`DROP TABLE system_settings;` rồi chạy lại V3 (bản trong thư mục này) và V4.
 
----
+### Trang chủ (Home - Basic)
 
-## 4. Nhiệm vụ từng phần
-
-### 🖥️ Frontend (`frontend/src`)
-| Thư mục/File | Nhiệm vụ |
+| URL | Nội dung |
 |---|---|
-| `main.jsx` | Khởi động React, nạp Bootstrap CSS, bật React Router |
-| `App.jsx` | Khai báo **đường dẫn URL → trang** |
-| `pages/` | Mỗi trang lớn (danh sách, form, đăng nhập...). Chứa state + gọi API |
-| `components/` | Các mảnh UI dùng lại (Navbar, Modal, Pagination...) |
-| `api/axiosClient.js` | Cấu hình Axios **1 lần** (địa chỉ backend) |
-| `api/productApi.js` | Mỗi hàm = 1 endpoint. **Page không tự viết URL**, chỉ gọi hàm ở đây |
+| `/` | Trang chủ: banner 3 ảnh tự chuyển, 3 khối giới thiệu, Nguồn gốc, Dịch vụ, Địa chỉ quán, Liên hệ hỗ trợ |
+| `/thuc-don` | Thực đơn chỉ xem (món đang bán, lấy từ DB) |
+| `/dat-hang-online` | Trang "Sắp ra mắt" (đặt hàng online làm ở Iter2) |
 
-### ⚙️ Backend (`backend/src/main/java/com/example/project`)
-| Tầng | Nhiệm vụ | Ví dụ trong project |
-|---|---|---|
-| **Controller** | Nhận request, gắn URL (`@GetMapping`...), trả JSON | `ProductController` |
-| **Service** | Viết logic nghiệp vụ (kiểm tra, tính toán, gọi nhiều repo) | `ProductService` |
-| **Repository** | Làm việc với DB (`save`, `findAll`, `findById`...) | `ProductRepository` |
-| **Entity** | Class = 1 bảng trong MySQL | `Product` |
-| **DTO** | Hình dạng dữ liệu vào/ra API (không lộ toàn bộ entity) | `ProductRequest`, `ProductResponse` |
-| **Exception** | Bắt lỗi tập trung, trả thông báo JSON dễ hiểu | `GlobalExceptionHandler` |
-| **Config** | Cấu hình chung (CORS cho phép React gọi API) | `CorsConfig` |
+- Thanh menu: Thực đơn, Về Gạch Coffee (Địa chỉ quán, Nguồn gốc, Dịch vụ, Liên hệ hỗ trợ: bấm sẽ cuộn tới khu tương ứng), logo ở giữa, Đặt hàng online, logo Việt Nam ở cuối.
+- Trang chủ tách riêng khỏi hệ thống quản lý: không có link sang trang nhân viên, nhân viên vào thẳng `/login`.
+- Tên trên trang chủ (`home.brand.name`) và tên quán trong hệ thống quản lý / hóa đơn (`shop.name`) là 2 cấu hình riêng, chỉ Admin đổi được.
+- Ảnh Admin tải lên được lưu ở `backend/uploads/` (đã cho vào `.gitignore`, không lên GitHub), nên mỗi máy tự tải ảnh lại. Chưa có ảnh thì trang chủ hiện nền họa tiết gạch.
+- Không thêm thư viện npm nào mới.
 
-### 🗄️ Database (`database/`)
-- `schema.sql`: tạo database `project_db` và các bảng. Mở bằng **MySQL Workbench** và bấm ⚡ Execute.
-- `sample-data.sql`: dữ liệu mẫu để test.
-- Mọi thay đổi cấu trúc bảng → **cập nhật vào `schema.sql`** rồi commit để cả nhóm đồng bộ.
+### API mới
 
-### 📮 Postman (`postman/`)
-- Import file `Project.postman_collection.json` (Postman → Import).
-- **Test API bằng Postman trước**, chạy đúng rồi mới nối vào React → dễ tìm lỗi (lỗi ở backend hay frontend?).
-
----
-
-## 5. Cài đặt & chạy dự án
-
-### Yêu cầu cài trước
-- **JDK 17**, **Maven** (hoặc dùng Maven trong IntelliJ/VS Code)
-- **Node.js 18+** (kèm npm)
-- **MySQL 8** + **MySQL Workbench**
-- **Git**, **Postman**
-
-### Bước 1 – Clone project
-```bash
-git clone <link-repo-github>
-cd fullstack-project
-```
-
-### Bước 2 – Tạo database
-1. Mở **MySQL Workbench**, kết nối vào server local.
-2. Mở `database/schema.sql` → bấm ⚡ **Execute**.
-3. (Tuỳ chọn) Chạy `database/sample-data.sql` để có dữ liệu mẫu.
-
-### Bước 3 – Chạy Backend
-1. Mở `backend/src/main/resources/application.properties`, sửa **username/password MySQL** cho đúng máy bạn
-   (hoặc đặt biến môi trường `DB_USER`, `DB_PASSWORD`).
-2. Chạy:
-```bash
-cd backend
-mvn spring-boot:run
-```
-   Hoặc mở IDE và chạy `ProjectApplication.java`.
-3. Thấy log `Started ProjectApplication` → backend chạy tại **http://localhost:8080**.
-4. Thử nhanh: mở trình duyệt vào http://localhost:8080/api/products.
-
-### Bước 4 – Chạy Frontend
-```bash
-cd frontend
-cp .env.example .env      # Windows: copy .env.example .env
-npm install
-npm run dev
-```
-Mở **http://localhost:5173**.
-
-### Bước 5 – Test API bằng Postman
-Import `postman/Project.postman_collection.json` → chạy thử các request.
-
----
-
-## 6. Danh sách API
-
-Base URL: `http://localhost:8080/api`
-
-| Method | Endpoint | Mô tả | Body |
+| Method | URL | Ai gọi | Mô tả |
 |---|---|---|---|
-| GET | `/products` | Lấy tất cả (có thể `?keyword=abc` để tìm) | – |
-| GET | `/products/{id}` | Lấy 1 sản phẩm | – |
-| POST | `/products` | Thêm mới → `201 Created` | JSON |
-| PUT | `/products/{id}` | Cập nhật | JSON |
-| DELETE | `/products/{id}` | Xóa → `204 No Content` | – |
+| GET | `/api/public/home` | Khách (không cần đăng nhập) | Nội dung trang chủ |
+| GET | `/api/public/menu` | Khách (không cần đăng nhập) | Thực đơn đang bán |
+| POST | `/api/admin/uploads` | ADMIN | Tải ảnh (form-data `file`), trả `{ "url": "/uploads/home/..." }` |
+| GET | `/api/staff/menu` | CASHIER, WAITER | Món đang bán + danh sách Size, Topping |
+| GET | `/api/staff/tables` | CASHIER, WAITER | Sơ đồ bàn |
+| GET | `/api/staff/tables/{tableId}/session` | CASHIER, WAITER | Lượt khách đang ngồi + các đơn của bàn |
 
-**Body mẫu (POST/PUT):**
-```json
-{
-  "name": "Tai nghe",
-  "price": 450000,
-  "quantity": 15,
-  "description": "Chống ồn"
-}
-```
+### Phần nền chung cho cả nhóm
 
-**Mã lỗi:** `400` dữ liệu sai (trả về từng field lỗi) · `404` không tìm thấy id.
+- **Phân quyền**: mọi `/api/**` đều cần đăng nhập, trừ `/api/auth/login` và `/api/public/**`. Gắn `@RequireRole({"CASHIER", "WAITER"})` lên Controller (hoặc từng hàm) để chỉ cho các vai trò đó gọi. `/api/admin/**` vẫn chỉ ADMIN.
+- **Entity + Repository** (map đúng schema V1): Category, MenuItem, CafeTable, TableSession, Customer, Order, OrderItem, Payment, LoyaltyTransaction.
+- **OrderSupportService**: tạo dòng món và tính giá (lưu lại giá, size, topping tại thời điểm gọi), sinh mã đơn `yyMMdd-0001`, mã thanh toán `PMyyMMdd-0001`, mã lượt khách `SSyyMMdd-0001`, hủy đơn chờ pha, và `currentOrOpenSession(table)` để mở lượt khách khi tạo đơn tại bàn (dành cho màn của KhoiBM).
+- **Trạng thái đơn**: giữ schema V1, hiển thị theo tên trong SRS.
 
-> ⚠️ Khi thêm API mới, **nhớ cập nhật bảng này** và thêm request vào collection Postman.
-
----
-
-## 7. Hướng dẫn thêm 1 chức năng mới
-
-Ví dụ muốn thêm module **Category** – làm theo thứ tự (copy từ Product):
-
-**Backend**
-1. `entity/Category.java` (+ thêm bảng vào `database/schema.sql`)
-2. `repository/CategoryRepository.java`
-3. `dto/CategoryRequest.java`, `dto/CategoryResponse.java`
-4. `service/CategoryService.java`
-5. `controller/CategoryController.java`
-6. Test bằng **Postman** ✅
-
-**Frontend**
-7. `api/categoryApi.js`
-8. `pages/CategoryList.jsx`, `pages/CategoryForm.jsx`
-9. Thêm route vào `App.jsx` và link vào `AppNavbar.jsx`
-
-**Checklist trước khi tạo Pull Request**
-- [ ] Backend chạy không lỗi
-- [ ] Đã test API bằng Postman
-- [ ] Giao diện chạy đúng, không lỗi console (F12)
-- [ ] Đã cập nhật `schema.sql` / bảng API trong README (nếu có thay đổi)
-- [ ] Không commit mật khẩu, `node_modules`, `target`
-
----
-
-## 8. Quy trình làm việc với Git/GitHub
-
-### Nhánh (branch)
-```
-main      ← Code ổn định, chạy được. KHÔNG code trực tiếp
- └── develop   ← Nhánh tổng hợp của cả nhóm
-       ├── feature/product-crud
-       ├── feature/login
-       └── fix/loi-hien-thi-gia
-```
-
-### Quy trình mỗi lần làm việc
-```bash
-# 1. Lấy code mới nhất
-git checkout develop
-git pull origin develop
-
-# 2. Tạo nhánh riêng cho việc mình làm
-git checkout -b feature/ten-chuc-nang
-
-# 3. Code... rồi commit thường xuyên
-git add .
-git commit -m "feat: thêm API tìm kiếm sản phẩm"
-
-# 4. Đẩy lên GitHub
-git push origin feature/ten-chuc-nang
-
-# 5. Lên GitHub tạo Pull Request (feature/... → develop), nhờ bạn review rồi Merge
-```
-
-### Quy ước đặt tên commit
-| Tiền tố | Dùng khi |
-|---|---|
-| `feat:` | Thêm chức năng mới |
-| `fix:` | Sửa lỗi |
-| `docs:` | Sửa tài liệu/README |
-| `style:` | Chỉnh giao diện, format code |
-| `refactor:` | Sắp xếp lại code, không đổi chức năng |
-
-### Lưu ý để tránh xung đột (conflict)
-- **Luôn `git pull` trước khi bắt đầu code.**
-- Mỗi người làm **1 module/1 nhánh riêng**, hạn chế cùng sửa 1 file.
-- File hay bị đụng nhau: `App.jsx`, `AppNavbar.jsx`, `schema.sql` → sửa nhỏ, commit sớm, báo nhóm.
-- **Không** commit: mật khẩu DB, `node_modules/`, `target/`, `.env` (đã có trong `.gitignore`).
-
----
-
-## 9. Gợi ý phân chia công việc trong nhóm
-
-| Vai trò | Việc chính | Thư mục làm việc |
+| DB (`orders.status`) | SRS | Hiển thị |
 |---|---|---|
-| **Backend dev** | Viết Entity, Repository, Service, Controller | `backend/` |
-| **Frontend dev** | Làm giao diện, gọi API, validate form | `frontend/` |
-| **Database + Tester** | Thiết kế bảng, viết `schema.sql`, test API bằng Postman | `database/`, `postman/` |
-| **Trưởng nhóm / Git master** | Review Pull Request, merge, giữ `main` ổn định | GitHub |
+| `PENDING_CONFIRMATION` | PENDING | Chờ pha |
+| `PREPARING` | PREPARING | Đang pha |
+| `READY` | READY | Chờ mang ra |
+| `COMPLETED` | SERVED | Đã phục vụ |
+| payment `PAID` + lượt khách `CLOSED` | PAID | Đã thanh toán |
+| `CANCELLED` | CANCELLED | Đã hủy |
+| `CONFIRMED` | (chưa dùng) | Để dành cho đơn online đã trả QR (Iter2) |
 
-> Nhóm nhỏ thì 1 người có thể kiêm nhiều vai. Cách chia hiệu quả nhất: **chia theo chức năng** (mỗi người làm trọn 1 module từ DB → API → giao diện) hoặc **chia theo tầng** (backend/frontend) với hợp đồng API thống nhất ở mục 6.
-
----
-
-## 10. Lỗi thường gặp
-
-| Lỗi | Nguyên nhân & cách sửa |
-|---|---|
-| `Access denied for user 'root'` | Sai user/password trong `application.properties` |
-| `Unknown database 'project_db'` | Chưa chạy `database/schema.sql` trong Workbench |
-| Port 8080 đã được dùng | Đổi `server.port` trong `application.properties` (và `VITE_API_URL` bên frontend) |
-| Frontend báo `Network Error` / CORS | Backend chưa chạy, hoặc frontend không chạy ở `localhost:5173` (sửa `app.cors.allowed-origins`) |
-| `npm install` lỗi | Kiểm tra Node.js ≥ 18, thử xóa `node_modules` rồi cài lại |
-| Tiếng Việt bị lỗi font trong DB | Tạo DB với `utf8mb4` (đã có sẵn trong `schema.sql`) |
-| Sửa `.env` không ăn | Tắt `npm run dev` rồi chạy lại |
-
----
-
-## 🤝 Đóng góp
-Mọi thắc mắc cứ tạo **Issue** trên GitHub hoặc hỏi trong nhóm. Chúc cả nhóm code vui! 🎉
-
----
-
-## 📌 Ghi chú cho nhóm
-
-Khung này minh hoạ bằng module mẫu **Product**. Dự án thật của nhóm là **Coffee Shop Management (đặt món qua QR)**,
-domain thật (Role, User, Customer, CafeTable, TableSession, Category, MenuItem, MenuItemSize, Topping, Order,
-OrderItem, Payment...) sẽ được code theo đúng layer/kiến trúc ở trên, thay thế dần module Product mẫu.
+- **Size / Topping**: schema V1 không có bảng riêng cho Size, Topping. Quy ước: tạo 2 danh mục tên đúng `Size` và `Topping` trong bảng `categories`. Mỗi món trong 2 danh mục này là 1 lựa chọn, `base_price` là số tiền cộng thêm. Chưa có 2 danh mục này thì hộp chọn món chỉ có đường, đá, số lượng, ghi chú.
+- **Frontend dùng chung**: `layouts/StaffLayout.jsx` (khung màn nhân viên, menu trái theo vai trò), `routes/registry.js`, `components/order/` (ItemOptionsModal, TableCard, StatusPill), `utils/` (orderFormat, orderOptions, usePolling, assetUrl), `api/staffApi.js`, `styles/staff.css`.
+- **Tránh conflict khi merge**: mỗi người chỉ sửa 2 file route của mình, `src/routes/<ten>Nav.js` (menu trái) và `src/routes/<ten>Routes.jsx` (đường dẫn). `App.jsx` và `registry.js` đã đọc sẵn file của DanMT, ThangNN. Thành viên khác muốn thêm màn thì tạo cặp file riêng theo mẫu đó rồi khai báo 1 lần trong `App.jsx` và `registry.js`.

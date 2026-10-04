@@ -1,5 +1,9 @@
-import { request } from "./cafeClient";
-export const getSession = () => request("/context");
-export const loginStaff = (username, password) =>
-  request("/staff/login", { method: "POST", body: { username, password } });
-export const logoutStaff = () => request("/staff/logout", { method: "POST" });
+import axiosClient from './axiosClient'
+
+const authApi = {
+  login: (identifier, password) => axiosClient.post('/auth/login', { identifier, password }),
+  logout: () => axiosClient.post('/auth/logout'),
+  me: () => axiosClient.get('/auth/me'),
+}
+
+export default authApi

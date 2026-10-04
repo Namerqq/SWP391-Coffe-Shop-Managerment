@@ -1,77 +1,60 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { getSession, loginStaff, logoutStaff } from "../api/authApi";
-import { selectCustomerTable } from "../api/tableApi";
-import { useToast } from "./ToastContext";
-const AuthContext = createContext(null);
-export const useAuth = () => useContext(AuthContext);
-export function AuthProvider({ staff, children }) {
-  const [context, setContext] = useState(null);
-  const [contextLoading, setContextLoading] = useState(true);
-  const { search } = useLocation();
-  const { setError } = useToast();
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import authApi from '../api/authApi'
+import { clearAuth, loadAuth, saveAuth, updateStoredUser } from '../utils/authStorage'
+
+const AuthContext = createContext(null)
+
+export function AuthProvider({ children }) {
+  const navigate = useNavigate()
+  const [user, setUser] = useState(() => loadAuth()?.user || null)
+
+  const login = async (identifier, password, remember) => {
+    const res = await authApi.login(identifier, password)
+    saveAuth({ token: res.data.token, user: res.data.user }, remember)
+    setUser(res.data.user)
+    return res.data.user
+  }
+
+  const logout = useCallback(async () => {
+    try { await authApi.logout() } catch { /* token có thể đã hết hạn */ }
+    clearAuth()
+    setUser(null)
+    navigate('/login', { replace: true })
+  }, [navigate])
+
+  /** Cập nhật thông tin người đang đăng nhập (vd: Admin tự sửa tên mình). */
+  const refreshUser = useCallback((u) => {
+    updateStoredUser(u)
+    setUser(u)
+  }, [])
+
+  // Backend trả 401 -> phiên hết hạn -> về trang đăng nhập.
   useEffect(() => {
-    let active = true;
-    getSession()
-      .then((c) => {
-        if (active) setContext(c);
-      })
-      .catch((e) => {
-        if (active) setError(e.message);
-      })
-      .finally(() => {
-        if (active) setContextLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-  // Wait for the session cookie before binding a QR table.
+    const onExpired = () => {
+      clearAuth()
+      setUser(null)
+      navigate('/login', { replace: true, state: { expired: true } })
+    }
+    window.addEventListener('auth:expired', onExpired)
+    return () => window.removeEventListener('auth:expired', onExpired)
+  }, [navigate])
+
+  // Mở lại trang: kiểm tra token còn hợp lệ & lấy thông tin mới nhất.
   useEffect(() => {
-    const params = new URLSearchParams(search);
-    const code = params.get("table") || params.get("qr");
-    if (staff || !code || contextLoading || context?.fixedTable) return;
-    let active = true;
-    selectCustomerTable(code)
-      .then((table) => {
-        if (active) setContext((c) => ({ ...c, table }));
-      })
+    if (!loadAuth()?.token) return
+    authApi.me()
+      .then((res) => refreshUser(res.data))
       .catch((e) => {
-        if (active) setError(e.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, [search, staff, contextLoading, context?.fixedTable]);
-  const login = async (username, password) => {
-    const user = await loginStaff(username.trim(), password);
-    setContext((c) => ({ ...c, staff: user }));
-  };
-  const logout = async () => {
-    await logoutStaff();
-    setContext((c) => ({ ...c, staff: null }));
-  };
-  const bindTable = async (code) => {
-    const table = await selectCustomerTable(code.trim());
-    setContext((c) => ({ ...c, table }));
-    return table;
-  };
-  const expireSession = () => setContext((c) => ({ ...c, staff: null }));
+        if (e.response?.status === 401) window.dispatchEvent(new CustomEvent('auth:expired'))
+      })
+  }, [refreshUser])
+
   return (
-    <AuthContext.Provider
-      value={{
-        staff,
-        base: staff ? "/waiter" : "",
-        context,
-        contextLoading,
-        isLoggedIn: !!context?.staff,
-        login,
-        logout,
-        bindTable,
-        expireSession,
-      }}
-    >
+    <AuthContext.Provider value={{ user, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
-  );
+  )
 }
+
+export const useAuth = () => useContext(AuthContext)

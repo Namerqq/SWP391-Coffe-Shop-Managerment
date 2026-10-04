@@ -1,70 +1,34 @@
-import { useEffect, useRef } from "react";
-import Icon from "./Icon";
-export default function Modal({ title, onClose, children, busy = false }) {
-  const root = useRef(null),
-    close = useRef(onClose),
-    busyRef = useRef(busy);
-  close.current = onClose;
-  busyRef.current = busy;
+import { useEffect } from 'react'
+
+// Modal Bootstrap điều khiển bằng React (không cần bootstrap.bundle.js).
+export default function Modal({ show, title, onClose, children, footer, size }) {
   useEffect(() => {
-    const prev = document.activeElement;
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    root.current?.focus();
-    const key = (e) => {
-      if (e.key === "Escape" && !busyRef.current) close.current();
-      if (e.key === "Tab") {
-        const nodes = root.current.querySelectorAll(
-          "button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),a[href]",
-        );
-        const first = nodes[0],
-          last = nodes[nodes.length - 1];
-        if (
-          e.shiftKey &&
-          (document.activeElement === first ||
-            document.activeElement === root.current)
-        ) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", key);
+    if (!show) return
+    const onKey = (e) => e.key === 'Escape' && onClose?.()
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
     return () => {
-      document.removeEventListener("keydown", key);
-      document.body.style.overflow = overflow;
-      prev?.focus();
-    };
-  }, []);
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [show, onClose])
+
+  if (!show) return null
   return (
-    <div
-      className="modal-overlay"
-      onMouseDown={(e) => !busy && e.target === e.currentTarget && onClose()}
-    >
-      <section
-        className="modal-card"
-        tabIndex={-1}
-        ref={root}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-      >
-        <div className="modal-heading">
-          <h2>{title}</h2>
-          <button
-            className="icon-button"
-            disabled={busy}
-            onClick={onClose}
-            aria-label="Đóng"
-          >
-            <Icon name="close" />
-          </button>
+    <>
+      <div className="cf-modal-backdrop" onClick={onClose} />
+      <div className="modal cf-modal" role="dialog" aria-modal="true" onClick={(e) => e.target === e.currentTarget && onClose?.()}>
+        <div className={`modal-dialog modal-dialog-centered ${size ? `modal-${size}` : ''}`}>
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">{title}</h5>
+              <button type="button" className="btn-close" aria-label="Đóng" onClick={onClose} />
+            </div>
+            <div className="modal-body">{children}</div>
+            {footer && <div className="modal-footer">{footer}</div>}
+          </div>
         </div>
-        {children}
-      </section>
-    </div>
-  );
+      </div>
+    </>
+  )
 }
