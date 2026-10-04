@@ -13,6 +13,7 @@ import MenuPage from './pages/home/MenuPage'
 import OnlineOrderSoon from './pages/home/OnlineOrderSoon'
 import { danmtRoutes } from './routes/danmtRoutes'
 import { thangnnRoutes } from './routes/thangnnRoutes'
+import { managerRoutes } from './routes/managerRoutes'
 import { khoibmRoutes } from './routes/khoibmRoutes'
 
 // App = nơi khai báo ĐƯỜNG DẪN (URL) -> TRANG (page) tương ứng.
@@ -40,6 +41,7 @@ export default function App() {
       {/* Màn hình của từng thành viên (mỗi người 1 file riêng trong src/routes) */}
       {danmtRoutes}
       {thangnnRoutes}
+      {managerRoutes}
       {khoibmRoutes}
 
       <Route path="*" element={<Navigate to="/" replace />} />
