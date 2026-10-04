@@ -16,3 +16,7 @@ backend/src/main/resources/application-local.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Local run configuration
+backend/application-default.properties
+frontend/.env.local
