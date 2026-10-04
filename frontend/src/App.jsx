@@ -14,6 +14,7 @@ import OnlineOrderSoon from './pages/home/OnlineOrderSoon'
 import { danmtRoutes } from './routes/danmtRoutes'
 import { thangnnRoutes } from './routes/thangnnRoutes'
 import { managerRoutes } from './routes/managerRoutes'
+import { khoibmRoutes } from './routes/khoibmRoutes'
 
 // App = nơi khai báo ĐƯỜNG DẪN (URL) -> TRANG (page) tương ứng.
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
       {danmtRoutes}
       {thangnnRoutes}
       {managerRoutes}
+      {khoibmRoutes}
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
