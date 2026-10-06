@@ -24,6 +24,7 @@ export default function BaristaBoard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState(null)
+  const [busyItemId, setBusyItemId] = useState(null) // món đang gửi lệnh tích / bỏ tích
   const [selected, setSelected] = useState(null) // tên món đang chọn ở "Tổng cần pha"
   const [detailId, setDetailId] = useState(null)
   const [recipeFor, setRecipeFor] = useState(null) // { menuItemId, itemName }
@@ -42,11 +43,11 @@ export default function BaristaBoard() {
   }, [])
   usePolling(load, 5000)
 
-  // Tổng cần pha: gộp các món của đơn Chờ pha + Đang pha
+  // Tổng cần pha: gộp các món chưa pha xong (chưa tích) của đơn Chờ pha + Đang pha
   const summary = useMemo(() => {
     const map = new Map()
     orders.filter((o) => isWaiting(o.status) || o.status === 'PREPARING').forEach((o) => {
-      activeItems(o).forEach((i) => {
+      activeItems(o).filter((i) => i.status !== 'READY').forEach((i) => {
         const cur = map.get(i.itemName) || { name: i.itemName, total: 0, sizes: {}, orderIds: new Set() }
         cur.total += i.quantity
         const size = i.sizeName || ''
@@ -78,6 +79,21 @@ export default function BaristaBoard() {
     }
   }
 
+  // Tích từng món đã pha xong. Tích đủ mọi món thì backend tự chuyển đơn sang "Chờ mang ra".
+  const toggleItem = async (order, item) => {
+    setBusyItemId(item.id)
+    try {
+      const res = await baristaApi.checkItem(order.id, item.id, item.status !== 'READY')
+      setOrders((list) => list.map((x) => (x.id === res.data.id ? res.data : x)))
+      if (res.data.status === 'READY') toast(`Đơn ${order.displayNumber} đã pha xong, đã báo mang ra`)
+    } catch (e) {
+      toast(errorMessage(e), 'error')
+      load()
+    } finally {
+      setBusyItemId(null)
+    }
+  }
+
   const confirmCancel = async (reason) => {
     await baristaApi.cancel(cancelling.id, reason)
     toast(`Đã hủy đơn ${cancelling.displayNumber}`)
@@ -91,6 +107,9 @@ export default function BaristaBoard() {
 
   const renderCard = (o, col) => {
     const highlighted = sel && sel.orderIds.has(o.id)
+    const canCheck = col.key === 'preparing'
+    const items = activeItems(o)
+    const doneCount = items.filter((i) => i.status === 'READY').length
     return (
       <article key={o.id} className={`kds-card tone-${col.tone} ${highlighted ? 'highlight' : ''}`}>
         <header className="kds-card-head">
@@ -99,8 +118,13 @@ export default function BaristaBoard() {
           <span className="kds-time"><i className="bi bi-clock me-1" />{elapsedLabel(o.createdAt)}</span>
         </header>
         <ul className="kds-items">
-          {activeItems(o).map((i) => (
-            <li key={i.id} className={sel && sel.name === i.itemName ? 'match' : ''}>
+          {items.map((i) => (
+            <li key={i.id} className={`${sel && sel.name === i.itemName ? 'match' : ''} ${canCheck && i.status === 'READY' ? 'done' : ''}`}>
+              {canCheck && (
+                <input type="checkbox" className="form-check-input kds-check" checked={i.status === 'READY'}
+                       disabled={busyItemId === i.id} onChange={() => toggleItem(o, i)}
+                       aria-label={`Đã pha xong ${i.itemName}`} title="Tích khi pha xong món này" />
+              )}
               <span className="order-qty">{i.quantity}×</span>
               <div className="flex-grow-1" style={{ minWidth: 0 }}>
                 <div className="fw-semibold">{i.itemName}</div>
@@ -125,6 +149,9 @@ export default function BaristaBoard() {
         )}
         {col.key === 'preparing' && (
           <div className="kds-actions">
+            <div className="kds-progress">
+              <i className="bi bi-check2-square me-1" />Đã pha {doneCount}/{items.length} món
+            </div>
             <button type="button" className="btn btn-ready w-100" disabled={busyId === o.id} onClick={() => advance(o, 'ready')}>
               Pha xong, báo mang ra
             </button>
@@ -163,7 +190,7 @@ export default function BaristaBoard() {
             ))}
             {!loading && summary.length === 0 && <div className="cell-sub p-2">Chưa có món nào cần pha.</div>}
           </div>
-          <div className="cell-sub px-3 pb-3">Gồm đơn chờ pha và đang pha. Bấm vào món để xem món đó nằm ở đơn nào.</div>
+          <div className="cell-sub px-3 pb-3">Gồm các món chưa pha xong của đơn chờ pha và đang pha. Bấm vào món để xem món đó nằm ở đơn nào.</div>
         </aside>
 
         <div style={{ minWidth: 0 }}>

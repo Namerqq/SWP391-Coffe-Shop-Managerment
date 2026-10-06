@@ -71,6 +71,29 @@ public class BaristaService {
         return support.toView(orderRepository.save(o));
     }
 
+    /** Tích / bỏ tích 1 món đã pha xong. Mọi món (chưa hủy) đều đã tích -> đơn tự chuyển Đang pha -> Chờ mang ra. */
+    @Transactional
+    public OrderView checkItem(Long orderId, Long itemId, boolean done) {
+        Order o = find(orderId);
+        if (!Order.PREPARING.equals(o.getStatus())) {
+            throw ApiException.badRequest("Đơn " + num(o) + " chưa bắt đầu pha hoặc đã pha xong.");
+        }
+        OrderItem line = o.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Món không thuộc đơn này."));
+        if (OrderItem.CANCELLED.equals(line.getItemStatus())) {
+            throw ApiException.badRequest("Món này đã bị hủy.");
+        }
+        line.setItemStatus(done ? OrderItem.READY : OrderItem.PREPARING);
+
+        boolean allDone = o.getItems().stream()
+                .filter(i -> !OrderItem.CANCELLED.equals(i.getItemStatus()))
+                .allMatch(i -> OrderItem.READY.equals(i.getItemStatus()));
+        if (allDone) o.moveTo(Order.READY, OrderItem.READY);
+        return support.toView(orderRepository.save(o));
+    }
+
     /** Hết nguyên liệu: hủy đơn còn chờ pha. */
     @Transactional
     public OrderView cancelOutOfStock(Long id, String reason) {
