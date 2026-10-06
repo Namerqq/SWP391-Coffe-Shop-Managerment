@@ -60,18 +60,10 @@ public class BaristaService {
         return support.toView(orderRepository.save(o));
     }
 
-    /** Đang pha -> Chờ mang ra. */
-    @Transactional
-    public OrderView ready(Long id) {
-        Order o = find(id);
-        if (!Order.PREPARING.equals(o.getStatus())) {
-            throw ApiException.badRequest("Đơn " + num(o) + " chưa bắt đầu pha hoặc đã pha xong.");
-        }
-        o.moveTo(Order.READY, OrderItem.READY);
-        return support.toView(orderRepository.save(o));
-    }
-
-    /** Tích / bỏ tích 1 món đã pha xong. Mọi món (chưa hủy) đều đã tích -> đơn tự chuyển Đang pha -> Chờ mang ra. */
+    /**
+     * Tích / bỏ tích 1 món đã pha xong. Mọi món (chưa hủy) đều đã tích -> đơn tự chuyển Đang pha -> Chờ mang ra.
+     * Đây là cách DUY NHẤT để đơn sang Chờ mang ra, nên không thể báo xong khi còn món chưa pha.
+     */
     @Transactional
     public OrderView checkItem(Long orderId, Long itemId, boolean done) {
         Order o = find(orderId);
