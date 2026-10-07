@@ -56,12 +56,10 @@ public class BaristaController {
         return service.start(id);
     }
 
-    @PatchMapping("/orders/{id}/ready")
-    public OrderView ready(@PathVariable Long id) {
-        return service.ready(id);
-    }
-
-    /** Tích / bỏ tích 1 món đã pha xong. Body: { "done": true }. Tích đủ mọi món thì đơn tự sang Chờ mang ra. */
+    /**
+     * Tích / bỏ tích 1 món đã pha xong. Body: { "done": true }.
+     * Tích đủ mọi món thì đơn tự sang Chờ mang ra (không có API báo xong cả đơn).
+     */
     @PatchMapping("/orders/{orderId}/items/{itemId}")
     public OrderView checkItem(@PathVariable Long orderId, @PathVariable Long itemId,
                                @Valid @RequestBody ItemCheckRequest req) {

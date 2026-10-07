@@ -64,12 +64,11 @@ export default function BaristaBoard() {
   const sel = summary.find((x) => x.name === selected) || null
   const detail = orders.find((o) => o.id === detailId) || null
 
-  const advance = async (order, action) => {
+  const startOrder = async (order) => {
     setBusyId(order.id)
     try {
-      if (action === 'start') await baristaApi.start(order.id)
-      else await baristaApi.ready(order.id)
-      toast(action === 'start' ? `Bắt đầu pha đơn ${order.displayNumber}` : `Đơn ${order.displayNumber} đã pha xong, đã báo mang ra`)
+      await baristaApi.start(order.id)
+      toast(`Bắt đầu pha đơn ${order.displayNumber}`)
       setDetailId(null)
     } catch (e) {
       toast(errorMessage(e), 'error')
@@ -141,7 +140,7 @@ export default function BaristaBoard() {
         {o.customerNote && <div className="order-note px-3 pb-2"><i className="bi bi-info-circle me-1" />{o.customerNote}</div>}
         {col.key === 'pending' && (
           <div className="kds-actions">
-            <button type="button" className="btn btn-primary w-100" disabled={busyId === o.id} onClick={() => advance(o, 'start')}>
+            <button type="button" className="btn btn-primary w-100" disabled={busyId === o.id} onClick={() => startOrder(o)}>
               Bắt đầu pha
             </button>
             <button type="button" className="btn btn-link kds-cancel" onClick={() => setCancelling(o)}>Hết nguyên liệu, hủy đơn</button>
@@ -152,9 +151,8 @@ export default function BaristaBoard() {
             <div className="kds-progress">
               <i className="bi bi-check2-square me-1" />Đã pha {doneCount}/{items.length} món
             </div>
-            <button type="button" className="btn btn-ready w-100" disabled={busyId === o.id} onClick={() => advance(o, 'ready')}>
-              Pha xong, báo mang ra
-            </button>
+            <div className="kds-bar"><span style={{ width: `${items.length ? (doneCount * 100) / items.length : 0}%` }} /></div>
+            <div className="kds-hint">Tích từng món khi pha xong. Đủ món sẽ tự báo mang ra.</div>
           </div>
         )}
         {col.key === 'ready' && <div className="kds-waiting"><i className="bi bi-check2-circle me-1" />Chờ mang ra</div>}
@@ -218,7 +216,7 @@ export default function BaristaBoard() {
       </div>
 
       <BaristaOrderModal order={detail} busy={detail && busyId === detail.id} onClose={() => setDetailId(null)}
-                         onStart={(o) => advance(o, 'start')} onReady={(o) => advance(o, 'ready')}
+                         onStart={startOrder} onToggleItem={toggleItem} busyItemId={busyItemId}
                          onCancel={(o) => setCancelling(o)} onRecipe={(i) => setRecipeFor(i)} />
       <RecipeModal target={recipeFor} onClose={() => setRecipeFor(null)} />
       <CancelOrderModal show={!!cancelling} order={cancelling} title="Hủy đơn" required

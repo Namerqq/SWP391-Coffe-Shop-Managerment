@@ -5,7 +5,6 @@ const baristaApi = {
   getBoard: () => axiosClient.get('/barista/orders'),
   getOrder: (id) => axiosClient.get(`/barista/orders/${id}`),
   start: (id) => axiosClient.patch(`/barista/orders/${id}/start`),
-  ready: (id) => axiosClient.patch(`/barista/orders/${id}/ready`),
   checkItem: (orderId, itemId, done) => axiosClient.patch(`/barista/orders/${orderId}/items/${itemId}`, { done }),
   cancel: (id, reason) => axiosClient.patch(`/barista/orders/${id}/cancel`, { reason }),
   getRecipe: (menuItemId) => axiosClient.get(`/barista/recipes/${menuItemId}`),

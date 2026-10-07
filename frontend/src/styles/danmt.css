@@ -48,17 +48,18 @@
 .kds-items li.match { background: #fbf1df; margin: 0 -1rem; padding: 0.5rem 1rem; box-shadow: inset 3px 0 0 var(--cf-warning); }
 .kds-check { width: 1.25rem; height: 1.25rem; margin-top: 0.1rem; flex-shrink: 0; cursor: pointer; }
 .kds-check:checked { background-color: var(--cf-success); border-color: var(--cf-success); }
-.kds-items li.done .fw-semibold { text-decoration: line-through; color: var(--cf-muted); }
-.kds-items li.done .order-qty, .kds-items li.done .cell-sub { color: var(--cf-muted); }
+.kds-items li.done .fw-semibold, .kds-done .fw-semibold { text-decoration: line-through; color: var(--cf-muted); }
+.kds-items li.done .order-qty, .kds-items li.done .cell-sub,
+.kds-done .order-qty, .kds-done .cell-sub { color: var(--cf-muted); }
 .kds-progress { color: var(--cf-muted); font-size: 0.82rem; margin-bottom: 0.5rem; }
+.kds-bar { height: 6px; border-radius: 999px; background: var(--cf-border); overflow: hidden; }
+.kds-bar > span { display: block; height: 100%; background: var(--cf-success); transition: width 0.25s ease; }
+.kds-hint { color: var(--cf-muted); font-size: 0.78rem; margin-top: 0.45rem; }
 .kds-actions { padding: 0.75rem 1rem 1rem; }
 .kds-cancel { display: block; width: 100%; margin-top: 0.25rem; color: var(--cf-danger); font-size: 0.82rem; text-decoration: none; }
 .kds-cancel:hover { color: #a33232; }
 .kds-waiting { padding: 0.5rem 1rem 0.9rem; color: var(--cf-success); font-size: 0.85rem; font-weight: 500; }
 
-.btn-ready { background: var(--cf-warning); border-color: var(--cf-warning); color: #fff; }
-.btn-ready:hover, .btn-ready:focus { background: #ad760f; border-color: #ad760f; color: #fff; }
-.btn-ready:disabled { background: var(--cf-warning); border-color: var(--cf-warning); color: #fff; opacity: 0.65; }
 
 .recipe-list { padding-left: 1.2rem; margin-bottom: 0; }
 .recipe-list li { padding: 0.15rem 0; }
