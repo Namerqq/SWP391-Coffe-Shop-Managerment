@@ -13,6 +13,24 @@
 .bill-order + .bill-order { border-top: 1px solid var(--cf-border); }
 .bill-total { font-size: 1.15rem; font-weight: 700; }
 
+/* Đơn có 2 trạng thái song song: nhãn phục vụ (status-pill, nền màu) + nhãn thanh toán (pay-pill, viền) */
+.pay-pill {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.55rem;
+  border: 1px solid; border-radius: 999px; background: var(--cf-surface); white-space: nowrap;
+}
+.pay-pill.is-unpaid { color: #9a5b16; border-color: #e6cba0; }
+.pay-pill.is-paid { color: var(--cf-success); border-color: #b9dcc8; }
+.bill-progress { color: var(--cf-muted); }
+.bill-check { width: 1.25rem; display: inline-flex; justify-content: center; flex-shrink: 0; }
+.bill-check .form-check-input { margin: 0; cursor: pointer; }
+.bill-check .bi { color: var(--cf-success); }
+.bill-order-no { font-weight: 700; margin: 0; cursor: pointer; }
+.bill-order.is-paid .order-line { color: var(--cf-muted); }
+.bill-sum { display: grid; gap: 0.2rem; }
+.bill-due { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+.bill-hint { background: var(--cf-bg); border-radius: 0.7rem; padding: 0.6rem 0.75rem; font-size: 0.85rem; }
+
 /* ---------- Hộp thanh toán ---------- */
 .pay-step { font-weight: 600; margin-bottom: 0.5rem; }
 .pay-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }

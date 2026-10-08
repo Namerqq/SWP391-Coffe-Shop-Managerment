@@ -39,11 +39,15 @@ export default function ReceiptPage() {
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 no-print">
         <div>
           <h1 className="page-title">Thanh toán thành công</h1>
-          <p className="page-subtitle">Hóa đơn {r.paymentCode}, {formatMoney(r.total)} bằng {METHOD[r.paymentMethod] || r.paymentMethod}.</p>
+          <p className="page-subtitle">
+            Hóa đơn {r.paymentCode}, {formatMoney(r.total)} bằng {METHOD[r.paymentMethod] || r.paymentMethod}.
+            {r.tableStillOpen && ` ${r.place} còn đơn chưa phục vụ hoặc chưa thanh toán nên bàn chưa trả về trống.`}
+          </p>
         </div>
         <div className="d-flex flex-wrap gap-2">
           <button type="button" className="btn btn-primary" onClick={() => window.print()}><i className="bi bi-printer me-1" />In hóa đơn</button>
           {r.takeaway && <Link to="/cashier/takeaway" className="btn btn-light-soft">Bán đơn mới</Link>}
+          {r.tableStillOpen && r.tableId && <Link to={`/cashier/bill/${r.tableId}`} className="btn btn-light-soft">Quay lại {r.place}</Link>}
           <Link to="/cashier" className="btn btn-light-soft">Về trang Thanh toán</Link>
         </div>
       </div>
@@ -67,6 +71,9 @@ export default function ReceiptPage() {
         <div className="receipt-row"><span>Số hóa đơn</span><span>{r.paymentCode}</span></div>
         <div className="receipt-row"><span>Thời gian</span><span>{formatDateTime(r.paidAt)}</span></div>
         <div className="receipt-row"><span>{r.takeaway ? 'Hình thức' : 'Bàn'}</span><span>{r.takeaway ? 'Mang đi' : r.place}</span></div>
+        {!r.takeaway && r.orders.length > 0 && (
+          <div className="receipt-row"><span>Đơn</span><span>{r.orders.map((o) => o.displayNumber).join(', ')}</span></div>
+        )}
         {r.cashierName && <div className="receipt-row"><span>Thu ngân</span><span>{r.cashierName}</span></div>}
 
         <div className="receipt-items">

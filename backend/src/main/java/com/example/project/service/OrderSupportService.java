@@ -123,13 +123,13 @@ public class OrderSupportService {
 
     /**
      * Hủy đơn còn chờ pha (Barista hết nguyên liệu / Phục vụ hủy theo yêu cầu khách).
-     * Đơn đã thu tiền trước (mang đi, online) không hủy ở đây vì cần hoàn tiền.
+     * Đơn đã thu tiền trước (tại bàn, mang đi, online) không hủy ở đây vì cần hoàn tiền.
      */
     public void cancelPendingOrder(Order order, String reason) {
         if (!order.isWaitingForPreparation()) {
             throw ApiException.badRequest("Đơn " + displayNumber(order.getOrderNumber()) + " đã bắt đầu pha, không hủy được nữa.");
         }
-        if (paymentRepository.existsByOrder_IdAndPaymentStatus(order.getId(), Payment.PAID)) {
+        if (order.isPaid() || paymentRepository.existsByOrder_IdAndPaymentStatus(order.getId(), Payment.PAID)) {
             throw ApiException.badRequest("Đơn " + displayNumber(order.getOrderNumber())
                     + " đã thanh toán trước nên không hủy ở đây được. Vui lòng báo thu ngân.");
         }
@@ -138,6 +138,8 @@ public class OrderSupportService {
         order.setCancelledAt(LocalDateTime.now());
         orderRepository.saveAndFlush(order);
         closeSessionIfEmpty(order.getTableSession());
+        // Các đơn còn lại của bàn đều đã phục vụ và đã thanh toán -> trả bàn.
+        closeSessionIfSettled(order.getTableSession());
     }
 
     /**
@@ -175,6 +177,23 @@ public class OrderSupportService {
         session.getTable().setStatus(CafeTable.AVAILABLE);
     }
 
+    /**
+     * Lượt khách xong khi mọi đơn chưa hủy đều ĐÃ PHỤC VỤ và ĐÃ THANH TOÁN -> đóng lượt (CLOSED),
+     * trả bàn về trống (GB-04). Gọi sau khi thu tiền, sau khi mang món ra và sau khi hủy đơn.
+     * Trả về true nếu vừa đóng.
+     */
+    public boolean closeSessionIfSettled(TableSession session) {
+        if (session == null || !session.isActive()) return false;
+        List<Order> valid = orderRepository.findByTableSession_IdOrderByCreatedAtAsc(session.getId()).stream()
+                .filter(o -> !o.isCancelled())
+                .toList();
+        if (valid.isEmpty() || !valid.stream().allMatch(Order::isSettled)) return false;
+        session.setStatus(TableSession.CLOSED);
+        session.setClosedAt(LocalDateTime.now());
+        session.getTable().setStatus(CafeTable.AVAILABLE);
+        return true;
+    }
+
     // ===== Entity -> DTO =====
 
     public OrderView toView(Order o) {
@@ -185,7 +204,8 @@ public class OrderSupportService {
                 s == null ? null : s.getId(), t == null ? null : t.getId(), t == null ? null : t.getTableNumber(),
                 o.getCustomerName(), o.getCustomerPhone(), o.getCustomerNote(), o.getCancelReason(),
                 o.activeTotal(), o.getCreatedAt(), o.getUpdatedAt(),
-                o.getItems().stream().map(this::toItemView).toList());
+                o.getItems().stream().map(this::toItemView).toList(),
+                o.getPaymentStatus(), o.getPaidAt(), o.getPayment() == null ? null : o.getPayment().getId());
     }
 
     public OrderItemView toItemView(OrderItem i) {

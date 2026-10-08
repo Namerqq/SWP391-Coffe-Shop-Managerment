@@ -6,6 +6,7 @@ import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
+import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,10 +16,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class WaiterService {
 
     private final OrderRepository orderRepository;
+    private final OrderLockRepository lockRepository;
     private final OrderSupportService support;
 
-    public WaiterService(OrderRepository orderRepository, OrderSupportService support) {
+    public WaiterService(OrderRepository orderRepository, OrderLockRepository lockRepository,
+                         OrderSupportService support) {
         this.orderRepository = orderRepository;
+        this.lockRepository = lockRepository;
         this.support = support;
     }
 
@@ -66,8 +70,9 @@ public class WaiterService {
         return support.toView(o);
     }
 
+    /** Đọc đơn kèm khóa dòng để không sửa chồng lên lúc thu ngân đang thu tiền đơn này. */
     private Order findEditable(Long orderId) {
-        Order o = orderRepository.findById(orderId)
+        Order o = lockRepository.findWithLockById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn id = " + orderId));
         if (!Order.DINE_IN.equals(o.getFulfillmentType())) {
             throw ApiException.badRequest("Phục vụ chỉ sửa / hủy được đơn tại bàn.");
@@ -75,6 +80,11 @@ public class WaiterService {
         if (!o.isWaitingForPreparation()) {
             throw ApiException.badRequest("Đơn " + OrderSupportService.displayNumber(o.getOrderNumber())
                     + " đã bắt đầu pha, không sửa / hủy được nữa.");
+        }
+        // Đơn đã thu tiền: sửa / bỏ món làm lệch số tiền đã thu, hủy thì cần hoàn tiền -> báo thu ngân.
+        if (o.isPaid()) {
+            throw ApiException.badRequest("Đơn " + OrderSupportService.displayNumber(o.getOrderNumber())
+                    + " đã thanh toán, không sửa / hủy được nữa. Vui lòng báo thu ngân.");
         }
         return o;
     }
