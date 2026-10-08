@@ -8,8 +8,9 @@ import CustomerPicker from './CustomerPicker'
 /**
  * Payment Confirmation — UC-C05, C07 (chọn cách trả), C08 (xác nhận), C11 (dùng điểm), C14 (cộng điểm).
  * onSubmit({ method, customerId, pointsToRedeem }) phải trả về Promise của axios ({ data: PaymentResult }).
+ * description (không bắt buộc): 1 dòng ngắn phía trên phần tiền, vd các đơn đang được thu.
  */
-export default function PaymentModal({ show, title, subtotal, initialCustomer, transferNote, onClose, onSubmit, onPaid }) {
+export default function PaymentModal({ show, title, subtotal, description, initialCustomer, transferNote, onClose, onSubmit, onPaid }) {
   const [cfg, setCfg] = useState(null)
   const [customer, setCustomer] = useState(null)
   const [points, setPoints] = useState('')
@@ -119,6 +120,7 @@ export default function PaymentModal({ show, title, subtotal, initialCustomer, t
         </div>
 
         <div className="col-md-6">
+          {description && <div className="cell-sub mb-2">{description}</div>}
           <div className="pay-summary">
             <div className="row-line"><span>Tạm tính</span><span>{formatMoney(subtotal)}</span></div>
             {discount > 0 && <div className="row-line pay-discount"><span>Giảm giá ({usePoints} điểm)</span><span>-{formatMoney(discount)}</span></div>}

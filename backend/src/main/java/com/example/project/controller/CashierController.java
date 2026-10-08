@@ -48,7 +48,11 @@ public class CashierController {
         return service.paymentSettings();
     }
 
-    /** Thanh toán bàn. Body: { "method": "CASH", "customerId": 3, "pointsToRedeem": 10 } */
+    /**
+     * Thu tiền đơn tại bàn, đơn ở trạng thái phục vụ nào cũng được (chờ pha / đang pha / đã phục vụ).
+     * Body: { "method": "CASH", "customerId": 3, "pointsToRedeem": 10, "orderIds": [12, 15], "expectedSubtotal": 85000 }
+     * orderIds bỏ trống = thu mọi đơn chưa thanh toán. Bàn tự trả về trống khi mọi đơn đã phục vụ và đã thanh toán.
+     */
     @PostMapping("/sessions/{sessionId}/pay")
     public PaymentResult paySession(@PathVariable Long sessionId, @Valid @RequestBody PayRequest req,
                                     @RequestAttribute(AuthInterceptor.CURRENT_USER) User cashier) {

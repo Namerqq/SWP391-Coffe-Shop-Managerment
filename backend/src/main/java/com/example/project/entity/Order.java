@@ -1,20 +1,30 @@
 package com.example.project.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.DynamicUpdate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ENTITY = 1 dòng trong bảng "orders".
- * Giữ nguyên trạng thái của schema V1, đối chiếu với tên trong SRS:
+ * ENTITY = 1 dòng trong bảng "orders". Từ V6 mỗi đơn có 2 trạng thái CHẠY SONG SONG:
+ *
+ * 1) status = tiến trình phục vụ, giữ tên của schema V1, đối chiếu với tên trong SRS:
  *   PENDING_CONFIRMATION = Chờ pha (SRS: PENDING) | PREPARING = Đang pha | READY = Chờ mang ra
  *   COMPLETED = Đã phục vụ (SRS: SERVED) | CANCELLED = Đã hủy
- *   "Đã thanh toán" (SRS: PAID) = có payment PAID + phiên bàn CLOSED (bảng orders không có PAID).
  *   CONFIRMED để dành cho đơn online đã trả QR (Iter2).
+ *
+ * 2) paymentStatus = đã thanh toán chưa: UNPAID | PAID (SRS: PAID).
+ *   Thu ngân thu tiền được đơn ở bất kỳ trạng thái phục vụ nào (trừ đơn đã hủy).
+ *   payment = hóa đơn đã thu đơn này (1 hóa đơn có thể gồm nhiều đơn của cùng 1 bàn).
+ *
+ * Bàn trả về trống khi mọi đơn chưa hủy vừa đã phục vụ vừa đã thanh toán (isSettled).
+ * Dùng {@code @DynamicUpdate}: lệnh UPDATE chỉ ghi các cột có thay đổi, để Pha chế đổi trạng thái
+ * và Thu ngân ghi thanh toán cùng lúc trên 1 đơn không ghi đè lên nhau.
  */
 @Entity
 @Table(name = "orders")
+@DynamicUpdate
 public class Order {
 
     public static final String PENDING = "PENDING_CONFIRMATION";
@@ -24,6 +34,9 @@ public class Order {
     public static final String SERVED = "COMPLETED";
     public static final String CANCELLED = "CANCELLED";
     public static final String REJECTED = "REJECTED";
+
+    public static final String UNPAID = "UNPAID";
+    public static final String PAID = "PAID";
 
     public static final String SOURCE_QR = "QR_TABLE";
     public static final String SOURCE_STAFF = "STAFF";
@@ -58,6 +71,16 @@ public class Order {
 
     @Column(nullable = false, length = 30)
     private String status = PENDING;
+
+    @Column(name = "payment_status", nullable = false, length = 20)
+    private String paymentStatus = UNPAID;
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id")
+    private Payment payment;
 
     @Column(name = "fulfillment_type", nullable = false, length = 20)
     private String fulfillmentType;
@@ -122,6 +145,27 @@ public class Order {
         return PENDING.equals(status) || CONFIRMED.equals(status);
     }
 
+    /** Đơn đã hủy / bị từ chối: không tính tiền, không cần phục vụ. */
+    public boolean isCancelled() {
+        return CANCELLED.equals(status) || REJECTED.equals(status);
+    }
+
+    /** Đã mang món ra cho khách (SRS: SERVED). */
+    public boolean isServed() { return SERVED.equals(status); }
+
+    /** Đã thanh toán (SRS: PAID). */
+    public boolean isPaid() { return PAID.equals(paymentStatus); }
+
+    /** Xong cả 2 phía: đã phục vụ VÀ đã thanh toán. */
+    public boolean isSettled() { return isServed() && isPaid(); }
+
+    /** Ghi nhận đơn đã được thu tiền trong hóa đơn p (p đã lưu và đã có giờ thu). */
+    public void markPaid(Payment p) {
+        this.paymentStatus = PAID;
+        this.paidAt = p.getPaidAt();
+        this.payment = p;
+    }
+
     /** Đổi trạng thái đơn, đồng thời đổi trạng thái các món chưa bị hủy. */
     public void moveTo(String orderStatus, String itemStatus) {
         this.status = orderStatus;
@@ -153,6 +197,12 @@ public class Order {
     public void setSource(String source) { this.source = source; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+    public LocalDateTime getPaidAt() { return paidAt; }
+    public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
+    public Payment getPayment() { return payment; }
+    public void setPayment(Payment payment) { this.payment = payment; }
     public String getFulfillmentType() { return fulfillmentType; }
     public void setFulfillmentType(String fulfillmentType) { this.fulfillmentType = fulfillmentType; }
     public String getCustomerName() { return customerName; }

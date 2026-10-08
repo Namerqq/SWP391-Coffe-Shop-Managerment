@@ -56,14 +56,18 @@ public class TableBoardService {
         for (CafeTable t : tableRepository.findByActiveTrueOrderByTableNumberAsc()) {
             TableSession s = sessionByTable.get(t.getId());
             if (s == null) {
-                result.add(new TableBoardItem(t.getId(), t.getTableNumber(), null, null, null, 0, 0, 0, 0, 0, 0, 0));
+                result.add(new TableBoardItem(t.getId(), t.getTableNumber(), null, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0));
                 continue;
             }
-            int waiting = 0, preparing = 0, ready = 0, served = 0;
-            long total = 0;
+            int waiting = 0, preparing = 0, ready = 0, served = 0, unpaid = 0;
+            long total = 0, unpaidTotal = 0;
             for (Order o : ordersBySession.getOrDefault(s.getId(), List.of())) {
                 if (isCancelled(o)) continue;
                 total += o.activeTotal();
+                if (!o.isPaid()) {
+                    unpaid++;
+                    unpaidTotal += o.activeTotal();
+                }
                 if (o.isWaitingForPreparation()) waiting++;
                 else if (Order.PREPARING.equals(o.getStatus())) preparing++;
                 else if (Order.READY.equals(o.getStatus())) ready++;
@@ -71,7 +75,7 @@ public class TableBoardService {
             }
             result.add(new TableBoardItem(t.getId(), t.getTableNumber(), s.getId(), s.getSessionCode(), s.getOpenedAt(),
                     waiting + preparing + ready + served, waiting, preparing, ready, served,
-                    waiting + preparing + ready, total));
+                    waiting + preparing + ready, total, unpaid, unpaidTotal));
         }
         return result;
     }
@@ -91,17 +95,23 @@ public class TableBoardService {
         List<OrderView> views = orders.stream().map(support::toView).toList();
         List<Order> valid = orders.stream().filter(o -> !isCancelled(o)).toList();
         List<String> unfinished = valid.stream()
-                .filter(o -> !Order.SERVED.equals(o.getStatus()))
+                .filter(o -> !o.isServed())
+                .map(o -> OrderSupportService.displayNumber(o.getOrderNumber()))
+                .toList();
+        List<String> unpaid = valid.stream()
+                .filter(o -> !o.isPaid())
                 .map(o -> OrderSupportService.displayNumber(o.getOrderNumber()))
                 .toList();
         long total = valid.stream().mapToLong(Order::activeTotal).sum();
-        boolean payable = !valid.isEmpty() && unfinished.isEmpty();
+        long paidTotal = valid.stream().filter(Order::isPaid).mapToLong(Order::activeTotal).sum();
+        // payable giữ tên cũ cho màn Phục vụ: mọi đơn chưa hủy đều đã phục vụ (không còn là điều kiện thu tiền).
+        boolean allServed = !valid.isEmpty() && unfinished.isEmpty();
         return new SessionView(s.getId(), s.getSessionCode(), s.getStatus(), s.getOpenedAt(),
                 s.getTable().getId(), s.getTable().getTableNumber(), CustomerView.from(s.getCustomer()),
-                total, payable, unfinished, views);
+                total, allServed, unfinished, views, paidTotal, total - paidTotal, unpaid);
     }
 
     public static boolean isCancelled(Order o) {
-        return Order.CANCELLED.equals(o.getStatus()) || Order.REJECTED.equals(o.getStatus());
+        return o.isCancelled();
     }
 }
