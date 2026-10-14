@@ -86,6 +86,8 @@ public class WaiterService {
             throw ApiException.badRequest("Đơn " + OrderSupportService.displayNumber(o.getOrderNumber())
                     + " đã thanh toán, không sửa / hủy được nữa. Vui lòng báo thu ngân.");
         }
+        // Đơn đang nằm trong mã QR chờ khách quét: sửa / bỏ món làm lệch số tiền trong mã.
+        support.ensureNotInPendingQr(o, "sửa / hủy");
         return o;
     }
 

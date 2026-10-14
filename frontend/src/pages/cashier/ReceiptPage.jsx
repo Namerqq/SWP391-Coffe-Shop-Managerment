@@ -7,6 +7,9 @@ import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import '../../styles/cashier.css'
 
 const METHOD = { CASH: 'Tiền mặt', BANK_TRANSFER: 'Chuyển khoản' }
+// Khách trả bằng mã QR payOS (hệ thống tự xác nhận) vẫn ghi BANK_TRANSFER, hóa đơn ghi rõ hơn.
+const methodLabel = (r) => (r.paymentMethod === 'BANK_TRANSFER' && r.qrAutoConfirmed
+  ? 'Chuyển khoản QR' : METHOD[r.paymentMethod] || r.paymentMethod)
 
 // Receipt Preview — SRS screen #8, UC-C09 View and Issue receipt.
 export default function ReceiptPage() {
@@ -40,7 +43,7 @@ export default function ReceiptPage() {
         <div>
           <h1 className="page-title">Thanh toán thành công</h1>
           <p className="page-subtitle">
-            Hóa đơn {r.paymentCode}, {formatMoney(r.total)} bằng {METHOD[r.paymentMethod] || r.paymentMethod}.
+            Hóa đơn {r.paymentCode}, {formatMoney(r.total)} bằng {methodLabel(r)}{r.qrAutoConfirmed && ', hệ thống tự xác nhận'}.
             {r.tableStillOpen && ` ${r.place} còn đơn chưa phục vụ hoặc chưa thanh toán nên bàn chưa trả về trống.`}
           </p>
         </div>
@@ -94,7 +97,7 @@ export default function ReceiptPage() {
           <div className="receipt-row"><span>Giảm giá ({r.pointsRedeemed} điểm)</span><span>-{formatMoney(r.discount)}</span></div>
         )}
         <div className="receipt-row receipt-grand"><span>Tổng thanh toán</span><span>{formatMoney(r.total)}</span></div>
-        <div className="receipt-row"><span>Thanh toán bằng</span><span>{METHOD[r.paymentMethod] || r.paymentMethod}</span></div>
+        <div className="receipt-row"><span>Thanh toán bằng</span><span>{methodLabel(r)}</span></div>
 
         {r.customer && (
           <div className="receipt-customer">

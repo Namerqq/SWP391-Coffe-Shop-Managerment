@@ -22,6 +22,10 @@ public class SystemSettingService {
     private static final Pattern TIME = Pattern.compile("^([01]\\d|2[0-3]):[0-5]\\d$");
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
+    /** Thời gian tồn tại mã QR payOS (phút), Admin chỉnh ở Cài đặt hệ thống > Bán hàng & tích điểm. */
+    public static final String QR_TIMEOUT_KEY = "payment.qr_timeout_minutes";
+    public static final long QR_TIMEOUT_MAX = 60;
+
     private final SystemSettingRepository repository;
 
     public SystemSettingService(SystemSettingRepository repository) {
@@ -70,6 +74,10 @@ public class SystemSettingService {
                 if (s.getKey().endsWith("_percent") && n.compareTo(BigDecimal.valueOf(100)) > 0) {
                     throw ApiException.badRequest(label + ": tối đa 100.");
                 }
+                if (s.getKey().equals(QR_TIMEOUT_KEY)
+                        && (n.compareTo(BigDecimal.ONE) < 0 || n.compareTo(BigDecimal.valueOf(QR_TIMEOUT_MAX)) > 0)) {
+                    throw ApiException.badRequest(label + ": từ 1 đến " + QR_TIMEOUT_MAX + " phút.");
+                }
                 return n.stripTrailingZeros().toPlainString();
             }
             case "TIME" -> {
@@ -99,6 +107,8 @@ public class SystemSettingService {
     public long maxLoginAttempts() { return longValue("security.max_login_attempts", 5); }
     public long passwordMinLength() { return Math.max(1, longValue("security.password_min_length", 6)); }
     public boolean maintenanceMode() { return "true".equals(raw("system.maintenance_mode", "false")); }
+    /** Thời gian tồn tại mã QR payOS, luôn trong khoảng 1..60 phút (mặc định 15). */
+    public long qrTimeoutMinutes() { return Math.min(QR_TIMEOUT_MAX, Math.max(1, longValue(QR_TIMEOUT_KEY, 15))); }
 
     /** Đọc 1 cấu hình bất kỳ (dùng chung: thanh toán, tích điểm, thông tin quán...). */
     public String get(String key, String def) { return raw(key, def); }

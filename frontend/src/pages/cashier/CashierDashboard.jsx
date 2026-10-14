@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import staffApi from '../../api/staffApi'
+import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
 import usePolling from '../../utils/usePolling'
 import { formatMoney, formatTime } from '../../utils/orderFormat'
@@ -9,9 +10,11 @@ import '../../styles/cashier.css'
 // Cashier Dashboard — SRS 1.3.1. UC-C05 Process Payments, UC-C06 Search Bill by Table.
 // Mỗi bàn hiện 2 thông tin song song: còn bao nhiêu tiền chưa thu và đã phục vụ được bao nhiêu đơn.
 // Thu tiền được bất cứ lúc nào; bàn tự trả về trống khi mọi đơn đã phục vụ và đã thanh toán.
+// Bàn có mã QR payOS đang chờ khách quét thì hiện nhãn "Đang chờ QR".
 export default function CashierDashboard() {
   const navigate = useNavigate()
   const [tables, setTables] = useState([])
+  const [pendingQrs, setPendingQrs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -25,11 +28,21 @@ export default function CashierDashboard() {
     } finally {
       setLoading(false)
     }
+    try {
+      setPendingQrs((await cashierApi.getPendingQrs()).data)
+    } catch {
+      setPendingQrs([])
+    }
   }, [])
   usePolling(load, 5000)
 
   const busy = tables.filter((t) => t.sessionId)
   const owing = busy.filter((t) => t.unpaidCount > 0).length
+  const qrAmountBySession = pendingQrs.reduce((m, q) => {
+    if (q.sessionId) m[q.sessionId] = (m[q.sessionId] || 0) + q.amount
+    return m
+  }, {})
+  const takeawayQrs = pendingQrs.filter((q) => q.target === 'TAKEAWAY').length
 
   return (
     <>
@@ -39,6 +52,7 @@ export default function CashierDashboard() {
           <p className="page-subtitle">
             {busy.length > 0 && `${owing}/${busy.length} bàn còn tiền chưa thu. `}
             Thu tiền được bất cứ lúc nào, không cần chờ phục vụ xong.
+            {takeawayQrs > 0 && <> <Link to="/cashier/takeaway">{takeawayQrs} mã QR mang đi đang chờ khách quét</Link>.</>}
           </p>
         </div>
         <div className="d-flex gap-2">
@@ -54,6 +68,7 @@ export default function CashierDashboard() {
         {busy.map((t) => {
           const allPaid = t.unpaidCount === 0
           const allServed = t.orderCount > 0 && t.unfinishedCount === 0
+          const qrAmount = qrAmountBySession[t.sessionId]
           return (
             <button type="button" key={t.tableId} className="cf-card bill-card" onClick={() => navigate(`/cashier/bill/${t.tableId}`)}>
               <div className="d-flex justify-content-between align-items-start gap-2">
@@ -63,6 +78,11 @@ export default function CashierDashboard() {
                   {allPaid ? 'Đã thanh toán đủ' : `${t.unpaidCount} đơn chưa thanh toán`}
                 </span>
               </div>
+              {qrAmount > 0 && (
+                <span className="pay-pill is-qr align-self-start">
+                  <i className="bi bi-qr-code" aria-hidden="true" />Đang chờ QR {formatMoney(qrAmount)}
+                </span>
+              )}
               <div className="cell-sub">Vào lúc {formatTime(t.openedAt)}, {t.orderCount} đơn</div>
               <div className="cell-sub mt-2">{allPaid ? 'Đã thu đủ' : 'Còn phải thu'}</div>
               <div className="bill-amount mt-0">{formatMoney(allPaid ? t.total : t.unpaidTotal)}</div>

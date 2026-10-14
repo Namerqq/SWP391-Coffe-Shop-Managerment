@@ -15,6 +15,7 @@ import com.example.project.exception.ApiException;
 import com.example.project.repository.MenuItemRepository;
 import com.example.project.repository.OrderRepository;
 import com.example.project.repository.PaymentRepository;
+import com.example.project.repository.QrPaymentRequestRepository;
 import com.example.project.repository.TableSessionRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,15 +43,17 @@ public class OrderSupportService {
     private final PaymentRepository paymentRepository;
     private final TableSessionRepository sessionRepository;
     private final ObjectMapper objectMapper;
+    private final QrPaymentRequestRepository qrRepository;
 
     public OrderSupportService(MenuItemRepository menuItemRepository, OrderRepository orderRepository,
                                PaymentRepository paymentRepository, TableSessionRepository sessionRepository,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper, QrPaymentRequestRepository qrRepository) {
         this.menuItemRepository = menuItemRepository;
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
         this.sessionRepository = sessionRepository;
         this.objectMapper = objectMapper;
+        this.qrRepository = qrRepository;
     }
 
     /** Tạo 1 dòng món từ yêu cầu: kiểm tra món còn bán, lấy giá hiện tại làm "ảnh chụp" giá. */
@@ -133,6 +136,7 @@ public class OrderSupportService {
             throw ApiException.badRequest("Đơn " + displayNumber(order.getOrderNumber())
                     + " đã thanh toán trước nên không hủy ở đây được. Vui lòng báo thu ngân.");
         }
+        ensureNotInPendingQr(order, "hủy");
         order.moveTo(Order.CANCELLED, OrderItem.CANCELLED);
         order.setCancelReason(reason);
         order.setCancelledAt(LocalDateTime.now());
@@ -140,6 +144,17 @@ public class OrderSupportService {
         closeSessionIfEmpty(order.getTableSession());
         // Các đơn còn lại của bàn đều đã phục vụ và đã thanh toán -> trả bàn.
         closeSessionIfSettled(order.getTableSession());
+    }
+
+    /**
+     * Đơn đang nằm trong 1 mã QR payOS chờ khách quét thì không sửa / hủy được (số tiền trong mã sẽ lệch).
+     * action = "sửa / hủy", "hủy"... để ghép vào câu báo lỗi.
+     */
+    public void ensureNotInPendingQr(Order order, String action) {
+        if (order.getId() != null && qrRepository.countPendingContaining(order.getId()) > 0) {
+            throw ApiException.badRequest("Đơn " + displayNumber(order.getOrderNumber())
+                    + " đang chờ khách quét mã QR thanh toán nên chưa " + action + " được. Vui lòng báo thu ngân hủy mã QR trước.");
+        }
     }
 
     /**
