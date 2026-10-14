@@ -174,6 +174,29 @@ public class Order {
         }
     }
 
+    /**
+     * Pha chế / phục vụ theo TỪNG MÓN: tính lại trạng thái đơn từ trạng thái các món.
+     *   mọi món đều hủy                         -> CANCELLED
+     *   mọi món (chưa hủy) đã mang ra           -> COMPLETED
+     *   mọi món (chưa hủy) đã pha xong          -> READY
+     *   có món đã pha xong, hoặc đơn đã từng làm -> PREPARING (đang làm dở: phục vụ không sửa / hủy được nữa)
+     *   chưa món nào xong                       -> giữ nguyên (Chờ pha)
+     */
+    public void syncStatusFromItems() {
+        List<OrderItem> active = items.stream().filter(i -> !i.isCancelled()).toList();
+        String next;
+        if (active.isEmpty()) next = CANCELLED;
+        else if (active.stream().allMatch(i -> OrderItem.SERVED.equals(i.getItemStatus()))) next = SERVED;
+        else if (active.stream().allMatch(OrderItem::isDone)) next = READY;
+        else if (active.stream().anyMatch(OrderItem::isDone) || PREPARING.equals(status) || READY.equals(status)) next = PREPARING;
+        else next = status;
+
+        if (next.equals(status)) return;
+        status = next;
+        if (CANCELLED.equals(next)) cancelledAt = LocalDateTime.now();
+        if (SERVED.equals(next)) completedAt = LocalDateTime.now();
+    }
+
     /** Tổng tiền các món chưa hủy (tính từ món, không phụ thuộc cột total_amount). */
     public long activeTotal() {
         return items.stream()

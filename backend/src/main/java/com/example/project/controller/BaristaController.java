@@ -1,10 +1,10 @@
 package com.example.project.controller;
 
 import com.example.project.dto.barista.ItemCheckRequest;
+import com.example.project.dto.barista.ItemsDoneRequest;
 import com.example.project.dto.barista.RecipeView;
 import com.example.project.dto.inventory.InventoryItemView;
 import com.example.project.dto.order.OrderView;
-import com.example.project.dto.waiter.CancelOrderRequest;
 import com.example.project.security.RequireRole;
 import com.example.project.service.BaristaService;
 import com.example.project.service.InventoryService;
@@ -51,14 +51,9 @@ public class BaristaController {
         return service.detail(id);
     }
 
-    @PatchMapping("/orders/{id}/start")
-    public OrderView start(@PathVariable Long id) {
-        return service.start(id);
-    }
-
     /**
      * Tích / bỏ tích 1 món đã pha xong. Body: { "done": true }.
-     * Tích đủ mọi món thì đơn tự sang Chờ mang ra (không có API báo xong cả đơn).
+     * Món tích xong sang Chờ mang ra ngay; đơn tự đổi trạng thái theo các món (không có API báo xong cả đơn).
      */
     @PatchMapping("/orders/{orderId}/items/{itemId}")
     public OrderView checkItem(@PathVariable Long orderId, @PathVariable Long itemId,
@@ -66,10 +61,16 @@ public class BaristaController {
         return service.checkItem(orderId, itemId, req.done());
     }
 
-    /** Body: { "reason": "Hết sữa tươi" } (bắt buộc). */
-    @PatchMapping("/orders/{id}/cancel")
-    public OrderView cancel(@PathVariable Long id, @Valid @RequestBody CancelOrderRequest req) {
-        return service.cancelOutOfStock(id, req.reason());
+    /** Tích xong nhiều món một lần ("Tổng cần pha"). Body: { "itemIds": [3, 7, 9] }. Trả về bảng pha chế mới. */
+    @PatchMapping("/items/done")
+    public List<OrderView> checkItems(@Valid @RequestBody ItemsDoneRequest req) {
+        return service.checkItems(req.itemIds());
+    }
+
+    /** BF-02: hết nguyên liệu -> hủy 1 món còn chờ pha (hủy hết món thì đơn tự hủy). */
+    @PatchMapping("/orders/{orderId}/items/{itemId}/cancel")
+    public OrderView cancelItem(@PathVariable Long orderId, @PathVariable Long itemId) {
+        return service.cancelItem(orderId, itemId);
     }
 
     @GetMapping("/recipes/{menuItemId}")
