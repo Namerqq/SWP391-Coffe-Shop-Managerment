@@ -9,6 +9,17 @@ const cashierApi = {
   paySession: (sessionId, data) => axiosClient.post(`/cashier/sessions/${sessionId}/pay`, data),
   takeaway: (data) => axiosClient.post('/cashier/takeaway', data),
   getReceipt: (paymentId) => axiosClient.get(`/cashier/payments/${paymentId}/receipt`),
+
+  // QR payOS tự xác nhận. data giống paySession / takeaway nhưng không có method.
+  createSessionQr: (sessionId, data) => axiosClient.post(`/cashier/qr-payments/sessions/${sessionId}`, data),
+  createTakeawayQr: (data) => axiosClient.post('/cashier/qr-payments/takeaway', data),
+  getQr: (id) => axiosClient.get(`/cashier/qr-payments/${id}`),
+  cancelQr: (id) => axiosClient.post(`/cashier/qr-payments/${id}/cancel`),
+  renewQr: (id) => axiosClient.post(`/cashier/qr-payments/${id}/renew`), // mã hết hạn / đã hủy -> tạo mã mới
+  // params: { sessionId } (mã của 1 bàn) | { target: 'TAKEAWAY' } | bỏ trống = mọi mã đang chờ
+  getPendingQrs: (params) => axiosClient.get('/cashier/qr-payments/pending', { params }),
+  // since = serverTime của lần hỏi trước -> các mã vừa thanh toán xong (PAID) / cần kiểm tra tay (MISMATCH)
+  getQrEvents: (since) => axiosClient.get('/cashier/qr-payments/events', { params: since ? { since } : {} }),
 }
 
 export default cashierApi

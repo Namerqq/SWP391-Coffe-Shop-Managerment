@@ -15,11 +15,13 @@ import com.example.project.entity.TableSession;
 import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
+import com.example.project.payos.PayosClient;
 import com.example.project.repository.CustomerRepository;
 import com.example.project.repository.LoyaltyTransactionRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
 import com.example.project.repository.PaymentRepository;
+import com.example.project.repository.QrPaymentRequestRepository;
 import com.example.project.repository.TableSessionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -40,6 +43,9 @@ import java.util.stream.Collectors;
  * Từ V6 mỗi đơn có 2 trạng thái song song: đã phục vụ chưa (status) và đã thanh toán chưa (paymentStatus).
  * Thu ngân thu tiền được BẤT KỲ đơn nào chưa thanh toán, đơn ở trạng thái phục vụ nào cũng được (trừ đơn đã hủy).
  * Bàn chỉ trả về trống khi mọi đơn vừa đã phục vụ vừa đã thanh toán.
+ *
+ * Từ V7 có thêm QR payOS tự xác nhận (QrPaymentService): đơn đang nằm trong 1 mã QR chờ khách quét thì
+ * không thu cách khác được, phải hủy mã trước. pointsDiscount / record dùng chung cho cả 2 cách.
  */
 @Service
 public class CashierService {
@@ -52,11 +58,14 @@ public class CashierService {
     private final LoyaltyTransactionRepository loyaltyRepository;
     private final OrderSupportService support;
     private final SystemSettingService settings;
+    private final QrPaymentRequestRepository qrRepository;
+    private final PayosClient payos;
 
     public CashierService(CustomerRepository customerRepository, TableSessionRepository sessionRepository,
                           OrderRepository orderRepository, OrderLockRepository lockRepository,
                           PaymentRepository paymentRepository, LoyaltyTransactionRepository loyaltyRepository,
-                          OrderSupportService support, SystemSettingService settings) {
+                          OrderSupportService support, SystemSettingService settings,
+                          QrPaymentRequestRepository qrRepository, PayosClient payos) {
         this.customerRepository = customerRepository;
         this.sessionRepository = sessionRepository;
         this.orderRepository = orderRepository;
@@ -65,6 +74,8 @@ public class CashierService {
         this.loyaltyRepository = loyaltyRepository;
         this.support = support;
         this.settings = settings;
+        this.qrRepository = qrRepository;
+        this.payos = payos;
     }
 
     // ===== UC-C10 / UC-C13: khách thân thiết =====
@@ -93,7 +104,8 @@ public class CashierService {
         return new PaymentSettingsView(pointValue(), vndPerPoint(),
                 settings.get("payment.bank_bin", ""),
                 settings.get("payment.bank_account_number", ""),
-                settings.get("payment.bank_account_holder", ""));
+                settings.get("payment.bank_account_holder", ""),
+                payos.isConfigured(), settings.qrTimeoutMinutes());
     }
 
     // ===== UC-C05 / C07 / C08: thu tiền đơn tại bàn, đơn ở trạng thái phục vụ nào cũng được =====
@@ -112,6 +124,7 @@ public class CashierService {
         // Khóa các đơn của bàn: 2 thu ngân bấm cùng lúc thì người sau thấy đơn đã thu, không thu 2 lần.
         List<Order> sessionOrders = lockRepository.findWithLockByTableSession_IdOrderByCreatedAtAsc(sessionId);
         List<Order> toPay = pickOrdersToPay(sessionOrders, req.orderIds());
+        ensureNoPendingQr(toPay);
         long subtotal = toPay.stream().mapToLong(Order::activeTotal).sum();
         if (req.expectedSubtotal() != null && req.expectedSubtotal() != subtotal) {
             throw ApiException.conflict("Đơn vừa thay đổi, số tiền cần thu bây giờ là " + money(subtotal)
@@ -200,7 +213,8 @@ public class CashierService {
                 orders.stream().map(support::toView).toList(),
                 subtotal, Math.max(0, subtotal - p.getTotalAmount()), p.getTotalAmount(),
                 redeemed, earned, CustomerView.from(customer),
-                s == null ? null : s.getTable().getId(), s != null && s.isActive());
+                s == null ? null : s.getTable().getId(), s != null && s.isActive(),
+                qrRepository.existsByPayment_Id(p.getId()));
     }
 
     // ===== Dùng chung =====
@@ -209,7 +223,7 @@ public class CashierService {
      * Chọn đơn để thu. orderIds bỏ trống = mọi đơn chưa thanh toán của bàn (trừ đơn đã hủy).
      * Đơn được chọn phải thuộc bàn, chưa hủy, chưa thanh toán; đơn ở trạng thái phục vụ nào cũng được.
      */
-    private static List<Order> pickOrdersToPay(List<Order> sessionOrders, List<Long> orderIds) {
+    static List<Order> pickOrdersToPay(List<Order> sessionOrders, List<Long> orderIds) {
         if (orderIds == null || orderIds.isEmpty()) {
             List<Order> unpaid = sessionOrders.stream().filter(o -> !o.isCancelled() && !o.isPaid()).toList();
             if (unpaid.isEmpty()) throw ApiException.badRequest("Bàn không còn đơn nào chưa thanh toán.");
@@ -232,8 +246,7 @@ public class CashierService {
     }
 
     /**
-     * Ghi nhận thanh toán đã thu (PAID) + trừ điểm đã dùng (REDEEM) + cộng điểm (EARN).
-     * Điểm cộng tính trên số tiền thực trả sau giảm giá.
+     * Thu tiền mặt / chuyển khoản thủ công (thu ngân xác nhận): kiểm tra cách trả + điểm rồi ghi hóa đơn.
      */
     private void settle(Payment p, long subtotal, String method, Customer customer, Integer pointsToRedeem,
                         User cashier, TableSession session) {
@@ -242,32 +255,52 @@ public class CashierService {
             throw ApiException.badRequest("Cách thanh toán chỉ là Tiền mặt hoặc Chuyển khoản.");
         }
         int redeem = pointsToRedeem == null ? 0 : pointsToRedeem;
-        if (redeem < 0) throw ApiException.badRequest("Số điểm dùng không hợp lệ.");
-        long pointValue = pointValue();
-        if (redeem > 0) {
-            if (customer == null) throw ApiException.badRequest("Hãy chọn khách thân thiết trước khi dùng điểm.");
-            if (redeem > customer.getCurrentPoints()) {
-                throw ApiException.badRequest("Khách chỉ có " + customer.getCurrentPoints() + " điểm.");
-            }
-            long maxRedeem = subtotal / pointValue;
-            if (redeem > maxRedeem) throw ApiException.badRequest("Hóa đơn này dùng tối đa " + maxRedeem + " điểm.");
-        }
-        long discount = redeem * pointValue;
-        long amount = subtotal - discount;
+        long discount = pointsDiscount(subtotal, customer, redeem, null);
+        record(p, subtotal, discount, redeem, m, customer, cashier, session);
+    }
 
+    /**
+     * Kiểm tra số điểm khách muốn dùng và trả về số tiền được giảm (redeem x giá trị 1 điểm).
+     * Điểm đang được giữ cho mã QR chờ thanh toán khác thì không dùng được; excludeQrId = mã QR đang xét (có thể null).
+     */
+    public long pointsDiscount(long subtotal, Customer customer, int redeem, Long excludeQrId) {
+        if (redeem < 0) throw ApiException.badRequest("Số điểm dùng không hợp lệ.");
+        if (redeem == 0) return 0;
+        if (customer == null) throw ApiException.badRequest("Hãy chọn khách thân thiết trước khi dùng điểm.");
+        int held = heldPoints(customer, excludeQrId);
+        int available = Math.max(0, customer.getCurrentPoints() - held);
+        if (redeem > available) {
+            throw ApiException.badRequest(held > 0
+                    ? "Khách còn " + available + " điểm dùng được (" + held + " điểm đang giữ cho mã QR chờ thanh toán)."
+                    : "Khách chỉ có " + customer.getCurrentPoints() + " điểm.");
+        }
+        long pointValue = pointValue();
+        long maxRedeem = subtotal / pointValue;
+        if (redeem > maxRedeem) throw ApiException.badRequest("Hóa đơn này dùng tối đa " + maxRedeem + " điểm.");
+        return redeem * pointValue;
+    }
+
+    /**
+     * Ghi nhận thanh toán đã thu (PAID) + trừ điểm đã dùng (REDEEM) + cộng điểm (EARN).
+     * discount đã được kiểm tra trước (pointsDiscount). confirmedBy = thu ngân xác nhận; với QR payOS là
+     * thu ngân đã tạo mã (hệ thống tự xác nhận). Điểm cộng tính trên số tiền thực trả sau giảm giá.
+     */
+    public void record(Payment p, long subtotal, long discount, int redeem, String method, Customer customer,
+                       User confirmedBy, TableSession session) {
+        long amount = subtotal - discount;
         p.setPaymentCode(support.nextPaymentCode());
-        p.setPaymentMethod(m);
+        p.setPaymentMethod(method);
         p.setTotalAmount(amount);
         p.setPaymentStatus(Payment.PAID);
         p.setPaidAt(LocalDateTime.now());
-        p.setConfirmedBy(cashier);
+        p.setConfirmedBy(confirmedBy);
         paymentRepository.save(p);
 
         if (customer == null) return;
         int points = customer.getCurrentPoints();
         if (redeem > 0) {
             loyaltyRepository.save(LoyaltyTransaction.of(customer, p, session, -redeem, LoyaltyTransaction.REDEEM,
-                    "Dùng " + redeem + " điểm, giảm " + String.format("%,d", discount).replace(',', '.') + "đ"));
+                    "Dùng " + redeem + " điểm, giảm " + money(discount)));
             points -= redeem;
         }
         int earned = (int) (amount / vndPerPoint());
@@ -278,6 +311,27 @@ public class CashierService {
         }
         customer.setCurrentPoints(points);
         customerRepository.save(customer);
+    }
+
+    /** Chặn thu cách khác khi đơn đang nằm trong 1 mã QR payOS chờ khách quét (409). */
+    public void ensureNoPendingQr(List<Order> orders) {
+        if (orders.isEmpty()) return;
+        List<Long> ids = orders.stream().map(Order::getId).toList();
+        Set<Long> inQr = qrRepository.findPendingContaining(ids).stream()
+                .flatMap(r -> r.getOrders().stream())
+                .map(Order::getId)
+                .collect(Collectors.toSet());
+        String nums = orders.stream().filter(o -> inQr.contains(o.getId())).map(CashierService::num)
+                .collect(Collectors.joining(", "));
+        if (!nums.isEmpty()) {
+            throw ApiException.conflict(nums + " đang chờ khách quét mã QR. Hủy mã QR đó trước khi thu cách khác.");
+        }
+    }
+
+    private int heldPoints(Customer customer, Long excludeQrId) {
+        if (customer.getId() == null) return 0;
+        Long sum = qrRepository.sumHeldPoints(customer.getId(), excludeQrId == null ? -1L : excludeQrId);
+        return sum == null ? 0 : sum.intValue();
     }
 
     private Customer findCustomerOrNull(Long customerId) {
