@@ -13,9 +13,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** UC-W08 Confirm Orders as Served: Phục vụ mang món ra bàn, Thu ngân giao đơn mang đi. */
+/**
+ * UC-W08 Confirm Orders as Served.
+ * Phục vụ: theo dõi đơn tại bàn (món chờ pha / chờ mang ra), mang ra và tích TỪNG MÓN; đủ món thì đơn tự xong.
+ * Thu ngân: giao cả đơn mang đi một lần.
+ */
 @Service
 public class ServingService {
+
+    private static final List<String> ACTIVE_STATUSES =
+            List.of(Order.PENDING, Order.CONFIRMED, Order.PREPARING, Order.READY);
 
     private final OrderRepository orderRepository;
     private final OrderLockRepository lockRepository;
@@ -38,6 +45,40 @@ public class ServingService {
         return orderRepository.findByStatusAndFulfillmentTypeOrderByUpdatedAtAsc(Order.READY, t).stream()
                 .map(support::toView)
                 .toList();
+    }
+
+    /** Bảng của phục vụ: đơn tại bàn còn món chờ pha hoặc chờ mang ra, đơn đến trước nằm trên. */
+    @Transactional(readOnly = true)
+    public List<OrderView> waiterBoard() {
+        return orderRepository.findByStatusInOrderByCreatedAtAsc(ACTIVE_STATUSES).stream()
+                .filter(o -> Order.DINE_IN.equals(o.getFulfillmentType()))
+                .map(support::toView)
+                .toList();
+    }
+
+    /**
+     * Phục vụ mang 1 món ra bàn: món Chờ mang ra -> Đã mang ra. Mọi món đã mang ra thì đơn tự sang Đã phục vụ;
+     * mọi đơn của bàn đã phục vụ và đã thanh toán thì bàn tự trả về trống.
+     */
+    @Transactional
+    public OrderView serveItem(Long orderId, Long itemId) {
+        Order o = lockRepository.findWithLockById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn id = " + orderId));
+        if (!Order.DINE_IN.equals(o.getFulfillmentType())) {
+            throw ApiException.badRequest("Phục vụ chỉ mang ra món của đơn tại bàn.");
+        }
+        OrderItem line = o.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Món không thuộc đơn này."));
+        if (!OrderItem.READY.equals(line.getItemStatus())) {
+            throw ApiException.badRequest("Món " + line.getMenuItem().getName() + " chưa pha xong hoặc đã được mang ra.");
+        }
+        line.setItemStatus(OrderItem.SERVED);
+        o.syncStatusFromItems();
+        orderRepository.save(o);
+        if (o.isServed()) support.closeSessionIfSettled(o.getTableSession());
+        return support.toView(o);
     }
 
     /**

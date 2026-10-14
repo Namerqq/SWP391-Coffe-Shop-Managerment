@@ -8,34 +8,46 @@ import com.example.project.entity.OrderItem;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.MenuItemRepository;
+import com.example.project.repository.OrderItemRepository;
+import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * UC-B01 Process Orders, UC-B02 View Orders details, UC-B03 Update Order status.
- * Theo BF-02: thiếu nguyên liệu thì Pha chế hủy đơn còn chờ pha (bắt buộc ghi lý do).
+ * Pha chế theo TỪNG MÓN (không còn bước "Bắt đầu pha"): tích món pha xong -> món sang Chờ mang ra ngay,
+ * đơn tự đổi trạng thái theo các món (Order.syncStatusFromItems).
+ * Theo BF-02: thiếu nguyên liệu thì Pha chế hủy món còn chờ pha; hủy hết món thì đơn tự hủy.
  */
 @Service
 public class BaristaService {
 
     private static final List<String> BOARD_STATUSES =
             List.of(Order.PENDING, Order.CONFIRMED, Order.PREPARING, Order.READY);
+    private static final String OUT_OF_STOCK = "Hết nguyên liệu";
 
     private final OrderRepository orderRepository;
+    private final OrderLockRepository lockRepository;
+    private final OrderItemRepository itemRepository;
     private final MenuItemRepository menuItemRepository;
     private final OrderSupportService support;
 
-    public BaristaService(OrderRepository orderRepository, MenuItemRepository menuItemRepository,
+    public BaristaService(OrderRepository orderRepository, OrderLockRepository lockRepository,
+                          OrderItemRepository itemRepository, MenuItemRepository menuItemRepository,
                           OrderSupportService support) {
         this.orderRepository = orderRepository;
+        this.lockRepository = lockRepository;
+        this.itemRepository = itemRepository;
         this.menuItemRepository = menuItemRepository;
         this.support = support;
     }
 
-    /** Đơn trên bảng pha chế (Chờ pha / Đang pha / Chờ mang ra), đơn đến trước nằm trên. */
+    /** Đơn còn món chờ pha hoặc chờ mang ra, đơn đến trước nằm trên. Frontend chia món vào 2 cột. */
     @Transactional(readOnly = true)
     public List<OrderView> board() {
         return orderRepository.findByStatusInOrderByCreatedAtAsc(BOARD_STATUSES).stream()
@@ -49,50 +61,73 @@ public class BaristaService {
         return support.toView(find(id));
     }
 
-    /** Chờ pha -> Đang pha. */
+    /**
+     * Tích (done = true): món chờ pha -> Chờ mang ra. Bỏ tích (done = false): món chờ mang ra -> Chờ pha
+     * (chỉ khi phục vụ chưa mang ra). Đọc đơn kèm khóa dòng để không chồng lên thao tác của phục vụ / thu ngân.
+     */
     @Transactional
-    public OrderView start(Long id) {
-        Order o = find(id);
-        if (!visibleToBarista(o) || !o.isWaitingForPreparation()) {
-            throw ApiException.badRequest("Đơn " + num(o) + " không còn ở trạng thái Chờ pha.");
+    public OrderView checkItem(Long orderId, Long itemId, boolean done) {
+        Order o = findForUpdate(orderId);
+        OrderItem line = findLine(o, itemId);
+        if (done) {
+            if (!line.isWaitingForPreparation()) throw ApiException.badRequest("Món này không còn ở trạng thái Chờ pha.");
+            line.setItemStatus(OrderItem.READY);
+        } else {
+            if (!OrderItem.READY.equals(line.getItemStatus())) {
+                throw ApiException.badRequest("Món này đã được mang ra hoặc chưa pha xong, không bỏ tích được.");
+            }
+            line.setItemStatus(OrderItem.PENDING);
         }
-        o.moveTo(Order.PREPARING, OrderItem.PREPARING);
+        o.syncStatusFromItems();
         return support.toView(orderRepository.save(o));
     }
 
     /**
-     * Tích / bỏ tích 1 món đã pha xong. Mọi món (chưa hủy) đều đã tích -> đơn tự chuyển Đang pha -> Chờ mang ra.
-     * Đây là cách DUY NHẤT để đơn sang Chờ mang ra, nên không thể báo xong khi còn món chưa pha.
+     * Tích xong cùng lúc nhiều món (ô tích ở "Tổng cần pha", vd mọi ly Matcha đang chờ).
+     * Món nào trong lúc đó đã bị hủy / đã được tích thì bỏ qua. Trả về bảng pha chế mới.
      */
     @Transactional
-    public OrderView checkItem(Long orderId, Long itemId, boolean done) {
-        Order o = find(orderId);
-        if (!Order.PREPARING.equals(o.getStatus())) {
-            throw ApiException.badRequest("Đơn " + num(o) + " chưa bắt đầu pha hoặc đã pha xong.");
+    public List<OrderView> checkItems(List<Long> itemIds) {
+        Set<Long> wanted = new HashSet<>(itemIds);
+        List<Long> orderIds = itemRepository.findAllById(wanted).stream()
+                .map(i -> i.getOrder().getId())
+                .distinct()
+                .sorted()                       // khóa đơn theo thứ tự id để 2 người tích cùng lúc không chờ nhau mãi
+                .toList();
+        if (orderIds.isEmpty()) throw new ResourceNotFoundException("Không tìm thấy món cần tích.");
+        for (Long id : orderIds) {
+            Order o = findForUpdate(id);
+            o.getItems().stream()
+                    .filter(i -> wanted.contains(i.getId()) && i.isWaitingForPreparation())
+                    .forEach(i -> i.setItemStatus(OrderItem.READY));
+            o.syncStatusFromItems();
+            orderRepository.save(o);
         }
-        OrderItem line = o.getItems().stream()
-                .filter(i -> i.getId().equals(itemId))
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Món không thuộc đơn này."));
-        if (OrderItem.CANCELLED.equals(line.getItemStatus())) {
-            throw ApiException.badRequest("Món này đã bị hủy.");
-        }
-        line.setItemStatus(done ? OrderItem.READY : OrderItem.PREPARING);
-
-        boolean allDone = o.getItems().stream()
-                .filter(i -> !OrderItem.CANCELLED.equals(i.getItemStatus()))
-                .allMatch(i -> OrderItem.READY.equals(i.getItemStatus()));
-        if (allDone) o.moveTo(Order.READY, OrderItem.READY);
-        return support.toView(orderRepository.save(o));
+        return board();
     }
 
-    /** Hết nguyên liệu: hủy đơn còn chờ pha. */
+    /**
+     * BF-02: thiếu nguyên liệu -> hủy 1 món còn chờ pha. Tiền món bị hủy không tính (activeTotal).
+     * Hủy hết món thì đơn tự hủy; bàn không còn đơn nào thì trả bàn về trống.
+     * Đơn đã thu tiền thì không hủy ở đây (cần hoàn tiền) -> báo thu ngân.
+     */
     @Transactional
-    public OrderView cancelOutOfStock(Long id, String reason) {
-        String r = OrderSupportService.blankToNull(reason);
-        if (r == null) throw ApiException.badRequest("Vui lòng ghi rõ nguyên liệu bị thiếu.");
-        Order o = find(id);
-        support.cancelPendingOrder(o, "Hết nguyên liệu: " + r);
+    public OrderView cancelItem(Long orderId, Long itemId) {
+        Order o = findForUpdate(orderId);
+        OrderItem line = findLine(o, itemId);
+        if (!line.isWaitingForPreparation()) {
+            throw ApiException.badRequest("Chỉ hủy được món còn chờ pha (món đã pha xong không hủy được).");
+        }
+        if (o.isPaid()) {
+            throw ApiException.badRequest("Đơn " + num(o) + " đã thanh toán, hủy món cần hoàn tiền. Vui lòng báo thu ngân.");
+        }
+        line.setItemStatus(OrderItem.CANCELLED);
+        o.recalcTotal();
+        o.syncStatusFromItems();
+        if (o.isCancelled()) o.setCancelReason(OUT_OF_STOCK);
+        orderRepository.saveAndFlush(o);
+        support.closeSessionIfEmpty(o.getTableSession());
+        support.closeSessionIfSettled(o.getTableSession());
         return support.toView(o);
     }
 
@@ -111,6 +146,23 @@ public class BaristaService {
     private Order find(Long id) {
         return orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn id = " + id));
+    }
+
+    /** Đơn pha chế được thao tác: đọc kèm khóa dòng, phải đang hiện trên bảng pha chế. */
+    private Order findForUpdate(Long id) {
+        Order o = lockRepository.findWithLockById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn id = " + id));
+        if (!BOARD_STATUSES.contains(o.getStatus()) || !visibleToBarista(o)) {
+            throw ApiException.badRequest("Đơn " + num(o) + " không còn trên bảng pha chế.");
+        }
+        return o;
+    }
+
+    private static OrderItem findLine(Order o, Long itemId) {
+        return o.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Món không thuộc đơn này."));
     }
 
     private static String num(Order o) {

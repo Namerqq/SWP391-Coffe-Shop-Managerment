@@ -11,7 +11,7 @@ export const danmtNav = {
     subtitle: 'Phục vụ',
     items: [
       { to: '/waiter', label: 'Sơ đồ bàn', icon: 'bi-grid-3x3-gap', end: true },
-      { to: '/waiter/ready', label: 'Món chờ mang ra', icon: 'bi-bell' },
+      { to: '/waiter/ready', label: 'Chờ pha & mang ra', icon: 'bi-bell' },
     ],
   },
   CASHIER: {

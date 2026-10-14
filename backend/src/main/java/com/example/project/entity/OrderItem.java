@@ -68,6 +68,18 @@ public class OrderItem {
         this.subtotal = quantity * (unitPrice + sizePrice + toppingPrice);
     }
 
+    /** Món còn chờ pha (PREPARING: đơn cũ đã bấm "Bắt đầu pha" trước khi bỏ bước này). */
+    public boolean isWaitingForPreparation() {
+        return PENDING.equals(itemStatus) || PREPARING.equals(itemStatus);
+    }
+
+    /** Món đã pha xong (đang chờ mang ra hoặc đã mang ra). */
+    public boolean isDone() {
+        return READY.equals(itemStatus) || SERVED.equals(itemStatus);
+    }
+
+    public boolean isCancelled() { return CANCELLED.equals(itemStatus); }
+
     public Long getId() { return id; }
     public Order getOrder() { return order; }
     public void setOrder(Order order) { this.order = order; }
