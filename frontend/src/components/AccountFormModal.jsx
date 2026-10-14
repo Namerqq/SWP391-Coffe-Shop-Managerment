@@ -4,7 +4,7 @@ import adminApi from '../api/adminApi'
 import { errorMessage } from '../api/axiosClient'
 import { roleLabel } from '../utils/format'
 
-const EMPTY = { fullName: '', username: '', email: '', password: '', roleId: '' }
+const EMPTY = { fullName: '', username: '', email: '', password: '', confirmPassword: '', roleId: '' }
 
 /**
  * Thêm tài khoản (account = null) hoặc Cập nhật thông tin tài khoản (UC-AD03).
@@ -21,7 +21,7 @@ export default function AccountFormModal({ show, account, roles, onClose, onSave
   useEffect(() => {
     if (!show) return
     setForm(account
-      ? { fullName: account.fullName, username: account.username, email: account.email, password: '', roleId: account.roleId }
+      ? { fullName: account.fullName, username: account.username, email: account.email, password: '', confirmPassword: '', roleId: account.roleId }
       : { ...EMPTY, roleId: roles.find((r) => r.name !== 'ADMIN')?.id || '' })
     setErrors({})
     setError('')
@@ -36,6 +36,10 @@ export default function AccountFormModal({ show, account, roles, onClose, onSave
     if (!/^[a-zA-Z0-9._]{3,50}$/.test(form.username.trim())) e.username = '3-50 ký tự, chỉ gồm chữ, số, dấu . và _'
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) e.email = 'Email không hợp lệ'
     if (!isEdit && !form.password) e.password = 'Vui lòng nhập mật khẩu'
+    if (!isEdit && !form.confirmPassword)
+      e.confirmPassword = 'Vui lòng xác nhận mật khẩu'
+    if (form.password !== form.confirmPassword)
+      e.confirmPassword = 'Mật khẩu xác nhận không khớp'
     if (!isEdit && !form.roleId) e.roleId = 'Vui lòng chọn vai trò'
     setErrors(e)
     return Object.keys(e).length === 0
@@ -49,8 +53,8 @@ export default function AccountFormModal({ show, account, roles, onClose, onSave
     try {
       const res = isEdit
         ? await adminApi.updateUser(account.id, {
-            fullName: form.fullName, username: form.username, email: form.email, newPassword: form.password,
-          })
+          fullName: form.fullName, username: form.username, email: form.email, newPassword: form.password,
+        })
         : await adminApi.createUser({ ...form, roleId: Number(form.roleId) })
       onSaved(res.data)
     } catch (e) {
@@ -69,7 +73,7 @@ export default function AccountFormModal({ show, account, roles, onClose, onSave
     <div className="mb-3">
       <label className="form-label" htmlFor={`f-${name}`}>{label}</label>
       <input id={`f-${name}`} className={`form-control ${errors[name] ? 'is-invalid' : ''}`}
-             value={form[name]} onChange={set(name)} {...props} />
+        value={form[name]} onChange={set(name)} {...props} />
       {errors[name] && <div className="invalid-feedback">{errors[name]}</div>}
     </div>
   )
@@ -101,17 +105,41 @@ export default function AccountFormModal({ show, account, roles, onClose, onSave
           <label className="form-label" htmlFor="f-password">{isEdit ? 'Đặt lại mật khẩu' : 'Mật khẩu'}</label>
           <div className="input-group">
             <input id="f-password" type={showPw ? 'text' : 'password'} autoComplete="new-password"
-                   className={`form-control ${errors.password ? 'is-invalid' : ''}`}
-                   placeholder={isEdit ? 'Để trống nếu giữ mật khẩu cũ' : 'Tối thiểu 6 ký tự'}
-                   value={form.password} onChange={set('password')} />
+              className={`form-control ${errors.password ? 'is-invalid' : ''}`}
+              placeholder={isEdit ? 'Để trống nếu giữ mật khẩu cũ' : 'Tối thiểu 6 ký tự'}
+              value={form.password} onChange={set('password')} />
             <button type="button" className="btn btn-light-soft" onClick={() => setShowPw((s) => !s)}
-                    aria-label={showPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
+              aria-label={showPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
               <i className={`bi ${showPw ? 'bi-eye-slash' : 'bi-eye'}`} />
             </button>
             {errors.password && <div className="invalid-feedback">{errors.password}</div>}
           </div>
         </div>
+        <div className="mb-3">
+          <label
+            className="form-label"
+            htmlFor="f-confirmPassword"
+          >
+            Xác nhận mật khẩu
+          </label>
 
+          <input
+            id="f-confirmPassword"
+            type={showPw ? 'text' : 'password'}
+            className={`form-control ${errors.confirmPassword ? 'is-invalid' : ''
+              }`}
+            placeholder="Nhập lại mật khẩu"
+            value={form.confirmPassword}
+            onChange={set('confirmPassword')}
+          />
+
+          {errors.confirmPassword && (
+            <div className="invalid-feedback">
+              {errors.confirmPassword}
+            </div>
+          )}
+        </div>
+        
         {!isEdit && (
           <div className="mb-1">
             <label className="form-label" htmlFor="f-role">Vai trò</label>

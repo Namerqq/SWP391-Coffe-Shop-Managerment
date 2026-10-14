@@ -9,5 +9,6 @@ public record UserCreateRequest(
         String username,
         @NotBlank(message = "Email không được để trống") @Email(message = "Email không hợp lệ") @Size(max = 150) String email,
         @NotBlank(message = "Mật khẩu không được để trống") @Size(max = 72) String password,
+        @NotBlank(message = "Vui lòng xác nhận mật khẩu") @Size(max = 72) String confirmPassword,
         @NotNull(message = "Vui lòng chọn vai trò") Long roleId
 ) {}

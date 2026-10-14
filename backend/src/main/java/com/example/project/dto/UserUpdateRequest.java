@@ -9,5 +9,6 @@ public record UserUpdateRequest(
         @Pattern(regexp = "^[a-zA-Z0-9._]{3,50}$", message = "Tên đăng nhập 3-50 ký tự, chỉ gồm chữ, số, dấu . và _")
         String username,
         @NotBlank(message = "Email không được để trống") @Email(message = "Email không hợp lệ") @Size(max = 150) String email,
-        @Size(max = 72) String newPassword
+        @Size(max = 72) String newPassword,
+        @Size(max = 72) String confirmPassword
 ) {}

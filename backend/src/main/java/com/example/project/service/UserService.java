@@ -57,6 +57,7 @@ public class UserService {
     public UserResponse create(UserCreateRequest req) {
         checkUnique(req.username(), req.email(), null);
         checkPassword(req.password());
+        checkPasswordConfirm(req.password(), req.confirmPassword());
         User u = new User();
         u.setFullName(req.fullName().trim());
         u.setUsername(req.username().trim());
@@ -77,6 +78,7 @@ public class UserService {
         u.setEmail(req.email().trim().toLowerCase());
         if (req.newPassword() != null && !req.newPassword().isBlank()) {
             checkPassword(req.newPassword());
+           checkPasswordConfirm(req.newPassword(), req.confirmPassword());
             u.setPasswordHash(passwordEncoder.encode(req.newPassword()));
             tokenStore.revokeAllOfExcept(id, currentToken); // đổi mật khẩu -> đăng xuất mọi nơi (trừ phiên đang thao tác)
         }
@@ -160,6 +162,11 @@ public class UserService {
         long min = settings.passwordMinLength();
         if (password.length() < min) throw ApiException.badRequest("Mật khẩu phải có ít nhất " + min + " ký tự.");
     }
+    private void checkPasswordConfirm(String password, String confirmPassword) {
+    if (!password.equals(confirmPassword)) {
+        throw ApiException.badRequest("Mật khẩu xác nhận không khớp.");
+    }
+}
 
     private User findOrThrow(Long id) {
         return userRepository.findById(id)
