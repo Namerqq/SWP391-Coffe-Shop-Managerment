@@ -6,6 +6,7 @@ import { formatDateTime } from '../../utils/format'
 import InventoryItemModal from './InventoryItemModal'
 import StockInModal from './StockInModal'
 import StockOutModal from './StockOutModal'
+import StockHistoryModal from './StockHistoryModal'
 
 export default function InventoryList() {
   const { addToast } = useToast()
@@ -13,12 +14,14 @@ export default function InventoryList() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('ALL') // ALL, LOW_STOCK
+  const [searchQuery, setSearchQuery] = useState('')
   const [lowStockCount, setLowStockCount] = useState(0)
   
   // Modal states
   const [showItemModal, setShowItemModal] = useState(false)
   const [showStockInModal, setShowStockInModal] = useState(false)
   const [showStockOutModal, setShowStockOutModal] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
 
   const loadData = async () => {
@@ -65,6 +68,11 @@ export default function InventoryList() {
     setShowStockOutModal(true)
   }
 
+  const handleOpenHistory = (item) => {
+    setSelectedItem(item)
+    setShowHistoryModal(true)
+  }
+
   const handleSuccess = () => {
     setShowItemModal(false)
     setShowStockInModal(false)
@@ -72,17 +80,20 @@ export default function InventoryList() {
     loadData()
   }
 
+  // Filter items by search query
+  const filteredItems = items.filter(item => {
+    if (!searchQuery.trim()) return true
+    return item.itemName.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  })
+
   return (
     <div className="inventory-page">
       <div className="inventory-header">
         <div>
           <h1 className="page-title">Kho nguyên liệu</h1>
-          <p className="page-subtitle mb-0">Số tồn chỉ thay đổi qua nhập kho (quản lý) và xuất kho (pha chế); mọi lần thay đổi đều được ghi lịch sử</p>
+          <p className="page-subtitle mb-0">Quản lý số tồn, định mức cảnh báo và lịch sử nhập/xuất/cân chỉnh kho minh bạch</p>
         </div>
         <div className="d-flex gap-2">
-          <button className="btn btn-light-soft d-flex align-items-center gap-2">
-            <i className="bi bi-clock-history" /> Lịch sử
-          </button>
           <button className="btn btn-primary d-flex align-items-center gap-2" onClick={handleOpenAdd}>
             <i className="bi bi-plus-lg" /> Thêm nguyên liệu
           </button>
@@ -90,27 +101,53 @@ export default function InventoryList() {
       </div>
 
       <div className="cf-card p-4">
-        <div className="inventory-filters">
-          <button 
-            className={`filter-btn ${filter === 'ALL' ? 'active' : ''}`}
-            onClick={() => setFilter('ALL')}
-          >
-            Tất cả
-          </button>
-          <button 
-            className={`filter-btn ${filter === 'LOW_STOCK' ? 'active' : ''}`}
-            onClick={() => setFilter('LOW_STOCK')}
-          >
-            Sắp hết {lowStockCount > 0 && `(${lowStockCount})`}
-          </button>
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+          <div className="inventory-filters mb-0">
+            <button 
+              className={`filter-btn ${filter === 'ALL' ? 'active' : ''}`}
+              onClick={() => setFilter('ALL')}
+            >
+              Tất cả
+            </button>
+            <button 
+              className={`filter-btn ${filter === 'LOW_STOCK' ? 'active' : ''}`}
+              onClick={() => setFilter('LOW_STOCK')}
+            >
+              Sắp hết {lowStockCount > 0 && `(${lowStockCount})`}
+            </button>
+          </div>
+
+          <div className="search-box" style={{ maxWidth: '280px', width: '100%' }}>
+            <div className="input-group">
+              <span className="input-group-text bg-white border-end-0">
+                <i className="bi bi-search text-muted" />
+              </span>
+              <input 
+                type="text" 
+                className="form-control border-start-0 ps-0" 
+                placeholder="Tìm tên nguyên liệu..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button 
+                  className="btn btn-outline-secondary border-start-0" 
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <i className="bi bi-x" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {loading ? (
           <div className="text-center py-5"><div className="spinner-border text-primary" /></div>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <div className="empty-state">
             <i className="bi bi-box-seam" />
-            <div>Không có nguyên liệu nào</div>
+            <div>{searchQuery ? 'Không tìm thấy nguyên liệu phù hợp với từ khóa' : 'Không có nguyên liệu nào'}</div>
           </div>
         ) : (
           <div className="table-responsive">
@@ -126,7 +163,7 @@ export default function InventoryList() {
                 </tr>
               </thead>
               <tbody>
-                {items.map(item => (
+                {filteredItems.map(item => (
                   <tr key={item.id}>
                     <td className="fw-medium">{item.itemName}</td>
                     <td className="text-end fw-bold">
@@ -154,6 +191,8 @@ export default function InventoryList() {
                         <button type="button" className="text-warning-emphasis" onClick={() => handleOpenStockOut(item)}>Giảm</button>
                         <span className="separator">|</span>
                         <button type="button" onClick={() => handleOpenEdit(item)}>Sửa</button>
+                        <span className="separator">|</span>
+                        <button type="button" className="text-secondary" onClick={() => handleOpenHistory(item)}>Lịch sử</button>
                       </div>
                     </td>
                   </tr>
@@ -182,6 +221,12 @@ export default function InventoryList() {
         show={showStockOutModal}
         onClose={() => setShowStockOutModal(false)}
         onSuccess={handleSuccess}
+        item={selectedItem}
+      />
+
+      <StockHistoryModal
+        show={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
         item={selectedItem}
       />
     </div>
