@@ -6,6 +6,8 @@ const waiterApi = {
   updateItem: (orderId, itemId, data) => axiosClient.put(`/waiter/orders/${orderId}/items/${itemId}`, data),
   removeItem: (orderId, itemId) => axiosClient.delete(`/waiter/orders/${orderId}/items/${itemId}`),
   cancelOrder: (orderId, reason) => axiosClient.patch(`/waiter/orders/${orderId}/cancel`, { reason }),
+  changeTable: (currentTableId, targetTableId) =>
+    axiosClient.put(`/waiter/tables/${currentTableId}/change-table`, { targetTableId }),
 }
 
 export default waiterApi

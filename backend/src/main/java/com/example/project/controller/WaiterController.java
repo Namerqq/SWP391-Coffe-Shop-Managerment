@@ -2,14 +2,16 @@ package com.example.project.controller;
 
 import com.example.project.dto.order.OrderItemRequest;
 import com.example.project.dto.order.OrderView;
+import com.example.project.dto.order.SessionView;
 import com.example.project.dto.waiter.CancelOrderRequest;
+import com.example.project.dto.waiter.ChangeTableRequest;
 import com.example.project.security.RequireRole;
 import com.example.project.service.WaiterService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Màn hình Phục vụ: sửa / bỏ món, hủy đơn còn chờ pha.
+ * Màn hình Phục vụ: sửa / bỏ món, hủy đơn còn chờ pha, đổi bàn cho khách (SRS screen #20).
  * Sơ đồ bàn và chi tiết bàn dùng API chung /api/staff/tables (StaffController).
  */
 @RestController
@@ -39,5 +41,12 @@ public class WaiterController {
     public OrderView cancel(@PathVariable Long orderId,
                             @Valid @RequestBody(required = false) CancelOrderRequest req) {
         return service.cancel(orderId, req == null ? null : req.reason());
+    }
+
+    /** Đổi bàn cho khách (SRS #20 Change Table): chuyển lượt khách sang bàn trống khác. */
+    @PutMapping("/tables/{tableId}/change-table")
+    public SessionView changeTable(@PathVariable Long tableId,
+                                   @Valid @RequestBody ChangeTableRequest req) {
+        return service.changeTable(tableId, req.targetTableId());
     }
 }

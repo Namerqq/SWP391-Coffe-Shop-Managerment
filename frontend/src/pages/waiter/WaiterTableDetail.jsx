@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import staffApi from '../../api/staffApi'
 import waiterApi from '../../api/waiterApi'
 import { errorMessage } from '../../api/axiosClient'
@@ -11,12 +11,14 @@ import StatusPill from '../../components/order/StatusPill'
 import { formatMoney, formatTime, isWaiting, itemOptionsText } from '../../utils/orderFormat'
 import { findMenuItem, toItemRequest } from '../../utils/orderOptions'
 import CancelOrderModal from './CancelOrderModal'
+import ChangeTableModal from './ChangeTableModal'
 import '../../styles/danmt.css'
 
-// Order Detail & Edit Pending Order (Waiter) — UC-W05, UC-W06, UC-W07.
+// Order Detail & Edit Pending Order (Waiter) — UC-W05, UC-W06, UC-W07, SRS #20 Change Table.
 // Chỉ đơn "Chờ pha" mới sửa / bỏ món / hủy được (GB-02).
 export default function WaiterTableDetail() {
   const { tableId } = useParams()
+  const navigate = useNavigate()
   const toast = useToast()
   const [session, setSession] = useState(null)
   const [vacantMsg, setVacantMsg] = useState('')
@@ -26,6 +28,7 @@ export default function WaiterTableDetail() {
   const [removing, setRemoving] = useState(null) // { order, line }
   const [removingBusy, setRemovingBusy] = useState(false)
   const [cancelling, setCancelling] = useState(null)
+  const [changingTable, setChangingTable] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -131,9 +134,21 @@ export default function WaiterTableDetail() {
   return (
     <>
       {back}
-      <div className="mb-4">
-        <h1 className="page-title">{session.tableNumber}</h1>
-        <p className="page-subtitle">Lượt khách {session.sessionCode}, vào lúc {formatTime(session.openedAt)}</p>
+      <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+          <div className="d-flex align-items-center gap-3">
+            <h1 className="page-title mb-0">{session.tableNumber}</h1>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              title="Đổi bàn cho khách"
+              onClick={() => setChangingTable(true)}
+            >
+              <i className="bi bi-arrow-left-right me-1" /> Đổi bàn
+            </button>
+          </div>
+          <p className="page-subtitle mt-1 mb-0">Lượt khách {session.sessionCode}, vào lúc {formatTime(session.openedAt)}</p>
+        </div>
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
@@ -223,6 +238,12 @@ export default function WaiterTableDetail() {
                     onClose={() => !removingBusy && setRemoving(null)} onConfirm={confirmRemove} />
       <CancelOrderModal show={!!cancelling} order={cancelling} placeholder="VD: Khách đổi ý"
                         onClose={() => setCancelling(null)} onConfirm={confirmCancel} />
+      <ChangeTableModal show={changingTable} session={session} onClose={() => setChangingTable(false)}
+                        onSuccess={(targetTable) => {
+                          setChangingTable(false)
+                          toast(`Đã chuyển lượt khách sang ${targetTable.tableNumber}`)
+                          navigate(`/waiter/tables/${targetTable.tableId}`, { replace: true })
+                        }} />
     </>
   )
 }

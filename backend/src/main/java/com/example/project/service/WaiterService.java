@@ -2,28 +2,45 @@ package com.example.project.service;
 
 import com.example.project.dto.order.OrderItemRequest;
 import com.example.project.dto.order.OrderView;
+import com.example.project.dto.order.SessionView;
+import com.example.project.entity.CafeTable;
 import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
+import com.example.project.entity.TableSession;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
+import com.example.project.repository.CafeTableRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
+import com.example.project.repository.TableSessionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** UC-W05 Modifying Pending Orders, UC-W06 Change item details, UC-W07 Cancel pending orders. */
+import java.util.List;
+
+/**
+ * UC-W05 Modifying Pending Orders, UC-W06 Change item details, UC-W07 Cancel pending orders.
+ * Hỗ trợ đổi bàn cho khách (chuyển lượt khách / session sang bàn trống khác).
+ */
 @Service
 public class WaiterService {
 
     private final OrderRepository orderRepository;
     private final OrderLockRepository lockRepository;
     private final OrderSupportService support;
+    private final CafeTableRepository tableRepository;
+    private final TableSessionRepository sessionRepository;
+    private final TableBoardService tableBoardService;
 
     public WaiterService(OrderRepository orderRepository, OrderLockRepository lockRepository,
-                         OrderSupportService support) {
+                         OrderSupportService support, CafeTableRepository tableRepository,
+                         TableSessionRepository sessionRepository, TableBoardService tableBoardService) {
         this.orderRepository = orderRepository;
         this.lockRepository = lockRepository;
         this.support = support;
+        this.tableRepository = tableRepository;
+        this.sessionRepository = sessionRepository;
+        this.tableBoardService = tableBoardService;
     }
 
     /** Sửa số lượng / size / đường / đá / topping / ghi chú của 1 món (giá tính lại theo menu hiện tại). */
@@ -96,5 +113,53 @@ public class WaiterService {
                 .filter(i -> i.getId().equals(itemId))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("Món không thuộc đơn này."));
+    }
+
+    /**
+     * Hỗ trợ đổi bàn cho khách: chuyển lượt khách (session) từ bàn hiện tại sang bàn trống khác.
+     * Mọi đơn của lượt khách này tự động thuộc về bàn mới; bàn cũ trả về trống, bàn mới chuyển sang có khách.
+     */
+    @Transactional
+    public SessionView changeTable(Long currentTableId, Long targetTableId) {
+        if (currentTableId == null || targetTableId == null) {
+            throw ApiException.badRequest("Mã bàn không hợp lệ.");
+        }
+        if (currentTableId.equals(targetTableId)) {
+            throw ApiException.badRequest("Bàn chuyển đến phải khác bàn hiện tại.");
+        }
+
+        CafeTable currentTable = tableRepository.findById(currentTableId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bàn hiện tại id = " + currentTableId));
+
+        TableSession session = sessionRepository.findFirstByTable_IdAndStatusIn(currentTableId,
+                        List.of(TableSession.OPEN, TableSession.PAYMENT_PENDING))
+                .orElseThrow(() -> ApiException.badRequest("Bàn " + currentTable.getTableNumber() + " hiện không có khách để đổi."));
+
+        CafeTable targetTable = tableRepository.findById(targetTableId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bàn đích id = " + targetTableId));
+
+        if (!Boolean.TRUE.equals(targetTable.getActive()) || CafeTable.UNAVAILABLE.equals(targetTable.getStatus())) {
+            throw ApiException.badRequest("Bàn " + targetTable.getTableNumber() + " đang tạm ngưng phục vụ.");
+        }
+
+        boolean targetBusy = sessionRepository.findFirstByTable_IdAndStatusIn(targetTableId,
+                List.of(TableSession.OPEN, TableSession.PAYMENT_PENDING)).isPresent();
+        if (targetBusy || CafeTable.OCCUPIED.equals(targetTable.getStatus())) {
+            throw ApiException.badRequest("Bàn " + targetTable.getTableNumber() + " đang có khách, không thể đổi sang bàn này.");
+        }
+
+        // 1. Trả bàn cũ về AVAILABLE
+        currentTable.setStatus(CafeTable.AVAILABLE);
+        tableRepository.save(currentTable);
+
+        // 2. Chuyển bàn mới sang OCCUPIED
+        targetTable.setStatus(CafeTable.OCCUPIED);
+        tableRepository.save(targetTable);
+
+        // 3. Gắn session sang bàn mới
+        session.setTable(targetTable);
+        sessionRepository.save(session);
+
+        return tableBoardService.toSessionView(session);
     }
 }
