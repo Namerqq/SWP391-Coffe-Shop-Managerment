@@ -243,7 +243,6 @@ CREATE TABLE payments (
   paid_at          DATETIME,
   created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_payments_code UNIQUE (payment_code),
-  CONSTRAINT uq_payments_session UNIQUE (table_session_id),
   CONSTRAINT uq_payments_order UNIQUE (order_id),
   CONSTRAINT chk_payments_method CHECK (payment_method IN ('CASH','BANK_TRANSFER')),
   CONSTRAINT chk_payments_amount CHECK (total_amount >= 0),
