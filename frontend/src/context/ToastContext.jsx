@@ -2,15 +2,25 @@ import { createContext, useCallback, useContext, useState } from 'react'
 
 const ToastContext = createContext(null)
 
-// toast('Đã lưu')  hoặc  toast('Lỗi...', 'error')
+// toast('Đã lưu')  hoặc  toast('Lỗi...', 'error')  hoặc  toast({ message, type })
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
 
-  const show = useCallback((message, type = 'success') => {
+  const show = useCallback((messageOrObj, maybeType = 'success') => {
+    let message = messageOrObj
+    let type = maybeType
+    if (typeof messageOrObj === 'object' && messageOrObj !== null) {
+      message = messageOrObj.message
+      type = messageOrObj.type || 'success'
+    }
     const id = Date.now() + Math.random()
     setToasts((t) => [...t, { id, message, type }])
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500)
   }, [])
+
+  // Hỗ trợ cả 2 kiểu dùng: const toast = useToast() HOẶC const { addToast } = useToast()
+  show.addToast = show
+  show.show = show
 
   return (
     <ToastContext.Provider value={show}>

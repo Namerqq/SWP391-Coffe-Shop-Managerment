@@ -77,6 +77,7 @@ export default function InventoryList() {
     setShowItemModal(false)
     setShowStockInModal(false)
     setShowStockOutModal(false)
+    setSelectedItem(null)
     loadData()
   }
 
@@ -94,6 +95,14 @@ export default function InventoryList() {
           <p className="page-subtitle mb-0">Quản lý số tồn, định mức cảnh báo và lịch sử nhập/xuất/cân chỉnh kho minh bạch</p>
         </div>
         <div className="d-flex gap-2">
+          <button 
+            type="button" 
+            className="btn btn-light-soft d-flex align-items-center gap-2"
+            onClick={loadData}
+            title="Tải lại dữ liệu mới nhất từ hệ thống"
+          >
+            <i className={`bi bi-arrow-clockwise ${loading ? 'spin' : ''}`} /> Làm mới
+          </button>
           <button className="btn btn-primary d-flex align-items-center gap-2" onClick={handleOpenAdd}>
             <i className="bi bi-plus-lg" /> Thêm nguyên liệu
           </button>

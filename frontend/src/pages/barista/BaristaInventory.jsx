@@ -4,7 +4,7 @@ import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 
 export default function BaristaInventory() {
-  const { addToast } = useToast()
+  const toast = useToast()
   
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -15,7 +15,7 @@ export default function BaristaInventory() {
       const res = await inventoryApi.baristaList()
       setItems(res.data)
     } catch (err) {
-      addToast({ message: errorMessage(err), type: 'error' })
+      toast(errorMessage(err), 'error')
     } finally {
       setLoading(false)
     }

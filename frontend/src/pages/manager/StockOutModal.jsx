@@ -4,7 +4,7 @@ import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 
 export default function StockOutModal({ show, onClose, onSuccess, item }) {
-  const { addToast } = useToast()
+  const toast = useToast()
   
   const [quantity, setQuantity] = useState('')
   const [reasonType, setReasonType] = useState('ADJUSTMENT')
@@ -28,15 +28,12 @@ export default function StockOutModal({ show, onClose, onSuccess, item }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!quantity || reduceQty <= 0) {
-      addToast({ message: 'Số lượng giảm phải lớn hơn 0', type: 'error' })
+      toast('Số lượng giảm phải lớn hơn 0', 'error')
       return
     }
 
     if (reduceQty > currentQty) {
-      addToast({ 
-        message: `Số lượng giảm (${reduceQty}) vượt quá tồn hiện tại (${currentQty} ${item.unit})`, 
-        type: 'error' 
-      })
+      toast(`Số lượng giảm (${reduceQty}) vượt quá tồn hiện tại (${currentQty} ${item.unit})`, 'error')
       return
     }
     
@@ -47,10 +44,10 @@ export default function StockOutModal({ show, onClose, onSuccess, item }) {
         reasonType,
         note: note.trim()
       })
-      addToast({ message: `Giảm kho ${item.itemName} thành công`, type: 'success' })
+      toast(`Giảm kho ${item.itemName} thành công`, 'success')
       onSuccess()
     } catch (err) {
-      addToast({ message: errorMessage(err), type: 'error' })
+      toast(errorMessage(err), 'error')
     } finally {
       setLoading(false)
     }
