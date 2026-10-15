@@ -131,6 +131,47 @@ public class InventoryService {
         return InventoryItemView.from(item);
     }
 
+    // ========== Xuất / Giảm kho (Stock Out / Adjustment / Waste) ==========
+
+    @Transactional
+    public InventoryItemView stockOut(Long id, StockOutRequest req, User currentUser) {
+        InventoryItem item = findItem(id);
+
+        if (req.quantity() == null || req.quantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw ApiException.badRequest("Số lượng giảm phải lớn hơn 0.");
+        }
+
+        if (req.quantity().compareTo(item.getCurrentQuantity()) > 0) {
+            throw ApiException.badRequest("Số lượng giảm (" + req.quantity()
+                    + ") không được vượt quá số lượng tồn hiện tại (" + item.getCurrentQuantity() + ").");
+        }
+
+        String type = req.reasonType() != null ? req.reasonType().trim().toUpperCase() : "ADJUSTMENT";
+        String txType = switch (type) {
+            case "WASTE" -> StockTransaction.WASTE;
+            case "STOCK_OUT" -> StockTransaction.STOCK_OUT;
+            default -> StockTransaction.ADJUSTMENT;
+        };
+
+        String defaultReason = switch (type) {
+            case "WASTE" -> "Hao hụt / Hư hỏng / Hết hạn";
+            case "STOCK_OUT" -> "Xuất kho sử dụng khác";
+            default -> "Cân chỉnh do nhập nhầm số liệu";
+        };
+
+        StockTransaction tx = new StockTransaction();
+        tx.setInventoryItem(item);
+        tx.setCreatedBy(currentUser);
+        tx.setTransactionType(txType);
+        tx.setQuantity(req.quantity());
+        tx.setReason(defaultReason);
+        tx.setNote(req.note());
+        txRepo.save(tx);
+
+        item.setCurrentQuantity(item.getCurrentQuantity().subtract(req.quantity()));
+        return InventoryItemView.from(item);
+    }
+
     // ========== Lịch sử giao dịch ==========
 
     public List<StockTransactionView> history(Long inventoryItemId) {

@@ -10,6 +10,7 @@ const inventoryApi = {
   create:   (data)       => axiosClient.post('/manager/inventory', data),
   update:   (id, data)   => axiosClient.put(`/manager/inventory/${id}`, data),
   stockIn:  (id, data)   => axiosClient.post(`/manager/inventory/${id}/stock-in`, data),
+  stockOut: (id, data)   => axiosClient.post(`/manager/inventory/${id}/stock-out`, data),
   history:  (id)         => axiosClient.get(`/manager/inventory/${id}/history`),
 
   // Barista endpoints (read-only)

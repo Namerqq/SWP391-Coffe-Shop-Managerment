@@ -71,6 +71,13 @@ public class ManagerInventoryController {
         return service.stockIn(id, req, me);
     }
 
+    /** Xuất / giảm kho: giảm số lượng tồn do nhập sai (ADJUSTMENT), hư hỏng (WASTE), xuất khác (STOCK_OUT). */
+    @PostMapping("/{id}/stock-out")
+    public InventoryItemView stockOut(@PathVariable Long id, @Valid @RequestBody StockOutRequest req, HttpServletRequest http) {
+        User me = (User) http.getAttribute(AuthInterceptor.CURRENT_USER);
+        return service.stockOut(id, req, me);
+    }
+
     /** Lịch sử nhập/xuất kho của 1 nguyên liệu. */
     @GetMapping("/{id}/history")
     public List<StockTransactionView> history(@PathVariable Long id) {

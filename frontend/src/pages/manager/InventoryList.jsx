@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext'
 import { formatDateTime } from '../../utils/format'
 import InventoryItemModal from './InventoryItemModal'
 import StockInModal from './StockInModal'
+import StockOutModal from './StockOutModal'
 
 export default function InventoryList() {
   const { addToast } = useToast()
@@ -17,6 +18,7 @@ export default function InventoryList() {
   // Modal states
   const [showItemModal, setShowItemModal] = useState(false)
   const [showStockInModal, setShowStockInModal] = useState(false)
+  const [showStockOutModal, setShowStockOutModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
 
   const loadData = async () => {
@@ -58,9 +60,15 @@ export default function InventoryList() {
     setShowStockInModal(true)
   }
 
+  const handleOpenStockOut = (item) => {
+    setSelectedItem(item)
+    setShowStockOutModal(true)
+  }
+
   const handleSuccess = () => {
     setShowItemModal(false)
     setShowStockInModal(false)
+    setShowStockOutModal(false)
     loadData()
   }
 
@@ -143,6 +151,8 @@ export default function InventoryList() {
                       <div className="action-links justify-content-end">
                         <button type="button" onClick={() => handleOpenStockIn(item)}>Nhập</button>
                         <span className="separator">|</span>
+                        <button type="button" className="text-warning-emphasis" onClick={() => handleOpenStockOut(item)}>Giảm</button>
+                        <span className="separator">|</span>
                         <button type="button" onClick={() => handleOpenEdit(item)}>Sửa</button>
                       </div>
                     </td>
@@ -164,6 +174,13 @@ export default function InventoryList() {
       <StockInModal
         show={showStockInModal}
         onClose={() => setShowStockInModal(false)}
+        onSuccess={handleSuccess}
+        item={selectedItem}
+      />
+
+      <StockOutModal
+        show={showStockOutModal}
+        onClose={() => setShowStockOutModal(false)}
         onSuccess={handleSuccess}
         item={selectedItem}
       />
