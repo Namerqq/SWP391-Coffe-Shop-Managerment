@@ -46,7 +46,7 @@ function HeroSlider({ content }) {
             {s.subtitle && <p>{s.subtitle}</p>}
             <div className="gc-actions">
               <Link to="/thuc-don" className="gc-btn gc-btn-light" tabIndex={i === index ? 0 : -1}>Xem thực đơn</Link>
-              <Link to="/dat-hang-online" className="gc-btn gc-btn-ghost-light" tabIndex={i === index ? 0 : -1}>Đặt hàng online</Link>
+              <Link to="/online-order" className="gc-btn gc-btn-ghost-light" tabIndex={i === index ? 0 : -1}>Đặt hàng online</Link>
             </div>
           </div>
         </div>

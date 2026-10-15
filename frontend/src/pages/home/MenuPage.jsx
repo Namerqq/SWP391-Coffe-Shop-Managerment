@@ -70,7 +70,7 @@ export default function MenuPage() {
 
         {!loading && categories.length > 0 && (
           <div className="gc-menu-cta">
-            <Link to="/dat-hang-online" className="gc-btn gc-btn-primary"><i className="bi bi-bag" /> Đặt hàng online</Link>
+            <Link to="/online-order" className="gc-btn gc-btn-primary"><i className="bi bi-bag" /> Đặt hàng online</Link>
           </div>
         )}
       </div>
