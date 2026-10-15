@@ -10,11 +10,11 @@ import AccountDetail from './pages/admin/AccountDetail'
 import SystemSettings from './pages/admin/SystemSettings'
 import HomePage from './pages/home/HomePage'
 import MenuPage from './pages/home/MenuPage'
-import OnlineOrderSoon from './pages/home/OnlineOrderSoon'
 import { danmtRoutes } from './routes/danmtRoutes'
 import { thangnnRoutes } from './routes/thangnnRoutes'
 import { managerRoutes } from './routes/managerRoutes'
 import { khoibmRoutes } from './routes/khoibmRoutes'
+import { thangdtRoutes } from './routes/thangdtRoutes'
 
 // App = nơi khai báo ĐƯỜNG DẪN (URL) -> TRANG (page) tương ứng.
 export default function App() {
@@ -24,8 +24,10 @@ export default function App() {
       <Route element={<HomeLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/thuc-don" element={<MenuPage />} />
-        <Route path="/dat-hang-online" element={<OnlineOrderSoon />} />
       </Route>
+
+      {/* Đặt hàng online (ThangDT) */}
+      {thangdtRoutes}
 
       {/* Hệ thống quản lý (nhân viên) */}
       <Route path="/login" element={<LoginPage />} />

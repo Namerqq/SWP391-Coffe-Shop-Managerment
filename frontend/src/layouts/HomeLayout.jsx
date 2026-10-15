@@ -42,18 +42,19 @@ export default function HomeLayout() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Nội dung do Admin chỉnh ở Cài đặt hệ thống > Trang chủ. Backend chưa chạy -> dùng nội dung mặc định.
+  // Lấy dữ liệu trang chủ từ backend
   useEffect(() => {
     publicApi.getHome().then((res) => setContent({ ...DEFAULT_HOME, ...res.data })).catch(() => {})
   }, [])
 
-  // Đổi trang: đóng menu, cuộn lên đầu (trừ khi đang cần cuộn tới 1 khu của trang chủ).
+  // Đổi trang thì tự cuộn lên đầu và đóng menu
   useEffect(() => {
     setMenuOpen(false)
     setAboutOpen(false)
     if (!location.state?.scrollTo) window.scrollTo(0, 0)
   }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Cuộn chuột xuống thì đổi kiểu header
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
     onScroll()
@@ -61,6 +62,7 @@ export default function HomeLayout() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // Bấm ra ngoài hoặc bấm Esc để đóng popup "Về chúng tôi"
   useEffect(() => {
     if (!aboutOpen) return undefined
     const close = (e) => { if (aboutRef.current && !aboutRef.current.contains(e.target)) setAboutOpen(false) }
@@ -75,7 +77,7 @@ export default function HomeLayout() {
 
   const brand = content['home.brand.name'] || 'Gạch Coffee'
 
-  // Tiêu đề tab trình duyệt của trang khách; rời trang khách thì trả lại tiêu đề hệ thống quản lý.
+  // Đổi tiêu đề tab trình duyệt theo tên quán
   useEffect(() => {
     const previous = document.title
     document.title = brand
@@ -128,7 +130,7 @@ export default function HomeLayout() {
           </Link>
 
           <div className="gc-side gc-side-right">
-            <Link to="/dat-hang-online" className="gc-order-link"><i className="bi bi-bag" /> <span>Đặt hàng online</span></Link>
+            <Link to="/online-order" className="gc-order-link"><i className="bi bi-bag" /> <span>Đặt hàng online</span></Link>
             <span className="gc-vn" title="Việt Nam">{vnLogo}</span>
           </div>
         </div>
@@ -140,7 +142,7 @@ export default function HomeLayout() {
             {ABOUT_SECTIONS.map((s) => (
               <button type="button" key={s.id} onClick={() => goSection(s.id)}><i className={`bi ${s.icon}`} /> {s.label}</button>
             ))}
-            <Link to="/dat-hang-online" className="gc-btn gc-btn-primary mt-2"><i className="bi bi-bag" /> Đặt hàng online</Link>
+            <Link to="/online-order" className="gc-btn gc-btn-primary mt-2"><i className="bi bi-bag" /> Đặt hàng online</Link>
           </nav>
         )}
       </header>
