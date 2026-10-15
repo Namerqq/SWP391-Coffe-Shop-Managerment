@@ -19,7 +19,9 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 import com.example.project.dto.inventory.InventoryItemRequest;
 import com.example.project.dto.inventory.InventoryItemView;
+import com.example.project.dto.inventory.StockInRequest;
 import com.example.project.entity.StockTransaction;
+import java.util.Optional;
 
 /**
  * Unit Test cho InventoryService sử dụng JUnit 5 và Mockito.
@@ -120,5 +122,35 @@ class InventoryServiceTest {
         // Xác minh không có lệnh lưu nào được thực hiện
         verify(itemRepo, never()).save(any(InventoryItem.class));
         verify(txRepo, never()).save(any(StockTransaction.class));
+    }
+
+    @Test
+    @DisplayName("TC3: Nhập kho thành công, cộng dồn số tồn và tạo giao dịch STOCK_IN")
+    void stockIn_Success_IncreasesQuantityAndCreatesTransaction() {
+        // GIVEN: Nguyên liệu có sẵn với tồn hiện tại = 10.000 kg
+        InventoryItem item = new InventoryItem();
+        item.setItemName("Hạt cà phê Robusta");
+        item.setUnit("kg");
+        item.setCurrentQuantity(new BigDecimal("10.000"));
+        item.setMinimumStockLevel(new BigDecimal("5.000"));
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(item));
+
+        StockInRequest req = new StockInRequest(new BigDecimal("15.500"), "Nhập từ nhà cung cấp Vinamilk");
+
+        // WHEN: Thực hiện nhập kho thêm 15.500 kg
+        InventoryItemView result = inventoryService.stockIn(1L, req, sampleManager);
+
+        // THEN: Số lượng tồn mới phải bằng 10.000 + 15.500 = 25.500 kg
+        assertEquals(new BigDecimal("25.500"), result.currentQuantity());
+        assertEquals(new BigDecimal("25.500"), item.getCurrentQuantity());
+
+        // Xác minh có lưu 1 giao dịch loại STOCK_IN
+        verify(txRepo, times(1)).save(argThat(tx ->
+                tx.getInventoryItem().equals(item) &&
+                tx.getCreatedBy().equals(sampleManager) &&
+                StockTransaction.STOCK_IN.equals(tx.getTransactionType()) &&
+                new BigDecimal("15.500").equals(tx.getQuantity()) &&
+                "Nhập từ nhà cung cấp Vinamilk".equals(tx.getNote())
+        ));
     }
 }
