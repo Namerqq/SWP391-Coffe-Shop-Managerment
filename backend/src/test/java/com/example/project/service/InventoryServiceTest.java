@@ -171,4 +171,42 @@ class InventoryServiceTest {
         assertTrue(ex.getMessage().contains("Không tìm thấy nguyên liệu #999"));
         verify(txRepo, never()).save(any(StockTransaction.class));
     }
+
+    @Test
+    @DisplayName("TC5: Cập nhật thông tin nguyên liệu thành công nhưng không được đổi số lượng tồn")
+    void update_Success_DoesNotChangeCurrentQuantity() {
+        // GIVEN: Nguyên liệu ban đầu có id = 1L và tồn kho = 10.000 kg
+        InventoryItem existingItem = new InventoryItem();
+        org.springframework.test.util.ReflectionTestUtils.setField(existingItem, "id", 1L);
+        existingItem.setItemName("Hạt cà phê Robusta");
+        existingItem.setUnit("kg");
+        existingItem.setCurrentQuantity(new BigDecimal("10.000"));
+        existingItem.setMinimumStockLevel(new BigDecimal("5.000"));
+        existingItem.setUnitCost(200000L);
+
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(existingItem));
+        when(itemRepo.findByItemNameIgnoreCase("Hạt cà phê Robusta Gold")).thenReturn(Optional.empty());
+
+        // Quản lý truyền payload đổi tên, quy cách, đơn giá và cố tình gửi kèm openingQuantity = 999.000
+        InventoryItemRequest req = new InventoryItemRequest(
+                "Hạt cà phê Robusta Gold",
+                "túi",
+                new BigDecimal("8.000"),
+                220000L,
+                new BigDecimal("999.000")
+        );
+
+        // WHEN: Thực hiện gọi hàm update
+        InventoryItemView result = inventoryService.update(1L, req);
+
+        // THEN: Các thông tin mô tả được cập nhật
+        assertEquals("Hạt cà phê Robusta Gold", result.itemName());
+        assertEquals("túi", result.unit());
+        assertEquals(new BigDecimal("8.000"), result.minimumStockLevel());
+        assertEquals(220000L, result.unitCost());
+
+        // QUAN TRỌNG NHẤT: Số lượng tồn kho vẫn phải giữ nguyên là 10.000 kg, không đổi thành 999
+        assertEquals(new BigDecimal("10.000"), result.currentQuantity());
+        assertEquals(new BigDecimal("10.000"), existingItem.getCurrentQuantity());
+    }
 }
