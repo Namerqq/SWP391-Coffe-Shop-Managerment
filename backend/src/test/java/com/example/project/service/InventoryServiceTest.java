@@ -153,4 +153,22 @@ class InventoryServiceTest {
                 "Nhập từ nhà cung cấp Vinamilk".equals(tx.getNote())
         ));
     }
+
+    @Test
+    @DisplayName("TC4: Bắt lỗi 404 ResourceNotFound khi nhập kho cho ID không tồn tại")
+    void stockIn_ThrowsNotFound_WhenItemDoesNotExist() {
+        // GIVEN: ID = 999 không tồn tại trong hệ thống
+        when(itemRepo.findById(999L)).thenReturn(Optional.empty());
+
+        StockInRequest req = new StockInRequest(new BigDecimal("10.000"), "Ghi chú nhập hàng");
+
+        // WHEN & THEN: Gọi hàm stockIn phải ném ResourceNotFoundException
+        com.example.project.exception.ResourceNotFoundException ex = assertThrows(
+                com.example.project.exception.ResourceNotFoundException.class,
+                () -> inventoryService.stockIn(999L, req, sampleManager)
+        );
+
+        assertTrue(ex.getMessage().contains("Không tìm thấy nguyên liệu #999"));
+        verify(txRepo, never()).save(any(StockTransaction.class));
+    }
 }
