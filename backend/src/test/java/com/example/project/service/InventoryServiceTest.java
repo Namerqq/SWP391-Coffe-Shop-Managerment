@@ -93,4 +93,32 @@ class InventoryServiceTest {
         org.mockito.Mockito.verify(txRepo, org.mockito.Mockito.times(1))
                 .save(org.mockito.ArgumentMatchers.any(com.example.project.entity.StockTransaction.class));
     }
+
+    @Test
+    @DisplayName("TC2: Bắt lỗi 409 Conflict khi tạo nguyên liệu trùng tên")
+    void create_ThrowsConflict_WhenItemNameExists() {
+        // GIVEN: Tên nguyên liệu đã có sẵn trong cơ sở dữ liệu
+        when(itemRepo.existsByItemNameIgnoreCase("Hạt cà phê Robusta")).thenReturn(true);
+
+        InventoryItemRequest req = new InventoryItemRequest(
+                "Hạt cà phê Robusta",
+                "kg",
+                new BigDecimal("5.000"),
+                200000L,
+                BigDecimal.ZERO
+        );
+
+        // WHEN & THEN: Gọi hàm create phải ném ra ApiException với HttpStatus.CONFLICT
+        com.example.project.exception.ApiException ex = assertThrows(
+                com.example.project.exception.ApiException.class,
+                () -> inventoryService.create(req, sampleManager)
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getStatus());
+        assertTrue(ex.getMessage().contains("đã tồn tại"));
+
+        // Xác minh không có lệnh lưu nào được thực hiện
+        verify(itemRepo, never()).save(any(InventoryItem.class));
+        verify(txRepo, never()).save(any(StockTransaction.class));
+    }
 }
