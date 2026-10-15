@@ -4,7 +4,7 @@ import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 
 export default function StockInModal({ show, onClose, onSuccess, item }) {
-  const { addToast } = useToast()
+  const toast = useToast()
   
   const [quantity, setQuantity] = useState('')
   const [note, setNote] = useState('')
@@ -22,7 +22,7 @@ export default function StockInModal({ show, onClose, onSuccess, item }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!quantity || Number(quantity) <= 0) {
-      addToast({ message: 'Số lượng nhập phải lớn hơn 0', type: 'error' })
+      toast('Số lượng nhập phải lớn hơn 0', 'error')
       return
     }
     
@@ -32,10 +32,10 @@ export default function StockInModal({ show, onClose, onSuccess, item }) {
         quantity: Number(quantity),
         note: note.trim()
       })
-      addToast({ message: `Nhập kho ${item.itemName} thành công`, type: 'success' })
+      toast(`Nhập kho ${item.itemName} thành công`, 'success')
       onSuccess()
     } catch (err) {
-      addToast({ message: errorMessage(err), type: 'error' })
+      toast(errorMessage(err), 'error')
     } finally {
       setLoading(false)
     }

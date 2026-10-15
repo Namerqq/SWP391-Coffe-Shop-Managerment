@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.*;
 import com.example.project.dto.inventory.InventoryItemRequest;
 import com.example.project.dto.inventory.InventoryItemView;
 import com.example.project.dto.inventory.StockInRequest;
+import com.example.project.dto.inventory.StockOutRequest;
 import com.example.project.entity.StockTransaction;
 import java.util.List;
 import java.util.Map;
@@ -260,5 +261,65 @@ class InventoryServiceTest {
         assertEquals(3L, stats.get("total"));
         assertEquals(1L, stats.get("lowStock"));
         assertEquals(2L, stats.get("ok"));
+    }
+
+    @Test
+    @DisplayName("TC8: Giảm / xuất kho thành công (ADJUSTMENT do nhập sai số liệu)")
+    void stockOut_Success_DecreasesQuantityAndCreatesTransaction() {
+        // GIVEN: Nguyên liệu có sẵn với tồn kho ban đầu = 20.000 kg
+        InventoryItem item = new InventoryItem();
+        item.setItemName("Hạt cà phê Robusta");
+        item.setUnit("kg");
+        item.setCurrentQuantity(new BigDecimal("20.000"));
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(item));
+
+        StockOutRequest req = new StockOutRequest(
+                new BigDecimal("5.000"),
+                "ADJUSTMENT",
+                "Cân chỉnh do nhập nhầm số liệu hôm qua"
+        );
+
+        // WHEN: Thực hiện giảm kho 5.000 kg
+        InventoryItemView result = inventoryService.stockOut(1L, req, sampleManager);
+
+        // THEN: Tồn mới phải giảm xuống đúng 20.000 - 5.000 = 15.000 kg
+        assertEquals(new BigDecimal("15.000"), result.currentQuantity());
+        assertEquals(new BigDecimal("15.000"), item.getCurrentQuantity());
+
+        // Xác minh có lưu 1 giao dịch loại ADJUSTMENT
+        verify(txRepo, times(1)).save(argThat(tx ->
+                tx.getInventoryItem().equals(item) &&
+                tx.getCreatedBy().equals(sampleManager) &&
+                StockTransaction.ADJUSTMENT.equals(tx.getTransactionType()) &&
+                new BigDecimal("5.000").equals(tx.getQuantity()) &&
+                "Cân chỉnh do nhập nhầm số liệu".equals(tx.getReason()) &&
+                "Cân chỉnh do nhập nhầm số liệu hôm qua".equals(tx.getNote())
+        ));
+    }
+
+    @Test
+    @DisplayName("TC9: Bắt lỗi 400 BadRequest khi số lượng giảm vượt quá tồn hiện tại")
+    void stockOut_ThrowsBadRequest_WhenQuantityExceedsCurrent() {
+        // GIVEN: Nguyên liệu chỉ còn tồn 10.000 kg
+        InventoryItem item = new InventoryItem();
+        item.setCurrentQuantity(new BigDecimal("10.000"));
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(item));
+
+        // Quản lý muốn giảm 15.000 kg (vượt quá 10.000 kg)
+        StockOutRequest req = new StockOutRequest(
+                new BigDecimal("15.000"),
+                "WASTE",
+                "Bị đổ vỡ hỏng"
+        );
+
+        // WHEN & THEN: Phải ném lỗi BadRequest
+        com.example.project.exception.ApiException ex = assertThrows(
+                com.example.project.exception.ApiException.class,
+                () -> inventoryService.stockOut(1L, req, sampleManager)
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertTrue(ex.getMessage().contains("không được vượt quá số lượng tồn hiện tại"));
+        verify(txRepo, never()).save(any(StockTransaction.class));
     }
 }

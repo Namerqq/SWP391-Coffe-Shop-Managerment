@@ -4,7 +4,7 @@ import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 
 export default function InventoryItemModal({ show, onClose, onSuccess, item }) {
-  const { addToast } = useToast()
+  const toast = useToast()
   
   const [formData, setFormData] = useState({
     itemName: '',
@@ -62,14 +62,14 @@ export default function InventoryItemModal({ show, onClose, onSuccess, item }) {
 
       if (isEdit) {
         await inventoryApi.update(item.id, payload)
-        addToast({ message: 'Cập nhật nguyên liệu thành công', type: 'success' })
+        toast('Cập nhật nguyên liệu thành công', 'success')
       } else {
         await inventoryApi.create(payload)
-        addToast({ message: 'Thêm nguyên liệu thành công', type: 'success' })
+        toast('Thêm nguyên liệu thành công', 'success')
       }
       onSuccess()
     } catch (err) {
-      addToast({ message: errorMessage(err), type: 'error' })
+      toast(errorMessage(err), 'error')
     } finally {
       setLoading(false)
     }
