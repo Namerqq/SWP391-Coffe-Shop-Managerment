@@ -21,6 +21,8 @@ import com.example.project.dto.inventory.InventoryItemRequest;
 import com.example.project.dto.inventory.InventoryItemView;
 import com.example.project.dto.inventory.StockInRequest;
 import com.example.project.entity.StockTransaction;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -208,5 +210,55 @@ class InventoryServiceTest {
         // QUAN TRỌNG NHẤT: Số lượng tồn kho vẫn phải giữ nguyên là 10.000 kg, không đổi thành 999
         assertEquals(new BigDecimal("10.000"), result.currentQuantity());
         assertEquals(new BigDecimal("10.000"), existingItem.getCurrentQuantity());
+    }
+
+    @Test
+    @DisplayName("TC6: Lọc danh sách nguyên liệu sắp hết (currentQuantity <= minimumStockLevel)")
+    void listLowStock_ReturnsOnlyItemsBelowMinimum() {
+        // GIVEN: 1 nguyên liệu đang ở mức báo động (tồn 2 <= mức tối thiểu 5)
+        InventoryItem lowStockItem = new InventoryItem();
+        lowStockItem.setItemName("Bột Matcha");
+        lowStockItem.setUnit("kg");
+        lowStockItem.setCurrentQuantity(new BigDecimal("2.000"));
+        lowStockItem.setMinimumStockLevel(new BigDecimal("5.000"));
+        lowStockItem.setStatus(InventoryItem.ACTIVE);
+
+        when(itemRepo.findLowStock(InventoryItem.ACTIVE)).thenReturn(List.of(lowStockItem));
+
+        // WHEN: Gọi hàm lấy danh sách sắp hết
+        List<InventoryItemView> result = inventoryService.listLowStock();
+
+        // THEN: Kết quả phải có đúng 1 món và có cờ lowStock = true
+        assertEquals(1, result.size());
+        assertEquals("Bột Matcha", result.get(0).itemName());
+        assertTrue(result.get(0).lowStock());
+    }
+
+    @Test
+    @DisplayName("TC7: Tính toán đúng các chỉ số thống kê Dashboard (Tổng, Sắp hết, Đủ dùng)")
+    void stats_CalculatesCorrectSummary() {
+        // GIVEN: 3 nguyên liệu: 1 món sắp hết (tồn 2 <= 5) và 2 món đủ dùng (tồn 10 > 5, tồn 20 > 5)
+        InventoryItem item1 = new InventoryItem();
+        item1.setCurrentQuantity(new BigDecimal("2.000"));
+        item1.setMinimumStockLevel(new BigDecimal("5.000")); // isLowStock = true
+
+        InventoryItem item2 = new InventoryItem();
+        item2.setCurrentQuantity(new BigDecimal("10.000"));
+        item2.setMinimumStockLevel(new BigDecimal("5.000")); // isLowStock = false
+
+        InventoryItem item3 = new InventoryItem();
+        item3.setCurrentQuantity(new BigDecimal("20.000"));
+        item3.setMinimumStockLevel(new BigDecimal("5.000")); // isLowStock = false
+
+        when(itemRepo.findAllByStatusOrderByItemNameAsc(InventoryItem.ACTIVE))
+                .thenReturn(List.of(item1, item2, item3));
+
+        // WHEN: Gọi hàm stats
+        Map<String, Object> stats = inventoryService.stats();
+
+        // THEN: total = 3, lowStock = 1, ok = 2
+        assertEquals(3L, stats.get("total"));
+        assertEquals(1L, stats.get("lowStock"));
+        assertEquals(2L, stats.get("ok"));
     }
 }
