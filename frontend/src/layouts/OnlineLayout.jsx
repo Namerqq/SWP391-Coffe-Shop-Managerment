@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { unitTotal } from '../utils/orderOptions'
 import '../styles/guest.css'
@@ -8,8 +8,19 @@ const OnlineContext = createContext(null)
 export const useOnline = () => useContext(OnlineContext)
 
 export default function OnlineLayout() {
-  // Danh sách món trong giỏ
-  const [cart, setCart] = useState([])
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem('online_cart')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Tự động lưu giỏ hàng vào LocalStorage mỗi khi giỏ đổi
+  useEffect(() => {
+    localStorage.setItem('online_cart', JSON.stringify(cart))
+  }, [cart])
 
   // Thêm món vào giỏ
   const addToCart = (line) => {
@@ -38,6 +49,7 @@ export default function OnlineLayout() {
   // Xóa sạch giỏ
   const clearCart = () => {
     setCart([])
+    localStorage.removeItem('online_cart')
   }
 
   // Tính tổng số lượng và tổng tiền
