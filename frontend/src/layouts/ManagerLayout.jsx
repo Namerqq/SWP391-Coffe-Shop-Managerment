@@ -6,6 +6,7 @@ import '../styles/manager.css'
 
 const NAV = [
   { to: '/manager', label: 'Tổng quan', icon: 'bi-grid', end: true },
+  { to: '/manager/menu-items', label: 'Menu món', icon: 'bi-cup-hot' },
   { to: '/manager/inventory', label: 'Kho nguyên liệu', icon: 'bi-box-seam' },
 ]
 

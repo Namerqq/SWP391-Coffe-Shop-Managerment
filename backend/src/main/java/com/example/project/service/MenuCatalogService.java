@@ -27,17 +27,17 @@ public class MenuCatalogService {
         this.menuItemRepository = menuItemRepository;
     }
 
-    /** Món đang bán, nhóm theo danh mục ACTIVE (bỏ 2 danh mục lựa chọn Size / Topping). */
+    /** Món bán riêng đang AVAILABLE, nhóm theo danh mục ACTIVE; topping bán riêng được giữ lại. */
     @Transactional(readOnly = true)
     public List<MenuCategoryView> sellableMenu() {
         List<MenuItem> all = menuItemRepository.findAllByOrderByNameAsc();
         List<MenuCategoryView> result = new ArrayList<>();
         for (Category c : categoryRepository.findAllByOrderByIdAsc()) {
-            if (!Category.ACTIVE.equals(c.getStatus()) || c.isOptionGroup()) continue;
+            if (!Category.ACTIVE.equals(c.getStatus())) continue;
             List<MenuItemView> items = all.stream()
-                    .filter(m -> m.getCategory().getId().equals(c.getId()) && MenuItem.AVAILABLE.equals(m.getAvailabilityStatus()))
+                    .filter(m -> m.getCategory().getId().equals(c.getId()) && m.isSellStandalone() && MenuItem.AVAILABLE.equals(m.getAvailabilityStatus()))
                     .map(m -> new MenuItemView(m.getId(), c.getId(), m.getName(), m.getDescription(),
-                            m.getBasePrice(), m.getImageUrl()))
+                            m.getBasePrice(), m.getImageUrl(), c.getCategoryType()))
                     .toList();
             if (!items.isEmpty()) result.add(new MenuCategoryView(c.getId(), c.getName(), c.getDescription(), items));
         }
@@ -52,8 +52,7 @@ public class MenuCatalogService {
 
     private List<MenuOptionView> options(List<MenuItem> all, String group) {
         return all.stream()
-                .filter(m -> group.equalsIgnoreCase(m.getCategory().getName())
-                        && MenuItem.AVAILABLE.equals(m.getAvailabilityStatus()))
+                .filter(m -> m.getCategory().isType(group.toUpperCase(java.util.Locale.ROOT)) && m.isSellable())
                 .sorted(Comparator.comparing(MenuItem::getBasePrice))
                 .map(m -> new MenuOptionView(m.getId(), m.getName(), m.getBasePrice()))
                 .toList();

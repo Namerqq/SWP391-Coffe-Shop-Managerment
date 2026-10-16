@@ -58,7 +58,7 @@ class MenuManagementServiceTest {
     }
     @Test void priceEditDoesNotChangeExistingOrderSnapshot() {
         var m=item(1L,drink,30000,true,MenuItem.AVAILABLE);when(items.findById(1L)).thenReturn(Optional.of(m));
-        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper());
+        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper(),mock(QrPaymentRequestRepository.class));
         var line=support.buildItem(new OrderItemRequest(1L,2,null,List.of(),null,null,null));
         service.saveItem(1L,new MenuRequest("Cà phê",1L,45000L,null,null));
         assertEquals(30000L,line.getUnitPrice());assertEquals(45000L,m.getBasePrice());
@@ -67,12 +67,12 @@ class MenuManagementServiceTest {
         var m=item(3L,topping,10000,true,MenuItem.AVAILABLE);when(items.findById(3L)).thenReturn(Optional.of(m));
         service.saveCategory(3L,new CategoryRequest("Kem espresso","TOPPING"));
         assertTrue(topping.isOptionGroup());assertTrue(m.isSellStandalone());
-        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper());
+        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper(),mock(QrPaymentRequestRepository.class));
         assertEquals(10000L,support.buildItem(new OrderItemRequest(3L,1,null,List.of(),null,null,null)).getUnitPrice());
     }
     @Test void existingToppingCanBeOrderedAsThreeSeparateBoxes() {
         var m=item(3L,topping,10000,false,MenuItem.AVAILABLE);when(items.findById(3L)).thenReturn(Optional.of(m));
-        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper());
+        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper(),mock(QrPaymentRequestRepository.class));
         var line=support.buildItem(new OrderItemRequest(3L,3,null,List.of(),null,null,"Phục vụ riêng"));
         assertEquals(3,line.getQuantity());assertEquals(30000L,line.getSubtotal());assertEquals(0L,line.getToppingPrice());
     }
@@ -80,13 +80,13 @@ class MenuManagementServiceTest {
         var d=item(1L,drink,30000,true,MenuItem.AVAILABLE);
         var t=item(3L,topping,10000,false,MenuItem.AVAILABLE);
         when(items.findById(1L)).thenReturn(Optional.of(d));when(items.findById(3L)).thenReturn(Optional.of(t));
-        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper());
+        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper(),mock(QrPaymentRequestRepository.class));
         var line=support.buildItem(new OrderItemRequest(1L,1,null,List.of(3L),"100%","100%",null));
         assertEquals(40000L,line.getSubtotal());assertEquals(10000L,line.getToppingPrice());
     }
     @Test void standaloneToppingCannotHaveDrinkCustomizations() {
         var t=item(3L,topping,10000,false,MenuItem.AVAILABLE);when(items.findById(3L)).thenReturn(Optional.of(t));
-        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper());
+        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper(),mock(QrPaymentRequestRepository.class));
         assertThrows(ApiException.class,()->support.buildItem(new OrderItemRequest(3L,3,4L,List.of(),null,null,null)));
     }
     @Test void categoryTypeCanBeChangedOnRename() {
@@ -98,7 +98,8 @@ class MenuManagementServiceTest {
         when(items.findAllByOrderByNameAsc()).thenReturn(List.of(t));when(items.findById(5L)).thenReturn(Optional.of(t));
         var catalog=service.catalog();
         assertTrue(((List<?>)catalog.get("items")).isEmpty());
-        assertFalse(((List<CategoryView>)catalog.get("categories")).stream().anyMatch(c->c.categoryType().equals("SIZE")));
+        List<?> groups = assertInstanceOf(List.class, catalog.get("categories"));
+        assertFalse(groups.stream().map(CategoryView.class::cast).anyMatch(c -> c.categoryType().equals("SIZE")));
         assertThrows(ApiException.class,()->service.saveCategory(4L,new CategoryRequest("Cỡ ly","DRINK")));
         assertThrows(ApiException.class,()->service.deleteItem(5L));
     }

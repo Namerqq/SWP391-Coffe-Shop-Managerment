@@ -60,10 +60,15 @@ public class OrderSupportService {
     public OrderItem buildItem(OrderItemRequest req) {
         MenuItem item = menuItemRepository.findById(req.menuItemId())
                 .orElseThrow(() -> ApiException.badRequest("Món không tồn tại (id = " + req.menuItemId() + ")."));
-        if (item.getCategory().isOptionGroup()) {
-            throw ApiException.badRequest("\"" + item.getName() + "\" là lựa chọn Size/Topping, không bán riêng.");
+        if (!item.isSellStandalone()) {
+            throw ApiException.badRequest("\"" + item.getName() + "\" là lựa chọn Size, không bán riêng.");
         }
         if (!item.isSellable()) throw ApiException.badRequest("Món \"" + item.getName() + "\" hiện đang ngừng bán.");
+        if (item.getCategory().isType("TOPPING") && (req.sizeId() != null
+                || (req.toppingIds() != null && !req.toppingIds().isEmpty())
+                || blankToNull(req.sugarLevel()) != null || blankToNull(req.iceLevel()) != null)) {
+            throw ApiException.badRequest("Topping bán lẻ chỉ chọn số lượng và ghi chú, không chọn size hay topping thêm kèm.");
+        }
         int qty = req.quantity() == null ? 1 : req.quantity();
         if (qty < 1 || qty > 50) throw ApiException.badRequest("Số lượng mỗi món từ 1 đến 50.");
 
@@ -96,10 +101,10 @@ public class OrderSupportService {
     private MenuItem option(Long id, String group) {
         MenuItem m = menuItemRepository.findById(id)
                 .orElseThrow(() -> ApiException.badRequest("Lựa chọn không tồn tại (id = " + id + ")."));
-        if (!group.equalsIgnoreCase(m.getCategory().getName())) {
+        if (!m.getCategory().isType(group.toUpperCase(java.util.Locale.ROOT))) {
             throw ApiException.badRequest("\"" + m.getName() + "\" không phải lựa chọn " + group + ".");
         }
-        if (!MenuItem.AVAILABLE.equals(m.getAvailabilityStatus())) {
+        if (!m.isSellable()) {
             throw ApiException.badRequest("Lựa chọn \"" + m.getName() + "\" hiện đang hết.");
         }
         return m;
