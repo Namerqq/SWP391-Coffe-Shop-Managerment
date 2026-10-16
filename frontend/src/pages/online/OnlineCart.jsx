@@ -4,8 +4,21 @@ import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import { unitTotal } from '../../utils/orderOptions'
 
 export default function OnlineCart() {
-  // Đọc giỏ hàng, tổng tiền và các hàm từ Context
+  
   const { cart, totalCount, totalPrice, updateQuantity, removeItem } = useOnline()
+
+  // Giao diện khi giỏ hàng chưa có món nào
+  if (cart.length === 0) {
+    return (
+      <div className="gx-empty">
+        <i className="bi bi-bag gx-empty-icon" />
+        <p>Giỏ hàng của bạn đang trống.</p>
+        <Link to="/online-order" className="btn btn-primary">
+          Xem thực đơn
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <>
