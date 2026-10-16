@@ -5,7 +5,7 @@ import { unitTotal } from '../../utils/orderOptions'
 
 export default function OnlineCart() {
   // Đọc giỏ hàng thật từ Context
-  const { cart } = useOnline()
+const { cart, updateQuantity } = useOnline()
 
   return (
     <>
@@ -16,15 +16,31 @@ export default function OnlineCart() {
         {cart.map((item) => (
           <div className="gx-line" key={item.key}>
             <div className="gx-line-main">
+
               <span className="gx-line-name">{item.itemName}</span>
-              {/* Hiển thị tuỳ chọn: Size, đường, đá, topping */}
               {itemOptionsText(item) && (
                 <div className="gx-muted">{itemOptionsText(item)}</div>
               )}
-              {/* Ghi chú riêng của món */}
               {item.note && <div className="gx-note">{item.note}</div>}
+               {/* Tăng / giảm số lượng */}
+              <div className="gx-line-actions">
+                <div className="gx-qty sm" aria-label={`Số lượng ${item.itemName}`}>
+                  <button
+                    type="button"
+                    aria-label="Giảm"
+                    disabled={item.quantity <= 1}
+                    onClick={() => updateQuantity(item.key, -1)}
+                  > −</button>
+                  <span>{item.quantity}</span>
+                  <button
+                    type="button"
+                    aria-label="Tăng"
+                    disabled={item.quantity >= 50}
+                    onClick={() => updateQuantity(item.key, 1)}
+                  >+</button>
+                </div>
+              </div>
             </div>
-            {/* Thành tiền của từng món */}
             <div className="gx-line-price">{formatMoney(unitTotal(item) * item.quantity)}</div>
           </div>
         ))}
