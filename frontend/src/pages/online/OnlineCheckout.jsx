@@ -1,14 +1,35 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useOnline } from '../../layouts/OnlineLayout'
+import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
+import { unitTotal } from '../../utils/orderOptions'
+
+// Số điện thoại Việt Nam: 10 số, bắt đầu bằng 0
+const PHONE_REGEX = /^0\d{9}$/
 
 export default function OnlineCheckout() {
   const navigate = useNavigate()
-  const [deliveryType, setDeliveryType] = useState('PICKUP') // 'PICKUP' hoặc 'DELIVERY'
-  const [paymentMethod, setPaymentMethod] = useState('CASH') // 'CASH' hoặc 'PAYOS_QR'
+  const { cart, totalCount, totalPrice } = useOnline()
 
-  // Chuyển sang xem đơn sau khi bấm đặt
+  const [paymentMethod, setPaymentMethod] = useState('CASH') 
+  const [form, setForm] = useState({ name: '', phone: '', address: '', note: '' })
+  const [error, setError] = useState('')
+
+  // Giỏ trống thì quay về thực đơn
+  if (cart.length === 0) {
+    return <Navigate to="/online-order" replace />
+  }
+
+  // Cập nhật 1 ô trong form
+  const change = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
+
+  // Kiểm tra form rồi chuyển sang xem đơn
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (!form.name.trim()) return setError('Vui lòng nhập họ và tên.')
+    if (!PHONE_REGEX.test(form.phone.trim())) return setError('Số điện thoại phải gồm 10 số, bắt đầu bằng 0.')
+    if (!form.address.trim()) return setError('Vui lòng nhập địa chỉ giao hàng.')
+    setError('')
     navigate('/online-order/orders')
   }
 
@@ -16,38 +37,17 @@ export default function OnlineCheckout() {
     <>
       <h1 className="gx-title">Thông tin đặt hàng</h1>
 
-      <form onSubmit={handleSubmit}>
-        {/* 1. Chọn cách nhận hàng */}
+      <form onSubmit={handleSubmit} noValidate>
         <div className="gx-card mb-3 p-3">
-          <label className="form-label fw-bold">1. Hình thức nhận hàng</label>
-          <div className="d-flex gap-2">
-            <button
-              type="button"
-              className={`btn flex-grow-1 ${deliveryType === 'PICKUP' ? 'btn-primary' : 'btn-light-soft'}`}
-              onClick={() => setDeliveryType('PICKUP')}
-            >
-              <i className="bi bi-bag me-1" /> Tự đến lấy (Mang đi)
-            </button>
-            <button
-              type="button"
-              className={`btn flex-grow-1 ${deliveryType === 'DELIVERY' ? 'btn-primary' : 'btn-light-soft'}`}
-              onClick={() => setDeliveryType('DELIVERY')}
-            >
-              <i className="bi bi-bicycle me-1" /> Giao tận nơi
-            </button>
-          </div>
-        </div>
-
-        {/* 2. Điền thông tin người nhận */}
-        <div className="gx-card mb-3 p-3">
-          <label className="form-label fw-bold">2. Thông tin người nhận</label>
+          <label className="form-label fw-bold">1. Thông tin giao hàng</label>
           <div className="mb-2">
             <input
               type="text"
               className="form-control"
               placeholder="Họ và tên của bạn *"
-              defaultValue="Nguyễn Văn A"
-              required
+              value={form.name}
+              onChange={change('name')}
+              maxLength={100}
             />
           </div>
           <div className="mb-2">
@@ -55,35 +55,39 @@ export default function OnlineCheckout() {
               type="tel"
               className="form-control"
               placeholder="Số điện thoại nhận hàng *"
-              defaultValue="0987654321"
-              required
+              value={form.phone}
+              onChange={change('phone')}
+              maxLength={10}
+              inputMode="numeric"
             />
           </div>
 
-          {deliveryType === 'DELIVERY' && (
-            <div className="mb-2">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Địa chỉ giao hàng chi tiết *"
-                defaultValue="Số 123 Đường Cầu Giấy, Hà Nội"
-                required
-              />
-            </div>
-          )}
+          <div className="mb-2">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Địa chỉ giao hàng chi tiết *"
+              value={form.address}
+              onChange={change('address')}
+              maxLength={500}
+            />
+          </div>
 
           <div>
             <textarea
               className="form-control"
               rows={2}
               placeholder="Ghi chú thêm cho quán (không bắt buộc)..."
+              value={form.note}
+              onChange={change('note')}
+              maxLength={500}
             />
           </div>
         </div>
 
-        {/* 3. Chọn thanh toán */}
+        {/* 2. Chọn thanh toán */}
         <div className="gx-card mb-3 p-3">
-          <label className="form-label fw-bold">3. Phương thức thanh toán</label>
+          <label className="form-label fw-bold">2. Phương thức thanh toán</label>
           <div className="form-check mb-2">
             <input
               className="form-check-input"
@@ -94,7 +98,7 @@ export default function OnlineCheckout() {
               onChange={() => setPaymentMethod('CASH')}
             />
             <label className="form-check-label" htmlFor="pay-cash">
-              💵 Tiền mặt khi nhận hàng (COD)
+              <i className="bi bi-cash-coin me-1" /> Tiền mặt khi nhận hàng (COD)
             </label>
           </div>
           <div className="form-check">
@@ -107,10 +111,31 @@ export default function OnlineCheckout() {
               onChange={() => setPaymentMethod('PAYOS_QR')}
             />
             <label className="form-check-label" htmlFor="pay-qr">
-              📲 Chuyển khoản VietQR tự động (PayOS)
+              <i className="bi bi-qr-code me-1" /> Chuyển khoản VietQR (QR)
             </label>
           </div>
         </div>
+
+        {/* 3. Tóm tắt đơn hàng */}
+        <div className="gx-card mb-3 p-3">
+          <label className="form-label fw-bold">3. Đơn hàng ({totalCount} món)</label>
+          {cart.map((item) => (
+            <div className="gx-order-line" key={item.key}>
+              <span className="gx-order-qty">{item.quantity}×</span>
+              <div className="flex-grow-1">
+                <div>{item.itemName}</div>
+                {itemOptionsText(item) && <div className="gx-muted">{itemOptionsText(item)}</div>}
+              </div>
+              <span className="gx-price">{formatMoney(unitTotal(item) * item.quantity)}</span>
+            </div>
+          ))}
+          <div className="gx-order-foot">
+            <span>Tổng cộng</span>
+            <span className="gx-price fs-5">{formatMoney(totalPrice)}</span>
+          </div>
+        </div>
+
+        {error && <div className="alert alert-danger py-2">{error}</div>}
 
         {/* Nút đặt hàng */}
         <div className="gx-actions">
@@ -118,7 +143,7 @@ export default function OnlineCheckout() {
             Quay lại giỏ
           </Link>
           <button type="submit" className="btn btn-primary flex-grow-1 py-2">
-            Xác nhận đặt hàng · 95.000đ
+            Xác nhận đặt hàng · {formatMoney(totalPrice)}
           </button>
         </div>
       </form>

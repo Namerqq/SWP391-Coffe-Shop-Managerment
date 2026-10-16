@@ -14,7 +14,6 @@ import { danmtRoutes } from './routes/danmtRoutes'
 import { thangnnRoutes } from './routes/thangnnRoutes'
 import { managerRoutes } from './routes/managerRoutes'
 import { khoibmRoutes } from './routes/khoibmRoutes'
-import { thangdtRoutes } from './routes/thangdtRoutes'
 
 // App = nơi khai báo ĐƯỜNG DẪN (URL) -> TRANG (page) tương ứng.
 export default function App() {
@@ -24,10 +23,8 @@ export default function App() {
       <Route element={<HomeLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/thuc-don" element={<MenuPage />} />
-      </Route>
 
-      {/* Đặt hàng online (ThangDT) */}
-      {thangdtRoutes}
+      </Route>
 
       {/* Hệ thống quản lý (nhân viên) */}
       <Route path="/login" element={<LoginPage />} />
