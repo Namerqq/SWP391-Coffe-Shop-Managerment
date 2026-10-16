@@ -102,7 +102,6 @@ export default function OnlineLayout() {
             </Link>
           </div>
 
-          {/* 3 tab chuyển trang */}
           <nav className="gx-tabs">
             <NavLink to="/online-order" end>
               <i className="bi bi-cup-hot" />
