@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useOnline } from '../../layouts/OnlineLayout'
+import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
+import { unitTotal } from '../../utils/orderOptions'
 
 export default function OnlineCart() {
   // Đọc giỏ hàng thật từ Context
@@ -15,7 +17,15 @@ export default function OnlineCart() {
           <div className="gx-line" key={item.key}>
             <div className="gx-line-main">
               <span className="gx-line-name">{item.itemName}</span>
+              {/* Hiển thị tuỳ chọn: Size, đường, đá, topping */}
+              {itemOptionsText(item) && (
+                <div className="gx-muted">{itemOptionsText(item)}</div>
+              )}
+              {/* Ghi chú riêng của món */}
+              {item.note && <div className="gx-note">{item.note}</div>}
             </div>
+            {/* Thành tiền của từng món */}
+            <div className="gx-line-price">{formatMoney(unitTotal(item) * item.quantity)}</div>
           </div>
         ))}
       </div>
