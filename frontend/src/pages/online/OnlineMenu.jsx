@@ -37,14 +37,21 @@ export default function OnlineMenu() {
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [search, setSearch] = useState('')
 
-  // Lọc món theo từ khóa tìm kiếm và danh mục
+  // Lọc món theo danh mục và từ khóa tìm kiếm
   const kw = plainText(search.trim())
-  const displayGroups = SAMPLE_MENU
-    .filter((g) => selectedCategory === 'ALL' || g.category === selectedCategory)
-    .map((g) => ({
-      ...g,items: g.items.filter((item) => !kw || plainText(item.name).includes(kw)),
-    }))
-    .filter((g) => g.items.length > 0)
+  const displayGroups = []
+
+  for (const group of SAMPLE_MENU) {
+    if (selectedCategory !== 'ALL' && group.category !== selectedCategory) {
+      continue
+    }
+    const matchedItems = group.items.filter((item) =>
+      !kw || plainText(item.name).includes(kw)
+    )
+    if (matchedItems.length > 0) {
+      displayGroups.push({ ...group, items: matchedItems })
+    }
+  }
 
   return (
     <>
@@ -65,6 +72,7 @@ export default function OnlineMenu() {
           )}
         </label>
 
+        {/* Nút danh mục tự động sinh theo dữ liệu */}
         <div className="gx-cats">
           <button
             type="button"
@@ -73,27 +81,16 @@ export default function OnlineMenu() {
           >
             Tất cả
           </button>
-          <button
-            type="button"
-            className={selectedCategory === 'Cà phê' ? 'active' : ''}
-            onClick={() => setSelectedCategory('Cà phê')}
-          >
-            Cà phê
-          </button>
-          <button
-            type="button"
-            className={selectedCategory === 'Trà' ? 'active' : ''}
-            onClick={() => setSelectedCategory('Trà')}
-          >
-            Trà
-          </button>
-          <button
-            type="button"
-            className={selectedCategory === 'Bánh' ? 'active' : ''}
-            onClick={() => setSelectedCategory('Bánh')}
-          >
-            Bánh
-          </button>
+          {SAMPLE_MENU.map((group) => (
+            <button
+              key={group.category}
+              type="button"
+              className={selectedCategory === group.category ? 'active' : ''}
+              onClick={() => setSelectedCategory(group.category)}
+            >
+              {group.category}
+            </button>
+          ))}
         </div>
       </div>
 
