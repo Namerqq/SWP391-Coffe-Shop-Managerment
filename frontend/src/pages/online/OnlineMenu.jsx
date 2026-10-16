@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useOnline } from '../../layouts/OnlineLayout'
 import { formatMoney } from '../../utils/orderFormat'
+import { plainText } from '../../utils/guestSession'
 
 // Dữ liệu món mẫu
 const SAMPLE_MENU = [
@@ -36,10 +37,14 @@ export default function OnlineMenu() {
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [search, setSearch] = useState('')
 
-  // Lọc theo danh mục
-  const displayGroups = SAMPLE_MENU.filter(
-    (g) => selectedCategory === 'ALL' || g.category === selectedCategory
-  )
+  // Lọc món theo từ khóa tìm kiếm và danh mục
+  const kw = plainText(search.trim())
+  const displayGroups = SAMPLE_MENU
+    .filter((g) => selectedCategory === 'ALL' || g.category === selectedCategory)
+    .map((g) => ({
+      ...g,items: g.items.filter((item) => !kw || plainText(item.name).includes(kw)),
+    }))
+    .filter((g) => g.items.length > 0)
 
   return (
     <>
@@ -92,6 +97,14 @@ export default function OnlineMenu() {
         </div>
       </div>
 
+      {/* Thông báo khi không tìm thấy món */}
+      {displayGroups.length === 0 && (
+        <div className="gx-empty">
+          <i className="bi bi-search gx-empty-icon" />
+          <p>Không tìm thấy món nào phù hợp với &quot;{search}&quot;.</p>
+        </div>
+      )}
+
       {/* Danh sách món */}
       {displayGroups.map((group) => (
         <section key={group.category} className="gx-group">
@@ -107,7 +120,6 @@ export default function OnlineMenu() {
                   <p>{item.desc}</p>
                   <span className="gx-price">{formatMoney(item.price)}</span>
                 </div>
-                {/* Nút bấm mở modal chọn size/topping */}
                 <button
                   type="button"
                   className="gx-add"
