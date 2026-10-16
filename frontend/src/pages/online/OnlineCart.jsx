@@ -81,7 +81,7 @@ export default function OnlineCart() {
           + Chọn thêm món
         </Link>
         <Link to="/online-order/checkout" className="btn btn-primary flex-grow-1 py-2">
-          Tiến hành thanh toán →
+          Thanh toán · {formatMoney(totalPrice)} →
         </Link>
       </div>
     </>
