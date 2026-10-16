@@ -20,10 +20,9 @@ export default function OnlineCheckout() {
     return <Navigate to="/online-order" replace />
   }
 
-  // Cập nhật 1 ô trong form
   const change = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
 
-  // Kiểm tra form rồi chuyển sang xem đơn
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!form.name.trim()) return setError('Vui lòng nhập họ và tên.')

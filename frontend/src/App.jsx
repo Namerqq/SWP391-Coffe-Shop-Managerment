@@ -14,6 +14,7 @@ import { danmtRoutes } from './routes/danmtRoutes'
 import { thangnnRoutes } from './routes/thangnnRoutes'
 import { managerRoutes } from './routes/managerRoutes'
 import { khoibmRoutes } from './routes/khoibmRoutes'
+import { thangdtRoutes } from './routes/thangdtRoutes'
 
 // App = nơi khai báo ĐƯỜNG DẪN (URL) -> TRANG (page) tương ứng.
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
       {thangnnRoutes}
       {managerRoutes}
       {khoibmRoutes}
+      {thangdtRoutes}
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
