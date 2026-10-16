@@ -62,4 +62,4 @@
 .order-line { display: flex; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 1px dashed var(--cf-border); }
 .order-line:last-child { border-bottom: 0; }
 .order-qty { font-weight: 700; min-width: 2rem; }
-.order-note { color: #8a5a2b; font-size: 0.8rem; }
+.order-note { color: #8a5a2b; font-size: 0.8rem; overflow-wrap: anywhere; }
