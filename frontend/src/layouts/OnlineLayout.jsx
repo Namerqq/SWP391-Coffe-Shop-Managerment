@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import GuestItemModal from '../pages/guest/GuestItemModal'
 import { unitTotal } from '../utils/orderOptions'
 import '../styles/guest.css'
 
@@ -7,7 +8,22 @@ import '../styles/guest.css'
 const OnlineContext = createContext(null)
 export const useOnline = () => useContext(OnlineContext)
 
+// Tùy chọn size & topping mẫu khi chưa nối database
+const SAMPLE_OPTIONS = {
+  sizes: [
+    { id: 1, name: 'Size S', price: 0 },
+    { id: 2, name: 'Size M', price: 6000 },
+    { id: 3, name: 'Size L', price: 10000 },
+  ],
+  toppings: [
+    { id: 10, name: 'Thêm Espresso', price: 10000 },
+    { id: 11, name: 'Kem Cheese', price: 8000 },
+    { id: 12, name: 'Trân châu trắng', price: 6000 },
+  ],
+}
+
 export default function OnlineLayout() {
+  // Đọc giỏ hàng từ LocalStorage khi mở trang
   const [cart, setCart] = useState(() => {
     try {
       const saved = localStorage.getItem('online_cart')
@@ -16,6 +32,9 @@ export default function OnlineLayout() {
       return []
     }
   })
+
+  // Món đang mở modal (null = đóng modal)
+  const [pickingItem, setPickingItem] = useState(null)
 
   // Tự động lưu giỏ hàng vào LocalStorage mỗi khi giỏ đổi
   useEffect(() => {
@@ -26,6 +45,7 @@ export default function OnlineLayout() {
   const addToCart = (line) => {
     const key = `item_${Date.now()}`
     setCart((prev) => [...prev, { ...line, key }])
+    setPickingItem(null)
   }
 
   // Đổi số lượng món trong giỏ
@@ -58,13 +78,20 @@ export default function OnlineLayout() {
 
   return (
     <OnlineContext.Provider
-      value={{ cart, totalCount, totalPrice, addToCart, updateQuantity, removeItem, clearCart }}
+      value={{
+        cart,
+        totalCount,
+        totalPrice,
+        openModal: (item) => setPickingItem(item),
+        updateQuantity,
+        removeItem,
+        clearCart,
+      }}
     >
       <div className="gx-shell">
         {/* Header */}
         <header className="gx-header">
           <div className="gx-header-inner justify-content-center" style={{ justifyContent: 'center' }}>
-            {/* Logo giữa, bấm về trang chủ */}
             <Link to="/" className="gx-brand" title="Về trang chủ">
               <span className="gc-logo-text sm">
                 <span className="gc-brick-mark" aria-hidden="true"><i /><i /><i /></span>
@@ -85,7 +112,7 @@ export default function OnlineLayout() {
             <NavLink to="/online-order/cart">
               <i className="bi bi-bag" />
               <span>Giỏ hàng</span>
-              <b className="gx-badge">2</b>
+              {totalCount > 0 && <b className="gx-badge">{totalCount}</b>}
             </NavLink>
 
             <NavLink to="/online-order/orders">
@@ -100,6 +127,16 @@ export default function OnlineLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Modal tùy chỉnh món (Size / Đá / Đường / Topping) */}
+      <GuestItemModal
+        show={Boolean(pickingItem)}
+        item={pickingItem}
+        options={SAMPLE_OPTIONS}
+        confirmText="Thêm vào giỏ"
+        onClose={() => setPickingItem(null)}
+        onConfirm={addToCart}
+      />
     </OnlineContext.Provider>
   )
 }
