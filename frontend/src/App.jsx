@@ -24,10 +24,8 @@ export default function App() {
       <Route element={<HomeLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/thuc-don" element={<MenuPage />} />
-      </Route>
 
-      {/* Đặt hàng online (ThangDT) */}
-      {thangdtRoutes}
+      </Route>
 
       {/* Hệ thống quản lý (nhân viên) */}
       <Route path="/login" element={<LoginPage />} />
@@ -45,6 +43,7 @@ export default function App() {
       {thangnnRoutes}
       {managerRoutes}
       {khoibmRoutes}
+      {thangdtRoutes}
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

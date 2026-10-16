@@ -1,82 +1,78 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useOnline } from '../../layouts/OnlineLayout'
+import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
+import { unitTotal } from '../../utils/orderOptions'
 
 export default function OnlineCart() {
-  // Món mẫu trong giỏ
-  const [items, setItems] = useState([
-    {
-      id: 1,
-      name: 'Bạc xỉu',
-      options: 'Size M · 50% đường · 100% đá',
-      note: 'Cho sữa đặc riêng giúp mình',
-      quantity: 1,
-      price: '50.000đ',
-    },
-    {
-      id: 2,
-      name: 'Trà đào cam sả',
-      options: 'Size L · 70% đường · Thêm đào miếng',
-      note: '',
-      quantity: 1,
-      price: '45.000đ',
-    },
-  ])
+  
+  const { cart, totalCount, totalPrice, updateQuantity, removeItem } = useOnline()
 
-  // Đổi số lượng
-  const changeQty = (id, delta) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-      )
+  // Giao diện khi giỏ hàng chưa có món nào
+  if (cart.length === 0) {
+    return (
+      <div className="gx-empty">
+        <i className="bi bi-bag gx-empty-icon" />
+        <p>Giỏ hàng của bạn đang trống.</p>
+        <Link to="/online-order" className="btn btn-primary">
+          Xem thực đơn
+        </Link>
+      </div>
     )
-  }
-
-  // Xóa món
-  const deleteItem = (id) => {
-    setItems((prev) => prev.filter((item) => item.id !== id))
   }
 
   return (
     <>
       <h1 className="gx-title">Giỏ hàng của bạn</h1>
 
-      {/* Danh sách món */}
+      {/* Danh sách món trong giỏ hàng thật */}
       <div className="gx-card">
-        {items.map((item) => (
-          <div className="gx-line" key={item.id}>
+        {cart.map((item) => (
+          <div className="gx-line" key={item.key}>
             <div className="gx-line-main">
-              <span className="gx-line-name">{item.name}</span>
-              <div className="gx-muted">{item.options}</div>
-              {item.note && <div className="gx-note">{item.note}</div>}
+              <span className="gx-line-name">{item.itemName}</span>
+              {itemOptionsText(item) && (
+                <div className="gx-muted">{itemOptionsText(item)}</div>
+              )}
 
-              {/* Tăng/giảm số lượng & nút xóa */}
+              {item.note && <div className="gx-note">{item.note}</div>}
+              {/* Tăng / giảm số lượng & Nút Xóa */}
               <div className="gx-line-actions">
-                <div className="gx-qty sm">
-                  <button type="button" onClick={() => changeQty(item.id, -1)}>−</button>
+                <div className="gx-qty sm" aria-label={`Số lượng ${item.itemName}`}>
+                  <button
+                    type="button"
+                    aria-label="Giảm"
+                    disabled={item.quantity <= 1}
+                    onClick={() => updateQuantity(item.key, -1)}
+                  > −</button>
                   <span>{item.quantity}</span>
-                  <button type="button" onClick={() => changeQty(item.id, 1)}>+</button>
+                  <button
+                    type="button"
+                    aria-label="Tăng"
+                    disabled={item.quantity >= 50}
+                    onClick={() => updateQuantity(item.key, 1)}
+                  >+</button>
                 </div>
+                
                 <button
                   type="button"
                   className="gx-link danger"
-                  onClick={() => deleteItem(item.id)}
-                >
-                  Xóa
+                  onClick={() => removeItem(item.key)}
+                >Xóa 
                 </button>
               </div>
             </div>
-
-            <div className="gx-line-price">{item.price}</div>
+            <div className="gx-line-price">{formatMoney(unitTotal(item) * item.quantity)}</div>
           </div>
         ))}
       </div>
 
-      {/* Tổng tiền */}
+      {/* Tổng kết tiền giỏ hàng */}
       <div className="gx-summary">
         <div>
-          <span>Tổng số lượng: {items.reduce((s, i) => s + i.quantity, 0)} món</span>
-          <strong>95.000đ</strong>
+          <span>Tổng cộng ({totalCount} món)</span>
+          <strong>{formatMoney(totalPrice)}</strong>
         </div>
+        <p>Phí giao hàng sẽ được tính ở bước thanh toán.</p>
       </div>
 
       {/* Nút bấm chuyển trang */}
@@ -85,7 +81,7 @@ export default function OnlineCart() {
           + Chọn thêm món
         </Link>
         <Link to="/online-order/checkout" className="btn btn-primary flex-grow-1 py-2">
-          Tiến hành thanh toán (95.000đ) →
+          Thanh toán · {formatMoney(totalPrice)} →
         </Link>
       </div>
     </>

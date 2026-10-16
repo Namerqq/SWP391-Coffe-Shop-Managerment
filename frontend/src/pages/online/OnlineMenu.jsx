@@ -1,42 +1,57 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useOnline } from '../../layouts/OnlineLayout'
+import { formatMoney } from '../../utils/orderFormat'
+import { plainText } from '../../utils/guestSession'
 
-// Món mẫu
+// Dữ liệu món mẫu
 const SAMPLE_MENU = [
   {
     category: 'Cà phê',
     items: [
-      { id: 1, name: 'Americano', desc: 'Espresso pha loãng, vị thanh nhẹ.', price: '39.000đ' },
-      { id: 2, name: 'Bạc xỉu', desc: 'Sữa béo nhẹ hòa quyện cùng espresso.', price: '50.000đ' },
-      { id: 3, name: 'Cà phê đen đá', desc: 'Phin Robusta đậm vị, không đường.', price: '29.000đ' },
-      { id: 4, name: 'Cà phê sữa đá', desc: 'Cà phê rang đậm và sữa đặc truyền thống.', price: '35.000đ' },
+      { id: 1, name: 'Americano', desc: 'Espresso pha loãng, vị thanh nhẹ.', price: 39000 },
+      { id: 2, name: 'Bạc xỉu', desc: 'Sữa béo nhẹ hòa quyện cùng espresso.', price: 50000 },
+      { id: 3, name: 'Cà phê đen đá', desc: 'Phin Robusta đậm vị, không đường.', price: 29000 },
+      { id: 4, name: 'Cà phê sữa đá', desc: 'Cà phê rang đậm và sữa đặc truyền thống.', price: 35000 },
     ],
   },
   {
     category: 'Trà',
     items: [
-      { id: 5, name: 'Trà đào cam sả', desc: 'Trà thanh mát với đào tươi và sả thơm.', price: '45.000đ' },
-      { id: 6, name: 'Trà sen vàng', desc: 'Trà ô long thanh khiết, hạt sen bùi béo.', price: '45.000đ' },
-      { id: 7, name: 'Trà sữa Oolong', desc: 'Vị trà đậm đà cùng sữa béo thơm.', price: '42.000đ' },
+      { id: 5, name: 'Trà đào cam sả', desc: 'Trà thanh mát với đào tươi và sả thơm.', price: 45000 },
+      { id: 6, name: 'Trà sen vàng', desc: 'Trà ô long thanh khiết, hạt sen bùi béo.', price: 45000 },
+      { id: 7, name: 'Trà sữa Oolong', desc: 'Vị trà đậm đà cùng sữa béo thơm.', price: 42000 },
     ],
   },
   {
     category: 'Bánh',
     items: [
-      { id: 8, name: 'Bánh Croissant bơ tỏi', desc: 'Bánh sừng bò nướng thơm giòn béo ngậy.', price: '32.000đ' },
-      { id: 9, name: 'Bánh Tiramisu', desc: 'Bánh phô mai cà phê thơm mịn chuẩn Ý.', price: '38.000đ' },
+      { id: 8, name: 'Bánh Croissant bơ tỏi', desc: 'Bánh sừng bò nướng thơm giòn béo ngậy.', price: 32000 },
+      { id: 9, name: 'Bánh Tiramisu', desc: 'Bánh phô mai cà phê thơm mịn chuẩn Ý.', price: 38000 },
     ],
   },
 ]
 
 export default function OnlineMenu() {
+  const { openModal, totalCount, totalPrice } = useOnline()
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [search, setSearch] = useState('')
 
-  // Lọc theo danh mục
-  const displayGroups = SAMPLE_MENU.filter(
-    (g) => selectedCategory === 'ALL' || g.category === selectedCategory
-  )
+  // Lọc món theo danh mục và từ khóa tìm kiếm
+  const kw = plainText(search.trim())
+  const displayGroups = []
+
+  for (const group of SAMPLE_MENU) {
+    if (selectedCategory !== 'ALL' && group.category !== selectedCategory) {
+      continue
+    }
+    const matchedItems = group.items.filter((item) =>
+      !kw || plainText(item.name).includes(kw)
+    )
+    if (matchedItems.length > 0) {
+      displayGroups.push({ ...group, items: matchedItems })
+    }
+  }
 
   return (
     <>
@@ -57,6 +72,7 @@ export default function OnlineMenu() {
           )}
         </label>
 
+        {/* Nút danh mục tự động sinh theo dữ liệu */}
         <div className="gx-cats">
           <button
             type="button"
@@ -65,29 +81,26 @@ export default function OnlineMenu() {
           >
             Tất cả
           </button>
-          <button
-            type="button"
-            className={selectedCategory === 'Cà phê' ? 'active' : ''}
-            onClick={() => setSelectedCategory('Cà phê')}
-          >
-            Cà phê
-          </button>
-          <button
-            type="button"
-            className={selectedCategory === 'Trà' ? 'active' : ''}
-            onClick={() => setSelectedCategory('Trà')}
-          >
-            Trà
-          </button>
-          <button
-            type="button"
-            className={selectedCategory === 'Bánh' ? 'active' : ''}
-            onClick={() => setSelectedCategory('Bánh')}
-          >
-            Bánh
-          </button>
+          {SAMPLE_MENU.map((group) => (
+            <button
+              key={group.category}
+              type="button"
+              className={selectedCategory === group.category ? 'active' : ''}
+              onClick={() => setSelectedCategory(group.category)}
+            >
+              {group.category}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* Thông báo khi không tìm thấy món */}
+      {displayGroups.length === 0 && (
+        <div className="gx-empty">
+          <i className="bi bi-search gx-empty-icon" />
+          <p>Không tìm thấy món nào phù hợp với &quot;{search}&quot;.</p>
+        </div>
+      )}
 
       {/* Danh sách món */}
       {displayGroups.map((group) => (
@@ -102,9 +115,14 @@ export default function OnlineMenu() {
                 <div className="gx-item-body">
                   <h3>{item.name}</h3>
                   <p>{item.desc}</p>
-                  <span className="gx-price">{item.price}</span>
+                  <span className="gx-price">{formatMoney(item.price)}</span>
                 </div>
-                <button type="button" className="gx-add" title="Chọn món">
+                <button
+                  type="button"
+                  className="gx-add"
+                  title="Chọn món"
+                  onClick={() => openModal(item)}
+                >
                   <i className="bi bi-plus-lg" />
                 </button>
               </article>
@@ -113,15 +131,18 @@ export default function OnlineMenu() {
         </section>
       ))}
 
-      {/* Giỏ hàng ghim đáy */}
-      <Link to="/online-order/cart" className="gx-cartbar">
-        <span>
-          <b>2</b> món trong giỏ
-        </span>
-        <span>
-          Xem giỏ hàng · 95.000đ <i className="bi bi-arrow-right ms-1" />
-        </span>
-      </Link>
+      {/* Giỏ hàng ghim đáy (chỉ hiện khi giỏ có món) */}
+      {totalCount > 0 && (
+        <Link to="/online-order/cart" className="gx-cartbar">
+          <span>
+            <b>{totalCount}</b> món trong giỏ
+          </span>
+          <span>
+            Xem giỏ hàng · {formatMoney(totalPrice)}{' '}
+            <i className="bi bi-arrow-right ms-1" />
+          </span>
+        </Link>
+      )}
     </>
   )
 }
