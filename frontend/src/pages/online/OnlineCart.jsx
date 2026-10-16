@@ -4,8 +4,8 @@ import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import { unitTotal } from '../../utils/orderOptions'
 
 export default function OnlineCart() {
-  // Đọc giỏ hàng thật từ Context
-const { cart, updateQuantity } = useOnline()
+  // Đọc giỏ hàng và các hàm từ Context
+  const { cart, updateQuantity, removeItem } = useOnline()
 
   return (
     <>
@@ -16,13 +16,13 @@ const { cart, updateQuantity } = useOnline()
         {cart.map((item) => (
           <div className="gx-line" key={item.key}>
             <div className="gx-line-main">
-
               <span className="gx-line-name">{item.itemName}</span>
               {itemOptionsText(item) && (
                 <div className="gx-muted">{itemOptionsText(item)}</div>
               )}
+
               {item.note && <div className="gx-note">{item.note}</div>}
-               {/* Tăng / giảm số lượng */}
+              {/* Tăng / giảm số lượng & Nút Xóa */}
               <div className="gx-line-actions">
                 <div className="gx-qty sm" aria-label={`Số lượng ${item.itemName}`}>
                   <button
@@ -39,6 +39,13 @@ const { cart, updateQuantity } = useOnline()
                     onClick={() => updateQuantity(item.key, 1)}
                   >+</button>
                 </div>
+                
+                <button
+                  type="button"
+                  className="gx-link danger"
+                  onClick={() => removeItem(item.key)}
+                >Xóa 
+                </button>
               </div>
             </div>
             <div className="gx-line-price">{formatMoney(unitTotal(item) * item.quantity)}</div>
