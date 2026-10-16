@@ -4,8 +4,8 @@ import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import { unitTotal } from '../../utils/orderOptions'
 
 export default function OnlineCart() {
-  // Đọc giỏ hàng và các hàm từ Context
-  const { cart, updateQuantity, removeItem } = useOnline()
+  // Đọc giỏ hàng, tổng tiền và các hàm từ Context
+  const { cart, totalCount, totalPrice, updateQuantity, removeItem } = useOnline()
 
   return (
     <>
@@ -51,6 +51,15 @@ export default function OnlineCart() {
             <div className="gx-line-price">{formatMoney(unitTotal(item) * item.quantity)}</div>
           </div>
         ))}
+      </div>
+
+      {/* Tổng kết tiền giỏ hàng */}
+      <div className="gx-summary">
+        <div>
+          <span>Tổng cộng ({totalCount} món)</span>
+          <strong>{formatMoney(totalPrice)}</strong>
+        </div>
+        <p>Phí giao hàng sẽ được tính ở bước thanh toán.</p>
       </div>
 
       {/* Nút bấm chuyển trang */}
