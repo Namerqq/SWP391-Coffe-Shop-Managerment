@@ -6,3 +6,4 @@ export default defineConfig({
   // open: '/' -> chạy "npm run dev" sẽ tự mở trình duyệt ở trang home của khách
   server: { port: 5173, open: '/' },
 })
+

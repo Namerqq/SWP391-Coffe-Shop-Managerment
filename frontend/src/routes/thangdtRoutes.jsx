@@ -5,7 +5,7 @@ import OnlineCart from '../pages/online/OnlineCart'
 import OnlineCheckout from '../pages/online/OnlineCheckout'
 import OnlineTracking from '../pages/online/OnlineTracking'
 
-// Tuyến đường đặt hàng online (/online-order)
+// ThangDT: route các màn ThangDT.
 export const thangdtRoutes = (
   <Route path="/online-order" element={<OnlineLayout />}>
     <Route index element={<OnlineMenu />} />
