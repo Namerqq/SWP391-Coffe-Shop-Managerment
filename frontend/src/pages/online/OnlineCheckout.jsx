@@ -4,7 +4,7 @@ import { useOnline } from '../../layouts/OnlineLayout'
 import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import { unitTotal } from '../../utils/orderOptions'
 
-// Số điện thoại Việt Nam: 10 số, bắt đầu bằng 0
+
 const PHONE_REGEX = /^0\d{9}$/
 
 export default function OnlineCheckout() {
@@ -130,7 +130,7 @@ export default function OnlineCheckout() {
           ))}
           <div className="gx-order-foot">
             <span>Tổng cộng</span>
-            <span className="gx-price fs-5">{formatMoney(totalPrice)}</span>
+            <span className="gx-price fs-5"> {formatMoney(totalPrice)}</span>
           </div>
         </div>
 
