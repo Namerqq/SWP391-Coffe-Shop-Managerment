@@ -26,8 +26,8 @@ export default function OnlineLayout() {
   const [pickingItem, setPickingItem] = useState(null)
   const [options, setOptions] = useState({ sizes: [], toppings: [] })
 
-  // Tải danh sách size và topping từ database
-  useEffect(() => {
+  // Tải danh sách size và topping mới nhất từ database
+  const reloadOptions = () => {
     guestTableApi
       .getMenu()
       .then((res) => {
@@ -39,7 +39,18 @@ export default function OnlineLayout() {
         }
       })
       .catch(() => {})
+  }
+
+  useEffect(() => {
+    reloadOptions()
+    window.addEventListener('focus', reloadOptions)
+    return () => window.removeEventListener('focus', reloadOptions)
   }, [])
+
+  const handleOpenModal = (item) => {
+    reloadOptions()
+    setPickingItem(item)
+  }
 
   // Tự động lưu giỏ hàng vào LocalStorage mỗi khi giỏ đổi
   useEffect(() => {
@@ -87,7 +98,7 @@ export default function OnlineLayout() {
         cart,
         totalCount,
         totalPrice,
-        openModal: (item) => setPickingItem(item),
+        openModal: handleOpenModal,
         updateQuantity,
         removeItem,
         clearCart,
