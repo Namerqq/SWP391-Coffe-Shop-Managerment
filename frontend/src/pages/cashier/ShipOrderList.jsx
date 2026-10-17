@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
-import { formatTime } from '../../utils/orderFormat'
+import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderFormat'
 import usePolling from '../../utils/usePolling'
 
 // Trạng thái đơn giao hàng
@@ -14,6 +14,7 @@ const FILTER_TABS = [
   { key: 'CANCELLED', label: 'Đã hủy' },
 ]
 
+/** Nhãn và màu sắc badge trạng thái */
 function getStatusBadge(order) {
   if (order.status === 'CANCELLED' || order.deliveryStatus === 'CANCELLED') {
     return { label: 'Đã hủy', pillClass: 'status-pill tone-cancelled' }
@@ -50,10 +51,10 @@ export default function ShipOrderList() {
     }
   }, [])
 
-
+  // Tự động cập nhật ngầm mỗi 10 giây
   usePolling(loadOrders, 10000)
 
-
+  // Lọc danh sách đơn theo từ khóa và tab
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       if (keyword.trim()) {
@@ -129,7 +130,7 @@ export default function ShipOrderList() {
         </div>
       </div>
 
-      {/* Danh sách đơn hàng cơ bản */}
+      {/* Danh sách đơn hàng giao tận nơi */}
       {loading ? (
         <div className="text-center py-5">
           <div className="spinner-border text-primary" role="status" />
@@ -147,15 +148,87 @@ export default function ShipOrderList() {
         <div className="row g-3">
           {filteredOrders.map((o) => {
             const badge = getStatusBadge(o)
+            const isPaid = o.paymentStatus === 'PAID'
+            const paymentMethodText =
+              o.paymentMethod === 'VNPAY' ? 'VNPay' : o.paymentMethod === 'MOMO' ? 'MoMo' : 'Tiền mặt (COD)'
+
             return (
               <div key={o.orderId} className="col-12 col-lg-6 col-xl-4">
                 <div className="card h-100 border shadow-sm" style={{ borderRadius: '0.85rem' }}>
+                  {/* Mã đơn và Trạng thái */}
                   <div className="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
-                    <span className="fw-bold text-dark">{o.displayNumber || `#ONL-${o.orderId}`}</span>
+                    <div>
+                      <span className="fw-bold text-dark me-2">{o.displayNumber || `#ONL-${o.orderId}`}</span>
+                      <small className="text-muted">{formatTime(o.createdAt)}</small>
+                    </div>
                     <span className={badge.pillClass}>{badge.label}</span>
                   </div>
-                  <div className="card-body p-3">
-                    <div className="text-muted small">Thời gian đặt: {formatTime(o.createdAt)}</div>
+
+                  {/* Thông tin khách hàng & Địa chỉ giao hàng */}
+                  <div className="card-body p-3 d-flex flex-column">
+                    <div className="mb-2">
+                      <div className="fw-semibold text-dark">
+                        <i className="bi bi-person me-1 text-secondary" />
+                        {o.customerName || 'Khách vãng lai'} &bull;{' '}
+                        <a href={`tel:${o.customerPhone}`} className="text-decoration-none">
+                          {o.customerPhone || '—'}
+                        </a>
+                      </div>
+                      <div className="small text-muted mt-1">
+                        <i className="bi bi-geo-alt me-1 text-danger" />
+                        {o.deliveryAddress || 'Chưa có địa chỉ'}
+                      </div>
+                      {o.customerNote && (
+                        <div className="small text-muted fst-italic mt-1">
+                          <i className="bi bi-chat-left-text me-1 text-info" />
+                          "{o.customerNote}"
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Danh sách món */}
+                    <div className="border rounded-2 p-2 bg-light bg-opacity-50 my-2 flex-grow-1" style={{ maxHeight: '160px', overflowY: 'auto' }}>
+                      {o.items?.map((it, idx) => (
+                        <div
+                          key={idx}
+                          className={`d-flex justify-content-between align-items-baseline py-1 small ${
+                            idx < (o.items?.length || 0) - 1 ? 'border-bottom' : ''
+                          }`}
+                        >
+                          <div>
+                            <span className="fw-bold me-1">{it.quantity}x</span>
+                            <span>{it.itemName}</span>
+                            {itemOptionsText(it) && (
+                              <div className="text-muted" style={{ fontSize: '0.78rem' }}>
+                                {itemOptionsText(it)}
+                              </div>
+                            )}
+                            {it.note && (
+                              <div className="text-warning-emphasis fst-italic" style={{ fontSize: '0.78rem' }}>
+                                Ghi chú: {it.note}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-nowrap ms-2 fw-semibold">
+                            {formatMoney(it.subtotal || it.unitPrice * it.quantity)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Thông tin thanh toán & Tổng tiền */}
+                    <div className="pt-2 border-top d-flex justify-content-between align-items-center">
+                      <div>
+                        <div className="small text-muted">{paymentMethodText}</div>
+                        <span className={`badge ${isPaid ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'} border`} style={{ fontSize: '0.72rem' }}>
+                          {isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                        </span>
+                      </div>
+                      <div className="text-end">
+                        <div className="small text-muted">Tổng tiền</div>
+                        <span className="fw-bold text-primary fs-6">{formatMoney(o.totalAmount)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
