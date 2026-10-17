@@ -1,83 +1,210 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import onlineOrderApi from '../../api/onlineOrderApi'
+import { errorMessage } from '../../api/axiosClient'
+import { elapsedLabel, formatMoney, itemOptionsText } from '../../utils/orderFormat'
+import usePolling from '../../utils/usePolling'
 
-// Giao diện mẫu, chưa có logic
-// TODO: lấy đơn thật từ API khi có backend
-const DELIVERY_STEPS = ['Đã nhận đơn', 'Đang giao', 'Đã giao']
+
+const DELIVERY_STEPS = ['Đã nhận đơn', 'Xác nhận đơn hàng', 'Đang giao', 'Đã giao']
+
+/**
+ * Tính bước hiện tại (0 -> 3) hoặc -1 nếu đơn bị hủy
+ */
+function getStepIndex(order) {
+  if (order.status === 'CANCELLED' || order.deliveryStatus === 'CANCELLED') return -1
+  if (order.status === 'COMPLETED' || order.deliveryStatus === 'DELIVERED') return 3
+  if (order.deliveryStatus === 'OUT_FOR_DELIVERY' || order.deliveryStatus === 'PICKED_UP') return 2
+  if (order.status === 'CONFIRMED' || order.status === 'PREPARING' || order.status === 'READY') return 1
+  return 0
+}
+
+/** Nhãn và màu badge theo từng trạng thái */
+function getStatusBadge(order, currentStep) {
+  if (order.status === 'CANCELLED' || order.deliveryStatus === 'CANCELLED') {
+    return { label: 'Đã hủy', className: 'badge bg-danger text-white' }
+  }
+  switch (currentStep) {
+    case 0:
+      return { label: 'Đã nhận đơn', className: 'badge bg-warning text-dark' }
+    case 1:
+      return { label: 'Đã xác nhận', className: 'badge bg-primary text-white' }
+    case 2:
+      return { label: 'Đang giao', className: 'badge bg-info text-dark' }
+    case 3:
+      return { label: 'Đã giao', className: 'badge bg-success text-white' }
+    default:
+      return { label: order.status, className: 'badge bg-secondary text-white' }
+  }
+}
 
 export default function OnlineTracking() {
-  const currentStep = 0 // 0: Đã nhận đơn, 1: Đang giao, 2: Đã giao
+  const [searchParams] = useSearchParams()
+  const orderId = searchParams.get('orderId') || localStorage.getItem('online_last_order_id')
+
+  const [order, setOrder] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [cancelling, setCancelling] = useState(false)
+  const [error, setError] = useState('')
+
+  // Tải thông tin đơn hàng từ API
+  const fetchOrder = async () => {
+    if (!orderId) {
+      setLoading(false)
+      return
+    }
+   
+    if (order && (order.status === 'CANCELLED' || order.status === 'COMPLETED' || order.deliveryStatus === 'DELIVERED')) {
+      return
+    }
+    try {
+      const res = await onlineOrderApi.getOrderById(orderId)
+      setOrder(res.data)
+      setError('')
+    } catch (err) {
+      if (!order) setError(errorMessage(err, 'Không tìm thấy thông tin đơn hàng.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Tự động làm mới trạng thái  mỗi 30 giâ
+  usePolling(fetchOrder, 30000)
+
+  // Xử lý khách bấm nút "Hủy đơn hàng"
+  const handleCancel = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return
+    setCancelling(true)
+    try {
+      const res = await onlineOrderApi.cancelOrder(order.orderId, 'Khách hàng tự hủy trên website')
+      setOrder(res.data)
+      alert('Đã hủy đơn hàng thành công.')
+    } catch (err) {
+      alert(errorMessage(err, 'Không thể hủy đơn hàng vào lúc này.'))
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  // 1. Đang tải
+  if (loading) {
+    return (
+      <div className="text-center py-5">
+        <div className="spinner-border text-primary" role="status" />
+        <div className="gx-muted mt-2">Đang tải thông tin đơn hàng...</div>
+      </div>
+    )
+  }
+
+  // 2. Chưa có đơn hàng nào
+  if (!orderId || !order) {
+    return (
+      <>
+        <h1 className="gx-title">Đơn hàng của bạn</h1>
+        <div className="gx-card text-center p-4">
+          <div className="fs-1 mb-2"></div>
+          <h5>Chưa có đơn hàng nào</h5>
+          <p className="gx-muted">
+            {error || 'Bạn chưa đặt đơn hàng nào gần đây.'}
+          </p>
+          <div className="mt-3">
+            <Link to="/online-order" className="btn btn-primary">
+              Xem thực đơn và đặt món
+            </Link>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  const currentStep = getStepIndex(order)
+  const isCancelled = currentStep === -1
+  const canCancel = currentStep === 0 
+  const badge = getStatusBadge(order, currentStep)
 
   return (
     <>
       <h1 className="gx-title">Đơn hàng của bạn</h1>
 
       <article className="gx-card gx-order mb-3">
-        {/* Mã đơn & trạng thái */}
+        {/* Header: Mã đơn + Thời gian đặt + Badge trạng thái */}
         <header>
           <div>
-            <span className="gx-order-no">#ONL-8921</span>
-            <span className="gx-muted"> · 5 phút trước</span>
+            <span className="gx-order-no">#{order.orderNumber || `ONL-${order.orderId}`}</span>
+            <span className="gx-muted"> · {elapsedLabel(order.createdAt)} trước</span>
           </div>
-          <span className="badge bg-warning text-dark px-2 py-1">Đã nhận đơn</span>
+          <span className={`${badge.className} px-2 py-1`}>{badge.label}</span>
         </header>
 
-        {/* Thanh tiến trình 3 bước */}
-        <ol className="gx-steps" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }} aria-label="Tiến độ giao hàng">
-          {DELIVERY_STEPS.map((label, idx) => (
-            <li key={label} className={idx < currentStep ? 'done' : idx === currentStep ? 'current' : ''}>
-              <span />
-              {label}
-            </li>
-          ))}
-        </ol>
+        {/* ẩn nếu đơn đã bị hủy */}
+        {!isCancelled ? (
+          <ol className="gx-steps" aria-label="Tiến độ đơn hàng">
+            {DELIVERY_STEPS.map((label, idx) => (
+              <li
+                key={label}
+                className={idx < currentStep ? 'done' : idx === currentStep ? 'current' : ''}
+              >
+                <span />
+                {label}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className="alert alert-danger py-2 my-3 text-center" style={{ fontSize: '0.9rem' }}>
+            <strong>Đơn hàng đã bị hủy.</strong>
+            {order.cancelReason && <div className="small mt-1">Lý do: {order.cancelReason}</div>}
+          </div>
+        )}
 
-        {/* Thông tin người nhận */}
+        {/* Khung thông tin người nhận */}
         <div className="bg-light rounded p-2 mb-3 text-secondary" style={{ fontSize: '0.85rem', lineHeight: '1.5' }}>
           <div>
-            <strong className="text-dark">Người nhận:</strong> Nguyễn Văn A (0987654321)
+            <strong className="text-dark">Người nhận:</strong> {order.customerName} ({order.customerPhone})
           </div>
           <div>
-            <strong className="text-dark">Địa chỉ giao:</strong> Số 12, Ngõ 45, Đường Cầu Giấy, Hà Nội
+            <strong className="text-dark">Địa chỉ giao:</strong> {order.deliveryAddress}
           </div>
           <div>
-            <strong className="text-dark">Ghi chú:</strong> Giao trước 12h giúp mình nhé
+            <strong className="text-dark">Ghi chú:</strong> {order.customerNote || 'Giao hàng tận nơi'}
           </div>
         </div>
 
-        {/* Món trong đơn */}
-        <div className="gx-order-line">
-          <span className="gx-order-qty">1×</span>
-          <div className="flex-grow-1">
-            <div>Bạc xỉu</div>
-            <div className="gx-muted">Size M, 50% đường</div>
+        {/* Danh sách món trong đơn */}
+        {order.items?.map((item) => (
+          <div className="gx-order-line" key={item.id || item.menuItemId}>
+            <span className="gx-order-qty">{item.quantity}×</span>
+            <div className="flex-grow-1">
+              <div>{item.itemName}</div>
+              {itemOptionsText(item) && <div className="gx-muted">{itemOptionsText(item)}</div>}
+            </div>
+            <span className="gx-price">
+              {formatMoney(item.subtotal || item.unitPrice * item.quantity)}
+            </span>
           </div>
-          <span className="gx-price">50.000đ</span>
-        </div>
-
-        <div className="gx-order-line">
-          <span className="gx-order-qty">1×</span>
-          <div className="flex-grow-1">
-            <div>Trà đào cam sả</div>
-            <div className="gx-muted">Size L, 70% đường, + Trân châu trắng</div>
-          </div>
-          <span className="gx-price">45.000đ</span>
-        </div>
+        ))}
 
         {/* Tổng tiền */}
         <footer>
           <span>Tổng tiền:</span>
-          <span className="gx-price fs-5">95.000đ</span>
+          <span className="gx-price fs-5">{formatMoney(order.totalAmount)}</span>
         </footer>
 
-        {/* Nút hủy đơn (chưa có chức năng) */}
-        <div className="text-end mt-2 pt-2 border-top">
-          <button type="button" className="btn btn-outline-danger btn-sm">
-            Hủy đơn hàng
-          </button>
-        </div>
+        {/* Nút Hủy đơn hàng: Chỉ hiện khi ở Bước 1 ("Đã nhận đơn") */}
+        {canCancel && (
+          <div className="text-end mt-2 pt-2 border-top">
+            <button
+              type="button"
+              className="btn btn-outline-danger btn-sm"
+              disabled={cancelling}
+              onClick={handleCancel}
+            >
+              {cancelling ? 'Đang hủy...' : 'Hủy đơn hàng'}
+            </button>
+          </div>
+        )}
       </article>
 
-      {/* Nút quay lại */}
+      {/* Nút quay lại xem thực đơn */}
       <div className="text-center mt-3 mb-4">
         <Link to="/online-order" className="btn btn-light-soft">
           ← Quay lại xem thực đơn

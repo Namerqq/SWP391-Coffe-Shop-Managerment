@@ -4,6 +4,11 @@ import axiosClient from './axiosClient'
 const onlineOrderApi = {
   // Gửi đơn đặt hàng online tới backend: { customerName, customerPhone, deliveryAddress, note, paymentMethod, items }
   placeOrder: (data) => axiosClient.post('/public/online/orders', data),
+
+  getOrderById: (id) => axiosClient.get(`/public/online/orders/${id}`),
+
+  cancelOrder: (id, reason) =>
+    axiosClient.post(`/public/online/orders/${id}/cancel`, reason ? { reason } : {}),
 }
 
 export default onlineOrderApi

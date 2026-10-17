@@ -3,6 +3,7 @@
 import { danmtNav, danmtHomes } from './danmtNav'
 import { thangnnNav, thangnnHomes } from './thangnnNav'
 import { managerNav, managerHomes } from './managerNav'
+import { thangdtNav } from './thangdtNav'
 
 /** Gộp menu trái theo vai trò: cùng 1 vai trò thì nối danh sách mục của các thành viên lại. */
 function mergeNav(...navs) {
@@ -17,7 +18,7 @@ function mergeNav(...navs) {
 }
 
 /** { BARISTA: { subtitle, items: [{ to, label, icon, end }] }, ... } */
-export const roleNav = mergeNav(thangnnNav, danmtNav, managerNav)
+export const roleNav = mergeNav(thangnnNav, danmtNav, managerNav, thangdtNav)
 
 const roleHomes = { ADMIN: '/admin', ...danmtHomes, ...thangnnHomes, ...managerHomes }
 

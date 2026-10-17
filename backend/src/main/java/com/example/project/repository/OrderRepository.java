@@ -15,4 +15,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByPayment_IdOrderByCreatedAtAsc(Long paymentId);
     boolean existsByTableSession_IdAndStatusNot(Long tableSessionId, String status);
     long countByOrderNumberStartingWith(String prefix);
+
+    /** Danh sách đơn giao hàng (DELIVERY) mới nhất lên đầu cho màn hình Thu ngân. */
+    List<Order> findByFulfillmentTypeOrderByCreatedAtDesc(String fulfillmentType);
 }
