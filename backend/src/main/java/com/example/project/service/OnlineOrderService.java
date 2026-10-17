@@ -45,6 +45,10 @@ public class OnlineOrderService {
         if (req.items() == null || req.items().isEmpty()) {
             throw ApiException.badRequest("Giỏ hàng đang trống, chưa chọn món nào.");
         }
+        // ThangNN Iter2 (D2): đơn trả QR chỉ được tạo SAU khi khách trả xong, qua POST /api/public/online/qr-payments.
+        if ("PAYOS_QR".equalsIgnoreCase(req.paymentMethodOrDefault())) {
+            throw ApiException.badRequest("Đơn trả bằng QR được tạo sau khi thanh toán, vui lòng thanh toán ở trang mã QR.");
+        }
 
         // 1. Tạo đơn hàng (Order)
         Order order = new Order();
