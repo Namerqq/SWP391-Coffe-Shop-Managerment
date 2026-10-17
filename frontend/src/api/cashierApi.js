@@ -20,6 +20,9 @@ const cashierApi = {
   getPendingQrs: (params) => axiosClient.get('/cashier/qr-payments/pending', { params }),
   // since = serverTime của lần hỏi trước -> các mã vừa thanh toán xong (PAID) / cần kiểm tra tay (MISMATCH)
   getQrEvents: (since) => axiosClient.get('/cashier/qr-payments/events', { params: since ? { since } : {} }),
+
+  // Lấy danh sách đơn giao hàng online cho thu ngân (Ship Order List)
+  getDeliveryOrders: () => axiosClient.get('/cashier/delivery-orders'),
 }
 
 export default cashierApi
