@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import GuestItemModal from '../pages/guest/GuestItemModal'
+import guestTableApi from '../api/guestTableApi'
 import { unitTotal } from '../utils/orderOptions'
 import '../styles/guest.css'
 
@@ -23,6 +24,33 @@ export default function OnlineLayout() {
 
   // Món đang mở modal (null = đóng modal)
   const [pickingItem, setPickingItem] = useState(null)
+  const [options, setOptions] = useState({ sizes: [], toppings: [] })
+
+  // Tải danh sách size và topping mới nhất từ database
+  const reloadOptions = () => {
+    guestTableApi
+      .getMenu()
+      .then((res) => {
+        if (res?.data) {
+          setOptions({
+            sizes: res.data.sizes || [],
+            toppings: res.data.toppings || [],
+          })
+        }
+      })
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    reloadOptions()
+    window.addEventListener('focus', reloadOptions)
+    return () => window.removeEventListener('focus', reloadOptions)
+  }, [])
+
+  const handleOpenModal = (item) => {
+    reloadOptions()
+    setPickingItem(item)
+  }
 
   // Tự động lưu giỏ hàng vào LocalStorage mỗi khi giỏ đổi
   useEffect(() => {
@@ -70,7 +98,7 @@ export default function OnlineLayout() {
         cart,
         totalCount,
         totalPrice,
-        openModal: (item) => setPickingItem(item),
+        openModal: handleOpenModal,
         updateQuantity,
         removeItem,
         clearCart,
@@ -115,11 +143,11 @@ export default function OnlineLayout() {
         </main>
       </div>
 
-      {/* Modal tùy chỉnh món (Size / Đá / Đường / Topping) */}
+      {/* Modal tùy chỉnh món  */}
       <GuestItemModal
         show={Boolean(pickingItem)}
         item={pickingItem}
-        options={SAMPLE_OPTIONS}
+        options={options}
         confirmText="Thêm vào giỏ"
         onClose={() => setPickingItem(null)}
         onConfirm={addToCart}
