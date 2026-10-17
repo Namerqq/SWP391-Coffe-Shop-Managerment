@@ -10,7 +10,7 @@ const PHONE_REGEX = /^0\d{9}$/
 
 export default function OnlineCheckout() {
   const navigate = useNavigate()
-  const { cart, totalCount, totalPrice } = useOnline()
+  const { cart, totalCount, totalPrice, clearCart } = useOnline()
 
   const [paymentMethod, setPaymentMethod] = useState('CASH') 
   const [form, setForm] = useState({ name: '', phone: '', address: '', note: '' })
@@ -44,6 +44,8 @@ export default function OnlineCheckout() {
       }
 
       await onlineOrderApi.placeOrder(payload)
+
+      if (clearCart) clearCart()
 
       localStorage.setItem('online_last_phone', form.phone.trim())
 
