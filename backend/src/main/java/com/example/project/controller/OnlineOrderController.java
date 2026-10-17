@@ -1,5 +1,6 @@
 package com.example.project.controller;
 
+import com.example.project.dto.guest.GuestCancelRequest;
 import com.example.project.dto.online.OnlineOrderRequest;
 import com.example.project.dto.online.OnlineOrderView;
 import com.example.project.service.OnlineOrderService;
@@ -39,6 +40,19 @@ public class OnlineOrderController {
     @GetMapping("/orders/{id}")
     public ResponseEntity<OnlineOrderView> getOrderById(@PathVariable Long id) {
         OnlineOrderView view = onlineOrderService.getOrderById(id);
+        return ResponseEntity.ok(view);
+    }
+
+    /**
+     * Khách hàng hủy đơn online (chỉ được hủy khi chưa bắt đầu pha chế hoặc chưa giao hàng).
+     * POST /api/public/online/orders/{id}/cancel
+     */
+    @PostMapping("/orders/{id}/cancel")
+    public ResponseEntity<OnlineOrderView> cancelOrder(
+            @PathVariable Long id,
+            @RequestBody(required = false) GuestCancelRequest req) {
+        String reason = req != null ? req.reason() : null;
+        OnlineOrderView view = onlineOrderService.cancelOrder(id, reason);
         return ResponseEntity.ok(view);
     }
 }
