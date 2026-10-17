@@ -5,6 +5,7 @@ import com.example.project.dto.cashier.QrPaymentView;
 import com.example.project.dto.cashier.QrSessionRequest;
 import com.example.project.dto.cashier.QrTakeawayCart;
 import com.example.project.dto.cashier.QrTakeawayRequest;
+import com.example.project.dto.onlinepay.QrOnlineCart;
 import com.example.project.dto.order.OrderItemRequest;
 import com.example.project.entity.CafeTable;
 import com.example.project.entity.Customer;
@@ -160,6 +161,10 @@ public class QrPaymentService {
         if (QrPaymentRequest.PAID.equals(old.getStatus()) || QrPaymentRequest.MISMATCH.equals(old.getStatus())) {
             throw ApiException.badRequest("Mã QR này đã nhận tiền, không tạo lại được.");
         }
+        if (old.isOnline()) {
+            // D5-A: mã của khách đặt online hết hạn thì khách đặt lại trên web, không tạo mã mới.
+            throw ApiException.badRequest("Mã QR của khách đặt online không tạo lại được, khách cần đặt lại trên web.");
+        }
         Long customerId = old.getCustomer() == null ? null : old.getCustomer().getId();
         if (old.isTable()) {
             List<Long> orderIds = old.getOrders().stream().map(Order::getId).toList();
@@ -236,7 +241,10 @@ public class QrPaymentService {
         return toView(find(id));
     }
 
-    /** Mã đang chờ khách quét: của 1 bàn (sessionId), theo loại (target = TABLE / TAKEAWAY) hoặc tất cả. */
+    /**
+     * Mã đang chờ khách quét: của 1 bàn (sessionId), theo loại (target = TABLE / TAKEAWAY) hoặc tất cả.
+     * Không trả mã ONLINE: mã do khách đặt online tự tạo, thu ngân không hủy / tạo lại (Q2-A).
+     */
     @Transactional(readOnly = true)
     public List<QrPaymentView> pending(Long sessionId, String target) {
         List<QrPaymentRequest> list;
@@ -248,7 +256,7 @@ public class QrPaymentService {
         } else {
             list = qrRepository.findByStatusOrderByCreatedAtAsc(QrPaymentRequest.PENDING);
         }
-        return list.stream().map(this::toView).toList();
+        return list.stream().filter(r -> !r.isOnline()).map(this::toView).toList();
     }
 
     /**
@@ -465,6 +473,25 @@ public class QrPaymentService {
             return cart;
         } catch (Exception e) {
             throw new IllegalStateException("Không đọc được giỏ hàng của mã QR: " + e.getMessage(), e);
+        }
+    }
+
+    private String writeOnlineCart(QrOnlineCart cart) {
+        try {
+            return objectMapper.writeValueAsString(cart);
+        } catch (Exception e) {
+            throw ApiException.badRequest("Không lưu được giỏ hàng.");
+        }
+    }
+
+    /** Đọc giỏ hàng + thông tin giao hàng của mã ONLINE. */
+    private QrOnlineCart readOnlineCart(String json) {
+        try {
+            QrOnlineCart cart = objectMapper.readValue(json, QrOnlineCart.class);
+            if (cart.lines() == null || cart.lines().isEmpty()) throw new IllegalStateException("giỏ hàng rỗng");
+            return cart;
+        } catch (Exception e) {
+            throw new IllegalStateException("Không đọc được giỏ hàng online của mã QR: " + e.getMessage(), e);
         }
     }
 
