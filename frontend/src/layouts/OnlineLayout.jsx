@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import GuestItemModal from '../pages/guest/GuestItemModal'
+import guestTableApi from '../api/guestTableApi'
 import { unitTotal } from '../utils/orderOptions'
 import '../styles/guest.css'
 
@@ -8,19 +9,6 @@ import '../styles/guest.css'
 const OnlineContext = createContext(null)
 export const useOnline = () => useContext(OnlineContext)
 
-// Tùy chọn size & topping mẫu khi chưa nối database
-const SAMPLE_OPTIONS = {
-  sizes: [
-    { id: 1, name: 'Size S', price: 0 },
-    { id: 2, name: 'Size M', price: 6000 },
-    { id: 3, name: 'Size L', price: 10000 },
-  ],
-  toppings: [
-    { id: 10, name: 'Thêm Espresso', price: 10000 },
-    { id: 11, name: 'Kem Cheese', price: 8000 },
-    { id: 12, name: 'Trân châu trắng', price: 6000 },
-  ],
-}
 
 export default function OnlineLayout() {
   // Đọc giỏ hàng từ LocalStorage khi mở trang
@@ -32,6 +20,15 @@ export default function OnlineLayout() {
       return []
     }
   })
+
+  // Size & topping lấy từ menu trong database (danh mục "Size" / "Topping")
+  const [options, setOptions] = useState({ sizes: [], toppings: [] })
+  useEffect(() => {
+    guestTableApi
+      .getMenu()
+      .then((res) => setOptions({ sizes: res.data?.sizes || [], toppings: res.data?.toppings || [] }))
+      .catch(() => {})
+  }, [])
 
   // Món đang mở modal (null = đóng modal)
   const [pickingItem, setPickingItem] = useState(null)
@@ -131,7 +128,7 @@ export default function OnlineLayout() {
       <GuestItemModal
         show={Boolean(pickingItem)}
         item={pickingItem}
-        options={SAMPLE_OPTIONS}
+        options={options}
         confirmText="Thêm vào giỏ"
         onClose={() => setPickingItem(null)}
         onConfirm={addToCart}
