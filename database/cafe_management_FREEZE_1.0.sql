@@ -395,7 +395,7 @@ CREATE TABLE qr_payment_requests (
  CONSTRAINT fk_qr_requests_customer FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
  CONSTRAINT fk_qr_requests_creator FOREIGN KEY (created_by_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
  CONSTRAINT fk_qr_requests_payment FOREIGN KEY (payment_id) REFERENCES payments(payment_id),
- CONSTRAINT chk_qr_requests_target CHECK (   (target_type = 'TABLE' AND table_session_id IS NOT NULL AND cart_json IS NULL)   OR (target_type = 'TAKEAWAY' AND table_session_id IS NULL AND cart_json IS NOT NULL)),
+ CONSTRAINT chk_qr_requests_target CHECK (   (target_type = 'TABLE' AND table_session_id IS NOT NULL AND cart_json IS NULL)   OR (target_type IN ('TAKEAWAY', 'ONLINE') AND table_session_id IS NULL AND cart_json IS NOT NULL)),
  CONSTRAINT chk_qr_requests_status CHECK (status IN ('PENDING', 'PAID', 'EXPIRED', 'CANCELLED', 'MISMATCH')),
  CONSTRAINT chk_qr_requests_paid CHECK (status <> 'PAID' OR (paid_at IS NOT NULL AND payment_id IS NOT NULL)),
  CONSTRAINT chk_qr_requests_amount CHECK (amount > 0 AND amount <= subtotal),
