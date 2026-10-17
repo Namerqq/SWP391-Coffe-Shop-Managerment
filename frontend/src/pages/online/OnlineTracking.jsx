@@ -3,16 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom'
 import onlineOrderApi from '../../api/onlineOrderApi'
 import { errorMessage } from '../../api/axiosClient'
 import { elapsedLabel, formatMoney, itemOptionsText } from '../../utils/orderFormat'
+import usePolling from '../../utils/usePolling'
 
-// 4 bước tiến trình giao hàng theo quy trình thực tế
+
 const DELIVERY_STEPS = ['Đã nhận đơn', 'Xác nhận đơn hàng', 'Đang giao', 'Đã giao']
 
 /**
- * Tính bước hiện tại (0 -> 3) hoặc -1 nếu đơn bị hủy:
- * - 0: Đã nhận đơn (PENDING_CONFIRMATION / PENDING) -> Khách được hủy
- * - 1: Xác nhận đơn hàng (CONFIRMED / PREPARING / READY) -> Quán đã duyệt, khóa hủy
- * - 2: Đang giao (OUT_FOR_DELIVERY / PICKED_UP) -> Shipper đang giao
- * - 3: Đã giao (COMPLETED / DELIVERED) -> Giao thành công
+ * Tính bước hiện tại (0 -> 3) hoặc -1 nếu đơn bị hủy
  */
 function getStepIndex(order) {
   if (order.status === 'CANCELLED' || order.deliveryStatus === 'CANCELLED') return -1
@@ -56,20 +53,23 @@ export default function OnlineTracking() {
       setLoading(false)
       return
     }
+   
+    if (order && (order.status === 'CANCELLED' || order.status === 'COMPLETED' || order.deliveryStatus === 'DELIVERED')) {
+      return
+    }
     try {
       const res = await onlineOrderApi.getOrderById(orderId)
       setOrder(res.data)
       setError('')
     } catch (err) {
-      setError(errorMessage(err, 'Không tìm thấy thông tin đơn hàng.'))
+      if (!order) setError(errorMessage(err, 'Không tìm thấy thông tin đơn hàng.'))
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchOrder()
-  }, [orderId])
+  // Tự động làm mới trạng thái  mỗi 30 giâ
+  usePolling(fetchOrder, 30000)
 
   // Xử lý khách bấm nút "Hủy đơn hàng"
   const handleCancel = async () => {
@@ -119,7 +119,7 @@ export default function OnlineTracking() {
 
   const currentStep = getStepIndex(order)
   const isCancelled = currentStep === -1
-  const canCancel = currentStep === 0 // Chỉ được hủy khi ở Bước 1: "Đã nhận đơn"
+  const canCancel = currentStep === 0 
   const badge = getStatusBadge(order, currentStep)
 
   return (
@@ -136,7 +136,7 @@ export default function OnlineTracking() {
           <span className={`${badge.className} px-2 py-1`}>{badge.label}</span>
         </header>
 
-        {/* Thanh tiến trình 4 bước (ẩn nếu đơn đã bị hủy) */}
+        {/* ẩn nếu đơn đã bị hủy */}
         {!isCancelled ? (
           <ol className="gx-steps" aria-label="Tiến độ đơn hàng">
             {DELIVERY_STEPS.map((label, idx) => (
