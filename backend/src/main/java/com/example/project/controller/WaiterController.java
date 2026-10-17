@@ -6,8 +6,8 @@ import com.example.project.dto.order.SessionView;
 import com.example.project.dto.waiter.CancelOrderRequest;
 import com.example.project.dto.waiter.ChangeTableRequest;
 import com.example.project.security.RequireRole;
-import com.example.project.service.WaiterService;
 import jakarta.validation.Valid;
+import com.example.project.service.WaiterService;
 import org.springframework.web.bind.annotation.*;
 
 /**
