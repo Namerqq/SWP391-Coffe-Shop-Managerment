@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Service xử lý đơn hàng online (UC-CU05 Place Online Order).
@@ -135,6 +136,20 @@ public class OnlineOrderService {
         }
 
         return toView(order, delivery, null, null);
+    }
+
+    /**
+     * Danh sách tất cả đơn giao hàng (DELIVERY) cho Thu ngân (Cashier).
+     * Mới nhất xếp trước.
+     */
+    @Transactional(readOnly = true)
+    public List<OnlineOrderView> listDeliveryOrders() {
+        List<Order> orders = orderRepository.findByFulfillmentTypeOrderByCreatedAtDesc(Order.DELIVERY);
+        return orders.stream().map(o -> {
+            Delivery d = deliveryRepository.findByOrder_Id(o.getId()).orElse(null);
+            String pm = o.getPayment() != null ? o.getPayment().getPaymentMethod() : (Order.PENDING.equals(o.getStatus()) ? "PAYOS_QR" : "CASH");
+            return toView(o, d, pm, null);
+        }).toList();
     }
 
     public OnlineOrderView toView(Order order, Delivery delivery, String paymentMethod, String qrUrl) {

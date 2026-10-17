@@ -6,15 +6,19 @@ import com.example.project.dto.cashier.PaymentResult;
 import com.example.project.dto.cashier.PaymentSettingsView;
 import com.example.project.dto.cashier.ReceiptView;
 import com.example.project.dto.cashier.TakeawayRequest;
+import com.example.project.dto.online.OnlineOrderView;
 import com.example.project.dto.order.CustomerView;
 import com.example.project.entity.User;
 import com.example.project.security.AuthInterceptor;
 import com.example.project.security.RequireRole;
 import com.example.project.service.CashierService;
+import com.example.project.service.OnlineOrderService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Màn hình Thu ngân. Sơ đồ bàn / chi tiết bàn dùng API chung /api/staff/tables (StaffController),
@@ -26,9 +30,11 @@ import org.springframework.web.bind.annotation.*;
 public class CashierController {
 
     private final CashierService service;
+    private final OnlineOrderService onlineOrderService;
 
-    public CashierController(CashierService service) {
+    public CashierController(CashierService service, OnlineOrderService onlineOrderService) {
         this.service = service;
+        this.onlineOrderService = onlineOrderService;
     }
 
     /** UC-C10: tìm khách theo số điện thoại. Không có -> 404. */
@@ -69,5 +75,14 @@ public class CashierController {
     @GetMapping("/payments/{paymentId}/receipt")
     public ReceiptView receipt(@PathVariable Long paymentId) {
         return service.receipt(paymentId);
+    }
+
+    /**
+     * Danh sách đơn giao hàng online cho thu ngân (Ship Order List).
+     * GET /api/cashier/delivery-orders
+     */
+    @GetMapping("/delivery-orders")
+    public List<OnlineOrderView> deliveryOrders() {
+        return onlineOrderService.listDeliveryOrders();
     }
 }
