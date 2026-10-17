@@ -8,6 +8,7 @@ const NAV = [
   { to: '/manager', label: 'Tổng quan', icon: 'bi-grid', end: true },
   { to: '/manager/menu-items', label: 'Menu món', icon: 'bi-cup-hot' },
   { to: '/manager/inventory', label: 'Kho nguyên liệu', icon: 'bi-box-seam' },
+  { to: '/manager/stock-receipts', label: 'Phiếu nhập kho', icon: 'bi-file-earmark-arrow-down' },
 ]
 
 /** Khung chung cho màn hình Quản lý (Manager). Menu trái theo thiết kế reference. */
