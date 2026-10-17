@@ -174,6 +174,7 @@ public class InventoryService {
 
     // ========== Lịch sử giao dịch ==========
 
+    @Transactional(readOnly = true)
     public List<StockTransactionView> history(Long inventoryItemId) {
         findItem(inventoryItemId); // đảm bảo tồn tại
         return txRepo.findByInventoryItem_IdOrderByCreatedAtDesc(inventoryItemId)
