@@ -29,6 +29,7 @@ export default function OnlineMenu() {
             desc: item.description || '',
             price: item.price,
             imageUrl: item.imageUrl,
+            categoryType: item.categoryType,
           })),
         }))
         setMenu(formatted)
