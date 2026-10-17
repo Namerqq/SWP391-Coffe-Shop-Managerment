@@ -79,6 +79,23 @@ public class OnlineOrderService {
         return toView(savedOrder, savedDelivery, isQr ? "PAYOS_QR" : "CASH", null);
     }
 
+    /**
+     * Lấy chi tiết đơn hàng online theo ID để theo dõi trạng thái (Tracking).
+     */
+    @Transactional(readOnly = true)
+    public OnlineOrderView getOrderById(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
+
+        if (!Order.SOURCE_ONLINE.equalsIgnoreCase(order.getSource())) {
+            throw ApiException.notFound("Không tìm thấy đơn hàng online #" + id);
+        }
+
+        Delivery delivery = deliveryRepository.findByOrder_Id(order.getId()).orElse(null);
+        String paymentMethod = Order.PENDING.equals(order.getStatus()) ? "PAYOS_QR" : "CASH";
+        return toView(order, delivery, paymentMethod, null);
+    }
+
     public OnlineOrderView toView(Order order, Delivery delivery, String paymentMethod, String qrUrl) {
         String deliveryAddr = delivery != null ? delivery.getDeliveryAddress() : "";
         String deliveryStatus = delivery != null ? delivery.getDeliveryStatus() : Delivery.STATUS_PENDING_ASSIGNMENT;

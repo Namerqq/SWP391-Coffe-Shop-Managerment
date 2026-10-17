@@ -31,4 +31,14 @@ public class OnlineOrderController {
         OnlineOrderView view = onlineOrderService.placeOrder(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(view);
     }
+
+    /**
+     * Xem chi tiết đơn hàng online để theo dõi trạng thái.
+     * GET /api/public/online/orders/{id}
+     */
+    @GetMapping("/orders/{id}")
+    public ResponseEntity<OnlineOrderView> getOrderById(@PathVariable Long id) {
+        OnlineOrderView view = onlineOrderService.getOrderById(id);
+        return ResponseEntity.ok(view);
+    }
 }
