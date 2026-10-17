@@ -1,47 +1,49 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useOnline } from '../../layouts/OnlineLayout'
 import { formatMoney } from '../../utils/orderFormat'
 import { plainText } from '../../utils/guestSession'
-
-// Dữ liệu món mẫu
-const SAMPLE_MENU = [
-  {
-    category: 'Cà phê',
-    items: [
-      { id: 1, name: 'Americano', desc: 'Espresso pha loãng, vị thanh nhẹ.', price: 39000 },
-      { id: 2, name: 'Bạc xỉu', desc: 'Sữa béo nhẹ hòa quyện cùng espresso.', price: 50000 },
-      { id: 3, name: 'Cà phê đen đá', desc: 'Phin Robusta đậm vị, không đường.', price: 29000 },
-      { id: 4, name: 'Cà phê sữa đá', desc: 'Cà phê rang đậm và sữa đặc truyền thống.', price: 35000 },
-    ],
-  },
-  {
-    category: 'Trà',
-    items: [
-      { id: 5, name: 'Trà đào cam sả', desc: 'Trà thanh mát với đào tươi và sả thơm.', price: 45000 },
-      { id: 6, name: 'Trà sen vàng', desc: 'Trà ô long thanh khiết, hạt sen bùi béo.', price: 45000 },
-      { id: 7, name: 'Trà sữa Oolong', desc: 'Vị trà đậm đà cùng sữa béo thơm.', price: 42000 },
-    ],
-  },
-  {
-    category: 'Bánh',
-    items: [
-      { id: 8, name: 'Bánh Croissant bơ tỏi', desc: 'Bánh sừng bò nướng thơm giòn béo ngậy.', price: 32000 },
-      { id: 9, name: 'Bánh Tiramisu', desc: 'Bánh phô mai cà phê thơm mịn chuẩn Ý.', price: 38000 },
-    ],
-  },
-]
+import { assetUrl } from '../../utils/assetUrl'
+import publicApi from '../../api/publicApi'
 
 export default function OnlineMenu() {
   const { openModal, totalCount, totalPrice } = useOnline()
+  const [menu, setMenu] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [search, setSearch] = useState('')
+
+  // Tải thực đơn từ Public API của backend
+  useEffect(() => {
+    publicApi
+      .getMenu()
+      .then((res) => {
+        // Chuẩn hóa dữ liệu trả về từ backend: name -> category, description -> desc
+        const formatted = (res.data || []).map((cat) => ({
+          id: cat.id,
+          category: cat.name,
+          items: (cat.items || []).map((item) => ({
+            id: item.id,
+            name: item.name,
+            desc: item.description || '',
+            price: item.price,
+            imageUrl: item.imageUrl,
+          })),
+        }))
+        setMenu(formatted)
+      })
+      .catch(() => {
+        setError('Chưa tải được thực đơn từ máy chủ. Vui lòng thử lại sau.')
+      })
+      .finally(() => setLoading(false))
+  }, [])
 
   // Lọc món theo danh mục và từ khóa tìm kiếm
   const kw = plainText(search.trim())
   const displayGroups = []
 
-  for (const group of SAMPLE_MENU) {
+  for (const group of menu) {
     if (selectedCategory !== 'ALL' && group.category !== selectedCategory) {
       continue
     }
@@ -72,49 +74,77 @@ export default function OnlineMenu() {
           )}
         </label>
 
-        {/* Nút danh mục tự động sinh theo dữ liệu */}
-        <div className="gx-cats">
-          <button
-            type="button"
-            className={selectedCategory === 'ALL' ? 'active' : ''}
-            onClick={() => setSelectedCategory('ALL')}
-          >
-            Tất cả
-          </button>
-          {SAMPLE_MENU.map((group) => (
+        {/* Nút danh mục tự động sinh theo dữ liệu từ backend */}
+        {menu.length > 0 && (
+          <div className="gx-cats">
             <button
-              key={group.category}
               type="button"
-              className={selectedCategory === group.category ? 'active' : ''}
-              onClick={() => setSelectedCategory(group.category)}
+              className={selectedCategory === 'ALL' ? 'active' : ''}
+              onClick={() => setSelectedCategory('ALL')}
             >
-              {group.category}
+              Tất cả
             </button>
-          ))}
-        </div>
+            {menu.map((group) => (
+              <button
+                key={group.category}
+                type="button"
+                className={selectedCategory === group.category ? 'active' : ''}
+                onClick={() => setSelectedCategory(group.category)}
+              >
+                {group.category}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Trạng thái tải và lỗi */}
+      {loading && (
+        <div className="gx-empty">
+          <span className="spinner-border spinner-border-sm me-2" />
+          Đang tải thực đơn từ máy chủ...
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="gx-empty">
+          <i className="bi bi-wifi-off gx-empty-icon" />
+          <p>{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && menu.length === 0 && (
+        <div className="gx-empty">
+          <i className="bi bi-cup gx-empty-icon" />
+          <p>Thực đơn đang được cập nhật.</p>
+        </div>
+      )}
+
       {/* Thông báo khi không tìm thấy món */}
-      {displayGroups.length === 0 && (
+      {!loading && !error && menu.length > 0 && displayGroups.length === 0 && (
         <div className="gx-empty">
           <i className="bi bi-search gx-empty-icon" />
           <p>Không tìm thấy món nào phù hợp với &quot;{search}&quot;.</p>
         </div>
       )}
 
-      {/* Danh sách món */}
+      {/* Danh sách món từ backend */}
       {displayGroups.map((group) => (
         <section key={group.category} className="gx-group">
           <h2>{group.category}</h2>
           <div className="gx-list">
             {group.items.map((item) => (
               <article key={item.id} className="gx-item">
-                <span className="gx-thumb-empty">
-                  <i className="bi bi-cup-hot" />
-                </span>
+                {item.imageUrl ? (
+                  <img src={assetUrl(item.imageUrl)} alt={item.name} />
+                ) : (
+                  <span className="gx-thumb-empty">
+                    <i className="bi bi-cup-hot" />
+                  </span>
+                )}
                 <div className="gx-item-body">
                   <h3>{item.name}</h3>
-                  <p>{item.desc}</p>
+                  {item.desc && <p>{item.desc}</p>}
                   <span className="gx-price">{formatMoney(item.price)}</span>
                 </div>
                 <button
