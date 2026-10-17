@@ -27,6 +27,7 @@ export const shortNo = (orderNumber) => (orderNumber ? `#${orderNumber.split('-'
 /** Nơi của mã QR: "Bàn 05" / "Mang đi #0007" / "Mang đi". */
 export const qrPlace = (qr) => {
   if (qr.target === 'TABLE') return qr.tableNumber || 'Bàn'
+  if (qr.target === 'ONLINE') return qr.takeawayOrderNumber ? `Đơn online ${shortNo(qr.takeawayOrderNumber)}` : 'Đơn online'
   return qr.takeawayOrderNumber ? `Mang đi ${shortNo(qr.takeawayOrderNumber)}` : 'Mang đi'
 }
 

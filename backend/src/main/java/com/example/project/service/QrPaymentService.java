@@ -6,6 +6,7 @@ import com.example.project.dto.cashier.QrSessionRequest;
 import com.example.project.dto.cashier.QrTakeawayCart;
 import com.example.project.dto.cashier.QrTakeawayRequest;
 import com.example.project.dto.onlinepay.OnlineQrRequest;
+import com.example.project.dto.onlinepay.OnlineQrView;
 import com.example.project.dto.onlinepay.QrOnlineCart;
 import com.example.project.dto.order.OrderItemRequest;
 import com.example.project.entity.CafeTable;
@@ -297,6 +298,27 @@ public class QrPaymentService {
     @Transactional(readOnly = true)
     public QrPaymentView view(Long id) {
         return toView(find(id));
+    }
+
+    /**
+     * Trang của khách đặt online hỏi trạng thái mã (mỗi 3 giây). Chỉ trả mã ONLINE; mã của thu ngân coi như không có.
+     * Việc biết khách đã trả vẫn do QrPaymentWatcher (webhook + hỏi payOS định kỳ) làm, hàm này chỉ đọc DB.
+     */
+    @Transactional(readOnly = true)
+    public OnlineQrView viewOnline(String paymentLinkId) {
+        QrPaymentRequest r = paymentLinkId == null || paymentLinkId.isBlank() ? null
+                : qrRepository.findByPaymentLinkId(paymentLinkId.trim()).orElse(null);
+        if (r == null || !r.isOnline()) throw new ResourceNotFoundException("Không tìm thấy mã thanh toán.");
+        QrOnlineCart cart = readOnlineCart(r.getCartJson());
+        Payment p = r.getPayment();
+        Order o = p == null ? null : p.getOrder();
+        long secondsLeft = r.isPending()
+                ? Math.max(0, Duration.between(LocalDateTime.now(), r.getExpiresAt()).getSeconds()) : 0;
+        return new OnlineQrView(r.getPaymentLinkId(), r.getStatus(),
+                r.getSubtotal(), r.getSubtotal() - r.getAmount(), r.getAmount(), r.getPointsToRedeem(),
+                r.getQrCode(), r.getCheckoutUrl(), r.getDescription(),
+                r.getExpiresAt(), secondsLeft, cart.itemCount(), cart.customerPhone(),
+                o == null ? null : OrderSupportService.displayNumber(o.getOrderNumber()), r.getPaidAt());
     }
 
     /**
