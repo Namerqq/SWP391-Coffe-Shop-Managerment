@@ -43,11 +43,14 @@ export default function OnlineCheckout() {
         items: cart.map(toItemRequest),
       }
 
-      await onlineOrderApi.placeOrder(payload)
+      const res = await onlineOrderApi.placeOrder(payload)
 
       if (clearCart) clearCart()
 
       localStorage.setItem('online_last_phone', form.phone.trim())
+      if (res?.data?.orderId) {
+        localStorage.setItem('online_last_order_id', res.data.orderId)
+      }
 
       navigate('/online-order/orders')
     } catch (err) {
