@@ -18,6 +18,9 @@ public interface QrPaymentRequestRepository extends JpaRepository<QrPaymentReque
 
     Optional<QrPaymentRequest> findByOrderCode(Long orderCode);
 
+    /** Trang của khách đặt online hỏi trạng thái mã bằng paymentLinkId (chuỗi ngẫu nhiên payOS cấp, không đoán được). */
+    Optional<QrPaymentRequest> findByPaymentLinkId(String paymentLinkId);
+
     /** Hóa đơn này có được hệ thống tự xác nhận qua QR payOS không (in trên hóa đơn). */
     boolean existsByPayment_Id(Long paymentId);
 
