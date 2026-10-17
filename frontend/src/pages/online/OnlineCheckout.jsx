@@ -12,7 +12,7 @@ export default function OnlineCheckout() {
   const navigate = useNavigate()
   const { cart, totalCount, totalPrice, clearCart } = useOnline()
 
-  const [paymentMethod, setPaymentMethod] = useState('CASH') 
+  const [paymentMethod, setPaymentMethod] = useState('CASH')
   const [form, setForm] = useState({ name: '', phone: '', address: '', note: '' })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -30,6 +30,20 @@ export default function OnlineCheckout() {
     if (!PHONE_REGEX.test(form.phone.trim())) return setError('Số điện thoại phải gồm 10 số, bắt đầu bằng 0.')
     if (!form.address.trim()) return setError('Vui lòng nhập địa chỉ giao hàng.')
     setError('')
+    if (paymentMethod === 'PAYOS_QR') {
+      // ThangNN Iter2: trả QR -> sang trang thanh toán + tích điểm. Đơn chỉ được tạo sau khi khách trả xong.
+      navigate('/online-pay', {
+        state: {
+          customerName: form.name.trim(),
+          customerPhone: form.phone.trim(),
+          deliveryAddress: form.address.trim(),
+          note: form.note.trim(),
+          items: cart,
+        },
+      })
+      return
+    }
+    navigate('/online-order/orders')
     setSubmitting(true)
 
     try {
