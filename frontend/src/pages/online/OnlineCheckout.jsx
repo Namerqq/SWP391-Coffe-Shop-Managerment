@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useOnline } from '../../layouts/OnlineLayout'
 import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
-import { unitTotal } from '../../utils/orderOptions'
-
+import { toItemRequest, unitTotal } from '../../utils/orderOptions'
+import onlineOrderApi from '../../api/onlineOrderApi'
+import { errorMessage } from '../../api/axiosClient'
 
 const PHONE_REGEX = /^0\d{9}$/
 
@@ -14,6 +15,7 @@ export default function OnlineCheckout() {
   const [paymentMethod, setPaymentMethod] = useState('CASH') 
   const [form, setForm] = useState({ name: '', phone: '', address: '', note: '' })
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   // Giỏ trống thì quay về thực đơn
   if (cart.length === 0) {
@@ -22,14 +24,35 @@ export default function OnlineCheckout() {
 
   const change = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
 
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) return setError('Vui lòng nhập họ và tên.')
     if (!PHONE_REGEX.test(form.phone.trim())) return setError('Số điện thoại phải gồm 10 số, bắt đầu bằng 0.')
     if (!form.address.trim()) return setError('Vui lòng nhập địa chỉ giao hàng.')
     setError('')
-    navigate('/online-order/orders')
+    setSubmitting(true)
+
+    try {
+      // Chuẩn bị dữ liệu gửi lên backend
+      const payload = {
+        customerName: form.name.trim(),
+        customerPhone: form.phone.trim(),
+        deliveryAddress: form.address.trim(),
+        note: form.note.trim() || null,
+        paymentMethod,
+        items: cart.map(toItemRequest),
+      }
+
+      await onlineOrderApi.placeOrder(payload)
+
+      localStorage.setItem('online_last_phone', form.phone.trim())
+
+      navigate('/online-order/orders')
+    } catch (err) {
+      setError(errorMessage(err, 'Đặt hàng chưa thành công, vui lòng thử lại.'))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -141,7 +164,8 @@ export default function OnlineCheckout() {
           <Link to="/online-order/cart" className="btn btn-light-soft">
             Quay lại giỏ
           </Link>
-          <button type="submit" className="btn btn-primary flex-grow-1 py-2">
+          <button type="submit" className="btn btn-primary flex-grow-1 py-2" disabled={submitting}>
+            {submitting && <span className="spinner-border spinner-border-sm me-2" />}
             Xác nhận đặt hàng · {formatMoney(totalPrice)}
           </button>
         </div>
