@@ -27,6 +27,8 @@ public class QrPaymentRequest {
 
     public static final String TABLE = "TABLE";
     public static final String TAKEAWAY = "TAKEAWAY";
+    /** Khách đặt online tự tạo mã (ThangNN Iter2). Giống TAKEAWAY: chưa có đơn, giỏ hàng + thông tin giao hàng ở cartJson. */
+    public static final String ONLINE = "ONLINE";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -133,6 +135,8 @@ public class QrPaymentRequest {
     public boolean isPending() { return PENDING.equals(status); }
 
     public boolean isTable() { return TABLE.equals(targetType); }
+
+    public boolean isOnline() { return ONLINE.equals(targetType); }
 
     /** Đổi trạng thái + ghi lúc đổi (và lý do nếu có). */
     public void moveTo(String newStatus, String reason) {
