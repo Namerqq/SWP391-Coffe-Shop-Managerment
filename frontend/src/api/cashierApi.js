@@ -23,6 +23,10 @@ const cashierApi = {
 
   // Lấy danh sách đơn giao hàng online cho thu ngân (Ship Order List)
   getDeliveryOrders: () => axiosClient.get('/cashier/delivery-orders'),
+  // Thu ngân xác nhận đơn giao hàng
+  confirmDeliveryOrder: (id) => axiosClient.post(`/cashier/delivery-orders/${id}/confirm`),
+  // Thu ngân hủy đơn (ví dụ hết nguyên liệu)
+  cancelDeliveryOrder: (id, reason) => axiosClient.post(`/cashier/delivery-orders/${id}/cancel`, reason ? { reason } : {}),
 }
 
 export default cashierApi

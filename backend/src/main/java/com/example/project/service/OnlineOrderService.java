@@ -152,6 +152,45 @@ public class OnlineOrderService {
         }).toList();
     }
 
+    /**
+     * Thu ngân xác nhận đơn giao hàng -> chuyển sang CONFIRMED để Pha chế nhận làm.
+     */
+    @Transactional
+    public OnlineOrderView confirmDeliveryOrder(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
+        order.setStatus(Order.CONFIRMED);
+        orderRepository.save(order);
+
+        Delivery delivery = deliveryRepository.findByOrder_Id(order.getId()).orElse(null);
+        String pm = order.getPayment() != null ? order.getPayment().getPaymentMethod() : "CASH";
+        return toView(order, delivery, pm, null);
+    }
+
+    /**
+     * Thu ngân hủy đơn giao hàng (ví dụ: hết nguyên liệu, không giao được).
+     */
+    @Transactional
+    public OnlineOrderView cashierCancelDeliveryOrder(Long id, String reason) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
+
+        order.moveTo(Order.CANCELLED, OrderItem.CANCELLED);
+        String finalReason = (reason != null && !reason.isBlank()) ? reason.trim() : "Hết nguyên liệu";
+        order.setCancelReason(finalReason);
+        order.setCancelledAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        Delivery delivery = deliveryRepository.findByOrder_Id(order.getId()).orElse(null);
+        if (delivery != null) {
+            delivery.setDeliveryStatus(Delivery.STATUS_CANCELLED);
+            deliveryRepository.save(delivery);
+        }
+
+        String pm = order.getPayment() != null ? order.getPayment().getPaymentMethod() : "CASH";
+        return toView(order, delivery, pm, null);
+    }
+
     public OnlineOrderView toView(Order order, Delivery delivery, String paymentMethod, String qrUrl) {
         String deliveryAddr = delivery != null ? delivery.getDeliveryAddress() : "";
         String deliveryStatus = delivery != null ? delivery.getDeliveryStatus() : Delivery.STATUS_PENDING_ASSIGNMENT;

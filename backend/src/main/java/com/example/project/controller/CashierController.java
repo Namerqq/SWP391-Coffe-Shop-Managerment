@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Màn hình Thu ngân. Sơ đồ bàn / chi tiết bàn dùng API chung /api/staff/tables (StaffController),
@@ -84,5 +85,24 @@ public class CashierController {
     @GetMapping("/delivery-orders")
     public List<OnlineOrderView> deliveryOrders() {
         return onlineOrderService.listDeliveryOrders();
+    }
+
+    /**
+     * Thu ngân xác nhận đơn giao hàng.
+     * POST /api/cashier/delivery-orders/{id}/confirm
+     */
+    @PostMapping("/delivery-orders/{id}/confirm")
+    public OnlineOrderView confirmDeliveryOrder(@PathVariable Long id) {
+        return onlineOrderService.confirmDeliveryOrder(id);
+    }
+
+    /**
+     * Thu ngân hủy đơn giao hàng trước khi giao (ví dụ: hết nguyên liệu).
+     * POST /api/cashier/delivery-orders/{id}/cancel
+     */
+    @PostMapping("/delivery-orders/{id}/cancel")
+    public OnlineOrderView cancelDeliveryOrder(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        String reason = body != null ? body.get("reason") : "Hết nguyên liệu";
+        return onlineOrderService.cashierCancelDeliveryOrder(id, reason);
     }
 }
