@@ -26,6 +26,7 @@ export default function BaristaBoard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyItemId, setBusyItemId] = useState(null) // món đang gửi lệnh tích / bỏ tích
+  const [busyOrderId, setBusyOrderId] = useState(null) // đơn đang gửi lệnh nhận
   const [busyGroup, setBusyGroup] = useState(null) // loại món (menuItemId) đang tích cả loạt ở "Tổng cần pha"
   const [selected, setSelected] = useState(null) // loại món (menuItemId) đang chọn ở "Tổng cần pha"
   const [detailId, setDetailId] = useState(null)
@@ -72,6 +73,21 @@ export default function BaristaBoard() {
   const replaceOrder = (updated) => setOrders((list) => list
     .map((x) => (x.id === updated.id ? updated : x))
     .filter((x) => ON_BOARD.includes(x.status)))
+
+  // Barista bấm "Nhận đơn": tự động trừ nguyên liệu tồn kho theo công thức
+  const handleAcceptOrder = async (order) => {
+    setBusyOrderId(order.id)
+    try {
+      const res = await baristaApi.acceptOrder(order.id)
+      replaceOrder(res.data)
+      toast(`Đã nhận đơn ${order.displayNumber} và tự động trừ nguyên liệu tồn kho theo định lượng!`)
+    } catch (e) {
+      toast(errorMessage(e), 'error')
+      load()
+    } finally {
+      setBusyOrderId(null)
+    }
+  }
 
   // Tích (done = true) món pha xong -> sang "Chờ mang ra". Bỏ tích (done = false) nếu tích nhầm.
   const toggleItem = async (order, item, done) => {
@@ -160,6 +176,23 @@ export default function BaristaBoard() {
           <div className="kds-actions">
             <div className="kds-progress"><i className="bi bi-check2-square me-1" />Đã pha {doneCount}/{all.length} món</div>
             <div className="kds-bar"><span style={{ width: `${all.length ? (doneCount * 100) / all.length : 0}%` }} /></div>
+            <div className="mt-2 pt-2 border-top">
+              {o.acceptedAt ? (
+                <div className="badge bg-success-subtle text-success border border-success-subtle py-1 px-2 w-100 text-center">
+                  <i className="bi bi-check2-circle me-1" />Đã nhận đơn (Đã tự động trừ kho)
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary w-100 py-1"
+                  disabled={busyOrderId === o.id}
+                  onClick={(e) => { e.stopPropagation(); handleAcceptOrder(o); }}
+                >
+                  <i className="bi bi-play-circle me-1" />
+                  {busyOrderId === o.id ? 'Đang nhận đơn...' : 'Nhận đơn (Tự động trừ kho)'}
+                </button>
+              )}
+            </div>
           </div>
         </OrderTicket>
       )
