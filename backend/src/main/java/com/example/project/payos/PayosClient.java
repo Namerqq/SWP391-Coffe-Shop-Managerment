@@ -35,6 +35,9 @@ public class PayosClient {
     private final String baseUrl;
     private final String returnUrl;
     private final String cancelUrl;
+    /** Link quay về trang của khách đặt online (khách mở trang thanh toán payOS trên điện thoại rồi quay lại). */
+    private final String onlineReturnUrl;
+    private final String onlineCancelUrl;
     private final ObjectMapper mapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
@@ -44,6 +47,8 @@ public class PayosClient {
                        @Value("${payos.base-url:https://api-merchant.payos.vn}") String baseUrl,
                        @Value("${app.payos.return-url:http://localhost:5173/cashier}") String returnUrl,
                        @Value("${app.payos.cancel-url:http://localhost:5173/cashier}") String cancelUrl,
+                       @Value("${app.payos.online-return-url:http://localhost:5173/online-pay/qr}") String onlineReturnUrl,
+                       @Value("${app.payos.online-cancel-url:http://localhost:5173/online-pay/qr}") String onlineCancelUrl,
                        ObjectMapper mapper) {
         this.clientId = clientId == null ? "" : clientId.trim();
         this.apiKey = apiKey == null ? "" : apiKey.trim();
@@ -51,6 +56,8 @@ public class PayosClient {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.returnUrl = returnUrl;
         this.cancelUrl = cancelUrl;
+        this.onlineReturnUrl = onlineReturnUrl;
+        this.onlineCancelUrl = onlineCancelUrl;
         this.mapper = mapper;
         if (!isConfigured()) {
             log.info("Chưa cấu hình payOS (PAYOS_CLIENT_ID / PAYOS_API_KEY / PAYOS_CHECKSUM_KEY): tắt thanh toán QR tự xác nhận.");
@@ -79,6 +86,16 @@ public class PayosClient {
 
     /** Tạo link thanh toán. expiredAtEpochSecond = lúc mã QR hết hạn (Unix timestamp, giây). */
     public CreatedLink createLink(long orderCode, long amount, String description, long expiredAtEpochSecond) {
+        return createLink(orderCode, amount, description, expiredAtEpochSecond, returnUrl, cancelUrl);
+    }
+
+    /** Như createLink nhưng trả xong / hủy trên trang payOS thì quay về trang của khách đặt online. */
+    public CreatedLink createOnlineLink(long orderCode, long amount, String description, long expiredAtEpochSecond) {
+        return createLink(orderCode, amount, description, expiredAtEpochSecond, onlineReturnUrl, onlineCancelUrl);
+    }
+
+    private CreatedLink createLink(long orderCode, long amount, String description, long expiredAtEpochSecond,
+                                   String returnUrl, String cancelUrl) {
         requireConfigured();
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("orderCode", orderCode);

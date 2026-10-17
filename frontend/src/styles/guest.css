@@ -52,7 +52,7 @@
 .gx-title { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; margin: 4px 0 12px; display: flex; align-items: center; gap: 10px; }
 .gx-title span { font-size: 0.8rem; font-weight: 600; color: var(--cf-primary-hover); background: var(--cf-primary-soft); border-radius: 999px; padding: 4px 10px; }
 .gx-muted { color: var(--cf-muted); font-size: 0.85rem; }
-.gx-note { color: #8a5a2b; font-size: 0.82rem; }
+.gx-note { color: #8a5a2b; font-size: 0.82rem; overflow-wrap: anywhere; }
 .gx-price { font-weight: 700; color: var(--cf-primary-hover); }
 
 .gx-alert, .gx-notice {

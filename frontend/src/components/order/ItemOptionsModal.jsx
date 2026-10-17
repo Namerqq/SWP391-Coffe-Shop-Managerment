@@ -12,8 +12,9 @@ import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS } from '../../utils/orderOption
  *                         toppingIds, toppings, sugarLevel, iceLevel, note }
  */
 export default function ItemOptionsModal({ show, item, options, initial, confirmText = 'Thêm vào đơn', onClose, onConfirm }) {
-  const sizes = options?.sizes || []
-  const toppings = options?.toppings || []
+  const standaloneTopping = item?.categoryType === 'TOPPING'
+  const sizes = standaloneTopping ? [] : options?.sizes || []
+  const toppings = standaloneTopping ? [] : options?.toppings || []
   const [form, setForm] = useState(null)
 
   // Chỉ khởi tạo lại khi mở modal hoặc đổi món (tránh mất dữ liệu đang chọn khi trang cha cập nhật).
@@ -21,10 +22,10 @@ export default function ItemOptionsModal({ show, item, options, initial, confirm
     if (!show || !item) return
     setForm({
       quantity: initial?.quantity || 1,
-      sizeId: initial ? initial.sizeId ?? null : sizes[0]?.id ?? null,
-      toppingIds: initial?.toppingIds || [],
-      sugarLevel: initial?.sugarLevel || DEFAULT_LEVEL,
-      iceLevel: initial?.iceLevel || DEFAULT_LEVEL,
+      sizeId: standaloneTopping ? null : initial ? initial.sizeId ?? null : sizes[0]?.id ?? null,
+      toppingIds: standaloneTopping ? [] : initial?.toppingIds || [],
+      sugarLevel: standaloneTopping ? null : initial?.sugarLevel || DEFAULT_LEVEL,
+      iceLevel: standaloneTopping ? null : initial?.iceLevel || DEFAULT_LEVEL,
       note: initial?.note || '',
     })
   }, [show, item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -87,14 +88,14 @@ export default function ItemOptionsModal({ show, item, options, initial, confirm
             (s) => <>{s.name}{s.price > 0 && <span className="opt-extra">+{formatMoney(s.price)}</span>}</>)}
         </div>
       )}
-      <div className="opt-group">
+      {!standaloneTopping && <div className="opt-group">
         <div className="opt-label">Đường</div>
         {pills(SUGAR_LEVELS, form.sugarLevel, (v) => set({ sugarLevel: v }))}
-      </div>
-      <div className="opt-group">
+      </div>}
+      {!standaloneTopping && <div className="opt-group">
         <div className="opt-label">Đá</div>
         {pills(ICE_LEVELS, form.iceLevel, (v) => set({ iceLevel: v }))}
-      </div>
+      </div>}
       {toppings.length > 0 && (
         <div className="opt-group">
           <div className="opt-label">Topping</div>
