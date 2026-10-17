@@ -6,10 +6,9 @@ import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 import usePolling from '../../utils/usePolling'
 import ConfirmModal from '../../components/ConfirmModal'
-import ItemOptionsModal from '../../components/order/ItemOptionsModal'
 import StatusPill from '../../components/order/StatusPill'
 import { formatMoney, formatTime, isWaiting, itemOptionsText } from '../../utils/orderFormat'
-import { findMenuItem, toItemRequest } from '../../utils/orderOptions'
+import EditItemModal from './EditItemModal'
 import CancelOrderModal from './CancelOrderModal'
 import ChangeTableModal from './ChangeTableModal'
 import '../../styles/danmt.css'
@@ -24,7 +23,7 @@ export default function WaiterTableDetail() {
   const [vacantMsg, setVacantMsg] = useState('')
   const [error, setError] = useState('')
   const [menu, setMenu] = useState(null)
-  const [editing, setEditing] = useState(null) // { order, line, item, initial }
+  const [editing, setEditing] = useState(null) // { order, line }
   const [removing, setRemoving] = useState(null) // { order, line }
   const [removingBusy, setRemovingBusy] = useState(false)
   const [cancelling, setCancelling] = useState(null)
@@ -50,38 +49,6 @@ export default function WaiterTableDetail() {
   useEffect(() => {
     staffApi.getMenu().then((res) => setMenu(res.data)).catch(() => {})
   }, [])
-
-  const openEdit = (order, line) => {
-    if (!menu) return
-    const item = findMenuItem(menu, line.menuItemId)
-    if (!item) {
-      toast('Món này hiện đang ngừng bán nên không sửa được. Bạn có thể bỏ món.', 'error')
-      return
-    }
-    setEditing({
-      order, line, item,
-      initial: {
-        quantity: line.quantity,
-        sizeId: menu.sizes.find((s) => s.name === line.sizeName)?.id ?? null,
-        toppingIds: (line.toppings || []).map((t) => t.id),
-        sugarLevel: line.sugarLevel,
-        iceLevel: line.iceLevel,
-        note: line.note || '',
-      },
-    })
-  }
-
-  const saveEdit = async (line) => {
-    try {
-      await waiterApi.updateItem(editing.order.id, editing.line.id, toItemRequest(line))
-      toast(`Đã cập nhật ${line.itemName}`)
-      setEditing(null)
-    } catch (e) {
-      toast(errorMessage(e), 'error')
-    } finally {
-      load()
-    }
-  }
 
   const confirmRemove = async () => {
     setRemovingBusy(true)
@@ -180,7 +147,7 @@ export default function WaiterTableDetail() {
                       {editable && (
                         <div className="d-flex gap-1 ms-2">
                           <button type="button" className="btn btn-light-soft btn-icon" title="Sửa món" aria-label={`Sửa ${i.itemName}`}
-                                  disabled={!menu} onClick={() => openEdit(o, i)}>
+                                  disabled={!menu} onClick={() => setEditing({ order: o, line: i })}>
                             <i className="bi bi-pencil" />
                           </button>
                           <button type="button" className="btn btn-light-soft btn-icon" title="Bỏ món" aria-label={`Bỏ ${i.itemName}`}
@@ -231,8 +198,17 @@ export default function WaiterTableDetail() {
         </div>
       </div>
 
-      <ItemOptionsModal show={!!editing} item={editing?.item} options={menu} initial={editing?.initial}
-                        confirmText="Lưu thay đổi" onClose={() => setEditing(null)} onConfirm={saveEdit} />
+      <EditItemModal
+        show={!!editing}
+        order={editing?.order}
+        item={editing?.line}
+        menuOptions={menu}
+        onClose={() => setEditing(null)}
+        onSuccess={() => {
+          setEditing(null)
+          load()
+        }}
+      />
       <ConfirmModal show={!!removing} title="Bỏ món" loading={removingBusy} danger confirmText="Bỏ món"
                     message={removing && <>Bỏ <strong>{removing.line.quantity}× {removing.line.itemName}</strong> khỏi đơn {removing.order.displayNumber}?</>}
                     onClose={() => !removingBusy && setRemoving(null)} onConfirm={confirmRemove} />
