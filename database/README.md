@@ -1,29 +1,28 @@
-# Database FREEZE 1.0 của nhóm
+# Database FREEZE 1.0 — bản demo local
 
-Thư mục này chỉ có một SQL khởi tạo: `cafe_management_FREEZE_1.0.sql`. Nội dung được giữ nguyên từ bản nhóm cung cấp.
+File duy nhất: `cafe_management_FREEZE_1.0.sql`. Theo yêu cầu ngày 16/10/2026, bản trong project được bổ sung trực tiếp hai cột Menu Iter 2 và dữ liệu menu demo. Đây là bản demo mở rộng từ snapshot của nhóm, không còn giống từng byte với snapshot gốc.
 
-## Cài mới
+## Nội dung
 
-1. Dùng MySQL 8.0.16 trở lên, schema rỗng. Không chạy đè database có dữ liệu.
-2. Trong Workbench mở SQL và chạy toàn bộ. File tự tạo/chọn schema `cafe_management`, tạo 19 bảng, 5 role và cài đặt mặc định.
-3. Backend Menu Iter 2 cần hai cột bổ sung bên dưới. Chạy sau khi chọn đúng schema mới.
-4. Cấu hình `DB_URL`, `DB_USER`, `DB_PASSWORD` ở máy local; không commit mật khẩu.
+- 19 bảng ứng dụng, role và cài đặt mặc định từ snapshot.
+- `categories.category_type` và `menu_items.sell_standalone` đã nằm trong CREATE TABLE; **không chạy ALTER bổ sung lần nữa**.
+- 7 danh mục ACTIVE, 20 món bán riêng: 13 đồ uống, 3 bánh, 4 topping.
+- 2 lựa chọn Size M/L được lưu thêm trong menu_items, không tính vào 20 món bán riêng. Tổng dòng menu_items là 22.
+- Topping vừa thêm vào ly vừa bán riêng; Size không bán riêng.
+- Ảnh để NULL, giao diện hiện biểu tượng mặc định. Không phụ thuộc file upload trên máy này.
+- Không seed bàn, tài khoản, khách hàng, đơn hay thanh toán trong file demo này. Backend tạo Admin mặc định theo cấu hình local nếu chưa có.
 
-```sql
-ALTER TABLE categories
-  ADD COLUMN category_type VARCHAR(20) NOT NULL DEFAULT 'DRINK',
-  ADD CONSTRAINT chk_category_type
-    CHECK (category_type IN ('DRINK','FOOD','TOPPING','SIZE'));
-ALTER TABLE menu_items
-  ADD COLUMN sell_standalone BOOLEAN NOT NULL DEFAULT TRUE;
-```
+## Cài mới bằng Workbench
 
-Chỉ chạy bước bổ sung một lần trên database mới chưa có hai cột này. Không sửa file FREEZE để tránh thay đổi bản đã chốt của nhóm. Nếu nâng cấp database có dữ liệu, cần kế hoạch phân loại danh mục riêng.
+1. Dùng MySQL 8.0.16 trở lên và schema `cafe_management` rỗng.
+2. Mở file SQL và chạy toàn bộ. File tự tạo/chọn schema `cafe_management`.
+3. Cấu hình DB_URL, DB_USER, DB_PASSWORD ở máy local rồi chạy backend.
+4. Không chạy lại file trên database đã có bảng/dữ liệu; không có DROP/TRUNCATE để xoá dữ liệu cũ.
 
-## Máy local hiện tại — 16/10/2026
+Ứng dụng không có Flyway, Hibernate dùng ddl-auto=none. Nếu chạy trên schema khác, đổi đồng thời CREATE DATABASE và USE trong bản sao dùng để import; không chỉ đổi DB_URL.
 
-- Schema đang dùng: `cafe_management_freeze_local`, tạo từ FREEZE và đã bổ sung hai cột.
-- Backend 8087, cấu hình `backend/application-default.properties`; frontend 5173, cấu hình `frontend/.env.local`.
-- Database cũ `cafe_management_integrated` vẫn nguyên vẹn. Không chép dữ liệu cũ sang schema mới.
-- Snapshot không chứa món, bàn hoặc tài khoản demo. Menu ban đầu trống; backend tạo Admin ban đầu theo cấu hình local nếu chưa tồn tại.
-- Không cấu hình Flyway trong pom.xml. Hibernate dùng `ddl-auto=none`, không tự thêm bảng/cột.
+## Database đang chạy trên máy này
+
+Backend 8087 vẫn kết nối `cafe_management_freeze_local` qua `backend/application-default.properties`; database này đã có 20 món và 6 bàn từ các bước trước. Việc sửa file SQL không import lại hay xoá database runtime.
+
+Bản snapshot gốc và bản sao trước sửa được giữ ngoài project trong thư mục Codex outputs. Khi gửi PR, ghi rõ file này là bản demo mở rộng có thay đổi schema và seed để nhóm review.

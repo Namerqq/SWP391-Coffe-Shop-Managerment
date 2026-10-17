@@ -1,6 +1,8 @@
 package com.example.project;
 import com.example.project.entity.User;
 import com.example.project.repository.UserRepository;
+import com.example.project.repository.RoleRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.project.security.TokenStore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
@@ -17,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/** Chạy với RUN_MENU_DB_TESTS=true trên MySQL local đã áp dụng V7.
+/** Chạy với RUN_MENU_DB_TESTS=true trên MySQL local có đủ schema FREEZE + hai cột Menu Iter 2.
  * Mỗi test rollback transaction; không thay đổi menu hay đơn hiện có. */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -28,11 +30,24 @@ class MenuManagementIntegrationTest {
     @Autowired ObjectMapper json;
     @Autowired UserRepository users;
     @Autowired TokenStore tokens;
+    @Autowired RoleRepository roles;
+    @Autowired PasswordEncoder passwords;
     String auth;
     final List<Path> uploaded=new ArrayList<>();
     @BeforeEach void setup() {
-        User manager=users.findAll().stream().filter(u->"MANAGER".equals(u.getRole().getName()) && User.ACTIVE.equals(u.getStatus())).findFirst().orElseThrow();
+        User manager = testUser("MANAGER");
         auth="Bearer "+tokens.create(manager.getId(),30);
+    }
+    // Tài khoản chỉ tồn tại trong transaction của từng test và được rollback.
+    private User testUser(String roleName) {
+        String name = "menu-test-" + UUID.randomUUID();
+        User user = new User();
+        user.setRole(roles.findByName(roleName).orElseThrow());
+        user.setUsername(name);
+        user.setEmail(name + "@example.test");
+        user.setFullName("Menu integration test");
+        user.setPasswordHash(passwords.encode(UUID.randomUUID().toString()));
+        return users.saveAndFlush(user);
     }
     @AfterEach void cleanup() throws Exception { for (Path p:uploaded) Files.deleteIfExists(p); }
     long category(String type) throws Exception {
@@ -99,7 +114,7 @@ class MenuManagementIntegrationTest {
     @Test void unauthorizedAndInvalidPriceAreRejected() throws Exception {
         mvc.perform(get("/api/manager/menu")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/manager/menu/items").header("Authorization",auth).contentType("application/json").content(json.writeValueAsString(item(category("DRINK"),"Invalid",-1)))).andExpect(status().isBadRequest());
-        User nonManager=users.findAll().stream().filter(u->!"MANAGER".equals(u.getRole().getName()) && User.ACTIVE.equals(u.getStatus())).findFirst().orElseThrow();
+        User nonManager = testUser("ADMIN");
         mvc.perform(get("/api/manager/menu").header("Authorization","Bearer "+tokens.create(nonManager.getId(),30))).andExpect(status().isForbidden());
     }
 }

@@ -3,11 +3,13 @@
 -- 19 application tables. Requires MySQL 8.0.16+ (CHECK enforcement).
 -- Install ONCE into an EMPTY cafe_management database.
 -- Existing installations must continue using migrations; do not apply this snapshot.
--- Contains final DDL, reference roles and default settings; no development seed data.
+-- Local demo edition: final DDL, reference roles/settings, Menu Iter 2 columns and menu sample data.
 -- No DROP/TRUNCATE, no disabled foreign keys, no application-data backfill.
 -- All identifiers follow the V1 BIGINT UNSIGNED baseline.
--- Menu V7 from the Downloads checkout is NOT included.
--- Future changes belong in a new migration; retain this snapshot unchanged.
+-- Menu Iter 2 category_type and sell_standalone are included in this local demo edition.
+-- Base team snapshot is backed up separately. This local demo edition was updated at user request on 2026-10-16.
+-- Includes 20 sellable items (13 drinks, 3 cakes, 4 toppings) plus 2 size options.
+-- No demo users, customers, orders, payments or table sessions are included.
 
 CREATE DATABASE IF NOT EXISTS cafe_management
     CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
@@ -51,11 +53,13 @@ CREATE TABLE customers (
 CREATE TABLE categories (
     category_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     category_name VARCHAR(80) NOT NULL,
+    category_type VARCHAR(20) NOT NULL DEFAULT 'DRINK',
     description VARCHAR(500) NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_categories_name UNIQUE (category_name),
-    CONSTRAINT chk_categories_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+    CONSTRAINT chk_categories_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT chk_category_type CHECK (category_type IN ('DRINK', 'FOOD', 'TOPPING', 'SIZE'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE menu_items (
@@ -65,6 +69,7 @@ CREATE TABLE menu_items (
     description VARCHAR(1000) NULL,
     base_price BIGINT UNSIGNED NOT NULL,
     image_url VARCHAR(500) NULL,
+    sell_standalone BOOLEAN NOT NULL DEFAULT TRUE,
     availability_status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -507,3 +512,42 @@ UPDATE system_settings
 SET label = 'Thời gian tồn tại mã QR (phút)',
     description = 'Mã QR payOS hết hạn sau số phút này (từ 1 đến 60). Đổi giá trị chỉ áp dụng cho mã tạo sau đó.'
 WHERE setting_key = 'payment.qr_timeout_minutes';
+
+-- BEGIN MENU DEMO — 7 categories, 20 sellable items and 2 size options.
+-- Images are optional and left NULL so this script does not depend on local upload files.
+-- Size remains an order option; all toppings can be added to drinks or ordered separately.
+START TRANSACTION;
+INSERT INTO categories (category_id, category_name, category_type, description, status) VALUES
+    (1, 'Cà phê', 'DRINK', 'Các món cà phê', 'ACTIVE'),
+    (2, 'Trà', 'DRINK', 'Các món trà và trái cây', 'ACTIVE'),
+    (3, 'Đá xay', 'DRINK', 'Các món đá xay', 'ACTIVE'),
+    (4, 'Bánh', 'FOOD', 'Bánh và đồ ăn nhẹ', 'ACTIVE'),
+    (5, 'Size', 'SIZE', 'Lựa chọn size. Giá = tiền cộng thêm.', 'ACTIVE'),
+    (6, 'Topping', 'TOPPING', 'Topping thêm. Giá = tiền cộng thêm.', 'ACTIVE'),
+    (7, 'Nước Ép', 'DRINK', NULL, 'ACTIVE');
+
+INSERT INTO menu_items (menu_item_id, category_id, item_name, description, base_price, image_url, availability_status, sell_standalone) VALUES
+    (1, 1, 'Americano', 'Espresso pha cùng nước nóng, vị cà phê thanh và đậm hương.', 32000, NULL, 'AVAILABLE', TRUE),
+    (2, 1, 'Bạc xỉu', 'Sữa béo nhẹ cùng espresso.', 45000, NULL, 'AVAILABLE', TRUE),
+    (3, 1, 'Cà phê sữa đá', 'Cà phê rang đậm và sữa đặc.', 35000, NULL, 'AVAILABLE', TRUE),
+    (4, 1, 'Cappuccino', 'Cà phê espresso, sữa nóng và bọt sữa cân bằng.', 45000, NULL, 'AVAILABLE', TRUE),
+    (5, 1, 'Latte', 'Espresso kết hợp sữa tươi và lớp bọt sữa mịn.', 45000, NULL, 'AVAILABLE', TRUE),
+    (6, 2, 'Trà đào cam sả', 'Trà thanh mát với đào, cam và sả.', 45000, NULL, 'AVAILABLE', TRUE),
+    (7, 2, 'Trà sen vàng', 'Trà hương sen thanh dịu, thích hợp dùng lạnh.', 40000, NULL, 'AVAILABLE', TRUE),
+    (8, 2, 'Trà vải', 'Trà thơm nhẹ kết hợp vải và vị ngọt thanh.', 42000, NULL, 'AVAILABLE', TRUE),
+    (9, 3, 'Chocolate đá xay', 'Chocolate, sữa và đá xay mịn.', 55000, NULL, 'AVAILABLE', TRUE),
+    (10, 3, 'Cookies đá xay', 'Bánh quy chocolate kết hợp sữa và đá xay.', 55000, NULL, 'AVAILABLE', TRUE),
+    (11, 3, 'Matcha đá xay', 'Matcha, sữa và đá xay.', 55000, NULL, 'AVAILABLE', TRUE),
+    (12, 4, 'Cheesecake', 'Bánh phô mai béo nhẹ trên đế bánh quy.', 42000, NULL, 'AVAILABLE', TRUE),
+    (13, 4, 'Croissant bơ', 'Bánh sừng bò thơm bơ, vỏ giòn và ruột mềm.', 35000, NULL, 'AVAILABLE', TRUE),
+    (14, 4, 'Tiramisu', 'Bánh vị cà phê và kem mascarpone, phủ cacao.', 45000, NULL, 'AVAILABLE', TRUE),
+    (15, 5, 'L', NULL, 10000, NULL, 'AVAILABLE', FALSE),
+    (16, 5, 'M', NULL, 0, NULL, 'AVAILABLE', FALSE),
+    (17, 6, 'Espresso', '1 hũ nhỏ espresso 100ml', 10000, NULL, 'AVAILABLE', TRUE),
+    (18, 6, 'Kem sữa', NULL, 10000, NULL, 'AVAILABLE', TRUE),
+    (19, 6, 'Thạch cà phê', 'Một phần thạch cà phê; thêm vào đồ uống hoặc phục vụ riêng theo hộp.', 10000, NULL, 'AVAILABLE', TRUE),
+    (20, 6, 'Trân châu đen', 'Một phần trân châu đen; thêm vào đồ uống hoặc phục vụ riêng theo hộp.', 8000, NULL, 'AVAILABLE', TRUE),
+    (21, 7, 'Nước cam', 'Nước cam tươi, vị chua ngọt tự nhiên.', 35000, NULL, 'AVAILABLE', TRUE),
+    (22, 7, 'Nước ép dưa hấu', '', 30000, NULL, 'AVAILABLE', TRUE);
+COMMIT;
+-- END MENU DEMO

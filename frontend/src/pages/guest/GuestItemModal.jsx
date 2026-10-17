@@ -13,18 +13,19 @@ const LEVEL_LABEL = { '100%': 'Bình thường', '70%': '70%', '50%': '50%', '30
  * onConfirm(line) trả về cùng dạng với ItemOptionsModal của nhân viên.
  */
 export default function GuestItemModal({ show, item, options, initial, confirmText = 'Thêm vào giỏ', onClose, onConfirm }) {
-  const sizes = options?.sizes || []
-  const toppings = options?.toppings || []
+  const standaloneTopping = item?.categoryType === 'TOPPING'
+  const sizes = standaloneTopping ? [] : options?.sizes || []
+  const toppings = standaloneTopping ? [] : options?.toppings || []
   const [form, setForm] = useState(null)
 
   useEffect(() => {
     if (!show || !item) return
     setForm({
       quantity: initial?.quantity || 1,
-      sizeId: initial ? initial.sizeId ?? null : sizes[0]?.id ?? null,
-      toppingIds: initial?.toppingIds || [],
-      sugarLevel: initial?.sugarLevel || DEFAULT_LEVEL,
-      iceLevel: initial?.iceLevel || DEFAULT_LEVEL,
+      sizeId: standaloneTopping ? null : initial ? initial.sizeId ?? null : sizes[0]?.id ?? null,
+      toppingIds: standaloneTopping ? [] : initial?.toppingIds || [],
+      sugarLevel: standaloneTopping ? null : initial?.sugarLevel || DEFAULT_LEVEL,
+      iceLevel: standaloneTopping ? null : initial?.iceLevel || DEFAULT_LEVEL,
       note: initial?.note || '',
     })
   }, [show, item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -93,6 +94,7 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
         </div>
       </div>
 
+      {standaloneTopping && <p className="cf-muted">Đặt riêng theo số lượng. Topping sẽ được phục vụ riêng, không thêm vào ly.</p>}
       {sizes.length > 0 && (
         <fieldset className="gx-opt">
           <legend>Size</legend>
@@ -106,8 +108,8 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
           </div>
         </fieldset>
       )}
-      {levels('Đường', SUGAR_LEVELS, form.sugarLevel, 'sugarLevel')}
-      {levels('Đá', ICE_LEVELS, form.iceLevel, 'iceLevel')}
+      {!standaloneTopping && levels('Đường', SUGAR_LEVELS, form.sugarLevel, 'sugarLevel')}
+      {!standaloneTopping && levels('Đá', ICE_LEVELS, form.iceLevel, 'iceLevel')}
       {toppings.length > 0 && (
         <fieldset className="gx-opt">
           <legend>Topping</legend>

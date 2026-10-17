@@ -10,7 +10,7 @@ public class Category {
 
     public static final String ACTIVE = "ACTIVE";
     public static final String INACTIVE = "INACTIVE";
-    /** 2 danh mục đặc biệt: "món" bên trong là lựa chọn Size / Topping, không bán riêng. */
+    /** Tên mặc định của danh mục lựa chọn; category_type quyết định loại, độc lập với tên. */
     public static final String SIZE = "Size";
     public static final String TOPPING = "Topping";
 
@@ -25,6 +25,13 @@ public class Category {
     @Column(length = 500)
     private String description;
 
+    @Column(name = "category_type", nullable = false, length = 20)
+    private String categoryType = "DRINK";
+
+    public String getCategoryType() { return categoryType; }
+    public void setCategoryType(String type) { this.categoryType = type; }
+    public boolean isType(String type) { return type.equals(categoryType); }
+
     @Column(nullable = false, length = 20)
     private String status = ACTIVE;
 
@@ -34,9 +41,9 @@ public class Category {
     @PrePersist
     void onCreate() { this.createdAt = LocalDateTime.now(); }
 
-    /** true nếu là danh mục Size hoặc Topping. */
+    /** true nếu category_type là SIZE hoặc TOPPING. */
     public boolean isOptionGroup() {
-        return SIZE.equalsIgnoreCase(name) || TOPPING.equalsIgnoreCase(name);
+        return isType("SIZE") || isType("TOPPING");
     }
 
     public Long getId() { return id; }

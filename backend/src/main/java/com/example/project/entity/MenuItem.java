@@ -34,6 +34,13 @@ public class MenuItem {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    /** Cột tương thích V7; quyền bán riêng được xác định từ loại danh mục. */
+    @Column(name = "sell_standalone", nullable = false)
+    private boolean sellStandalone = true;
+    /** Đồ uống, bánh và mọi topping đều bán riêng; Size chỉ là lựa chọn. */
+    public boolean isSellStandalone() { return !category.isType("SIZE"); }
+    public void setSellStandalone(boolean value) { sellStandalone = value; }
+
     @Column(name = "availability_status", nullable = false, length = 20)
     private String availabilityStatus = AVAILABLE;
 
@@ -51,12 +58,13 @@ public class MenuItem {
 
     @PrePersist
     void onCreate() {
+        this.sellStandalone = isSellStandalone();
         this.createdAt = LocalDateTime.now();
         this.updatedAt = this.createdAt;
     }
 
     @PreUpdate
-    void onUpdate() { this.updatedAt = LocalDateTime.now(); }
+    void onUpdate() { this.sellStandalone = isSellStandalone(); this.updatedAt = LocalDateTime.now(); }
 
     /** Món đang bán: món AVAILABLE và danh mục đang ACTIVE. */
     public boolean isSellable() {
