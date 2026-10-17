@@ -3,12 +3,16 @@ package com.example.project.controller;
 import com.example.project.dto.onlinepay.OnlineLoyaltyView;
 import com.example.project.dto.onlinepay.OnlineQrRequest;
 import com.example.project.dto.onlinepay.OnlineQrView;
+import com.example.project.dto.onlinepay.OnlineReceiptView;
 import com.example.project.service.OnlineLoyaltyService;
+import com.example.project.service.OnlineReceiptService;
 import com.example.project.service.QrPaymentService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Khách đặt online thanh toán QR và tích điểm (ThangNN Iter2: Online Payment Method & Loyalty, Online QR Payment).
@@ -21,10 +25,13 @@ public class OnlinePaymentController {
 
     private final QrPaymentService qrPaymentService;
     private final OnlineLoyaltyService loyaltyService;
+    private final OnlineReceiptService receiptService;
 
-    public OnlinePaymentController(QrPaymentService qrPaymentService, OnlineLoyaltyService loyaltyService) {
+    public OnlinePaymentController(QrPaymentService qrPaymentService, OnlineLoyaltyService loyaltyService,
+                                   OnlineReceiptService receiptService) {
         this.qrPaymentService = qrPaymentService;
         this.loyaltyService = loyaltyService;
+        this.receiptService = receiptService;
     }
 
     /** Tra điểm theo SĐT nhận hàng. Chưa là thành viên -> member = false. GET /api/public/online/loyalty?phone=0901234567 */
@@ -48,5 +55,11 @@ public class OnlinePaymentController {
     @GetMapping("/qr-payments/{paymentLinkId}")
     public OnlineQrView getQr(@PathVariable String paymentLinkId) {
         return qrPaymentService.viewOnline(paymentLinkId);
+    }
+
+    /** Hóa đơn điện tử: 20 đơn ONLINE đã thanh toán gần nhất của SĐT nhận hàng. GET /api/public/online/receipts?phone=... */
+    @GetMapping("/receipts")
+    public List<OnlineReceiptView> receipts(@RequestParam String phone) {
+        return receiptService.byPhone(phone);
     }
 }

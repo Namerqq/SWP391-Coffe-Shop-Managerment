@@ -1,0 +1,60 @@
+From f949034eb71d3fc90611a3731f9b82c0d7819a88 Mon Sep 17 00:00:00 2001
+From: scratch <scratch@local>
+Date: Sat, 17 Oct 2026 05:24:57 +0000
+Subject: [PATCH] step15: online receipts endpoint
+
+---
+ .../controller/OnlinePaymentController.java       | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/backend/src/main/java/com/example/project/controller/OnlinePaymentController.java b/backend/src/main/java/com/example/project/controller/OnlinePaymentController.java
+index 72ae128..9078d04 100644
+--- a/backend/src/main/java/com/example/project/controller/OnlinePaymentController.java
++++ b/backend/src/main/java/com/example/project/controller/OnlinePaymentController.java
+@@ -3,13 +3,17 @@ package com.example.project.controller;
+ import com.example.project.dto.onlinepay.OnlineLoyaltyView;
+ import com.example.project.dto.onlinepay.OnlineQrRequest;
+ import com.example.project.dto.onlinepay.OnlineQrView;
++import com.example.project.dto.onlinepay.OnlineReceiptView;
+ import com.example.project.service.OnlineLoyaltyService;
++import com.example.project.service.OnlineReceiptService;
+ import com.example.project.service.QrPaymentService;
+ import jakarta.validation.Valid;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
+ import org.springframework.web.bind.annotation.*;
+ 
++import java.util.List;
++
+ /**
+  * Khách đặt online thanh toán QR và tích điểm (ThangNN Iter2: Online Payment Method & Loyalty, Online QR Payment).
+  * Nằm trong /api/public/** nên không cần đăng nhập. Đơn trả QR CHƯA được tạo lúc tạo mã: khách trả xong
+@@ -21,10 +25,13 @@ public class OnlinePaymentController {
+ 
+     private final QrPaymentService qrPaymentService;
+     private final OnlineLoyaltyService loyaltyService;
++    private final OnlineReceiptService receiptService;
+ 
+-    public OnlinePaymentController(QrPaymentService qrPaymentService, OnlineLoyaltyService loyaltyService) {
++    public OnlinePaymentController(QrPaymentService qrPaymentService, OnlineLoyaltyService loyaltyService,
++                                   OnlineReceiptService receiptService) {
+         this.qrPaymentService = qrPaymentService;
+         this.loyaltyService = loyaltyService;
++        this.receiptService = receiptService;
+     }
+ 
+     /** Tra điểm theo SĐT nhận hàng. Chưa là thành viên -> member = false. GET /api/public/online/loyalty?phone=0901234567 */
+@@ -49,4 +56,10 @@ public class OnlinePaymentController {
+     public OnlineQrView getQr(@PathVariable String paymentLinkId) {
+         return qrPaymentService.viewOnline(paymentLinkId);
+     }
++
++    /** Hóa đơn điện tử: 20 đơn ONLINE đã thanh toán gần nhất của SĐT nhận hàng. GET /api/public/online/receipts?phone=... */
++    @GetMapping("/receipts")
++    public List<OnlineReceiptView> receipts(@RequestParam String phone) {
++        return receiptService.byPhone(phone);
++    }
+ }
+-- 
+2.43.0
+
