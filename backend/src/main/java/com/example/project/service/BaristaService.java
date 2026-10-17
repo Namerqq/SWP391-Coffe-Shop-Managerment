@@ -5,6 +5,7 @@ import com.example.project.dto.order.OrderView;
 import com.example.project.entity.MenuItem;
 import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
+import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.MenuItemRepository;
@@ -14,14 +15,16 @@ import com.example.project.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
  * UC-B01 Process Orders, UC-B02 View Orders details, UC-B03 Update Order status.
- * Pha chế theo TỪNG MÓN (không còn bước "Bắt đầu pha"): tích món pha xong -> món sang Chờ mang ra ngay,
+ * Pha chế theo TỪNG MÓN: tích món pha xong -> món sang Chờ mang ra ngay,
  * đơn tự đổi trạng thái theo các món (Order.syncStatusFromItems).
+ * Thêm chức năng: Barista nhận đơn -> tự động trừ nguyên liệu tồn kho theo định lượng công thức.
  * Theo BF-02: thiếu nguyên liệu thì Pha chế hủy món còn chờ pha; hủy hết món thì đơn tự hủy.
  */
 @Service
@@ -36,15 +39,17 @@ public class BaristaService {
     private final OrderItemRepository itemRepository;
     private final MenuItemRepository menuItemRepository;
     private final OrderSupportService support;
+    private final InventoryService inventoryService;
 
     public BaristaService(OrderRepository orderRepository, OrderLockRepository lockRepository,
                           OrderItemRepository itemRepository, MenuItemRepository menuItemRepository,
-                          OrderSupportService support) {
+                          OrderSupportService support, InventoryService inventoryService) {
         this.orderRepository = orderRepository;
         this.lockRepository = lockRepository;
         this.itemRepository = itemRepository;
         this.menuItemRepository = menuItemRepository;
         this.support = support;
+        this.inventoryService = inventoryService;
     }
 
     /** Đơn còn món chờ pha hoặc chờ mang ra, đơn đến trước nằm trên. Frontend chia món vào 2 cột. */
@@ -62,15 +67,37 @@ public class BaristaService {
     }
 
     /**
-     * Tích (done = true): món chờ pha -> Chờ mang ra. Bỏ tích (done = false): món chờ mang ra -> Chờ pha
-     * (chỉ khi phục vụ chưa mang ra). Đọc đơn kèm khóa dòng để không chồng lên thao tác của phục vụ / thu ngân.
+     * Barista bấm "Nhận đơn": chuyển đơn sang PREPARING,
+     * tự động trừ kho nguyên liệu theo công thức.
      */
     @Transactional
-    public OrderView checkItem(Long orderId, Long itemId, boolean done) {
+    public OrderView acceptOrder(Long orderId, User barista) {
+        Order o = findForUpdate(orderId);
+        if (o.getAcceptedAt() == null) {
+            o.setStatus(Order.PREPARING);
+            o.setAcceptedBy(barista);
+            o.setAcceptedAt(LocalDateTime.now());
+            inventoryService.deductForOrder(o, barista);
+            orderRepository.save(o);
+        }
+        return support.toView(o);
+    }
+
+    /**
+     * Tích (done = true): món chờ pha -> Chờ mang ra. Bỏ tích (done = false): món chờ mang ra -> Chờ pha
+     * (chỉ khi phục vụ chưa mang ra). Tự động trừ kho nếu đơn chưa từng trừ.
+     */
+    @Transactional
+    public OrderView checkItem(Long orderId, Long itemId, boolean done, User barista) {
         Order o = findForUpdate(orderId);
         OrderItem line = findLine(o, itemId);
         if (done) {
             if (!line.isWaitingForPreparation()) throw ApiException.badRequest("Món này không còn ở trạng thái Chờ pha.");
+            if (o.getAcceptedAt() == null) {
+                o.setAcceptedBy(barista);
+                o.setAcceptedAt(LocalDateTime.now());
+                inventoryService.deductForOrder(o, barista);
+            }
             line.setItemStatus(OrderItem.READY);
         } else {
             if (!OrderItem.READY.equals(line.getItemStatus())) {
@@ -87,7 +114,7 @@ public class BaristaService {
      * Món nào trong lúc đó đã bị hủy / đã được tích thì bỏ qua. Trả về bảng pha chế mới.
      */
     @Transactional
-    public List<OrderView> checkItems(List<Long> itemIds) {
+    public List<OrderView> checkItems(List<Long> itemIds, User barista) {
         Set<Long> wanted = new HashSet<>(itemIds);
         List<Long> orderIds = itemRepository.findAllById(wanted).stream()
                 .map(i -> i.getOrder().getId())
@@ -97,6 +124,11 @@ public class BaristaService {
         if (orderIds.isEmpty()) throw new ResourceNotFoundException("Không tìm thấy món cần tích.");
         for (Long id : orderIds) {
             Order o = findForUpdate(id);
+            if (o.getAcceptedAt() == null) {
+                o.setAcceptedBy(barista);
+                o.setAcceptedAt(LocalDateTime.now());
+                inventoryService.deductForOrder(o, barista);
+            }
             o.getItems().stream()
                     .filter(i -> wanted.contains(i.getId()) && i.isWaitingForPreparation())
                     .forEach(i -> i.setItemStatus(OrderItem.READY));

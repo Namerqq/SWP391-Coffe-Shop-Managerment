@@ -2,6 +2,9 @@ package com.example.project.service;
 
 import com.example.project.dto.inventory.*;
 import com.example.project.entity.InventoryItem;
+import com.example.project.entity.MenuItem;
+import com.example.project.entity.Order;
+import com.example.project.entity.OrderItem;
 import com.example.project.entity.StockTransaction;
 import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
@@ -12,8 +15,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * UC-IV01 Manage Inventory Item (Manager):  tạo, sửa, xem danh sách, lọc sắp hết.
@@ -172,6 +180,34 @@ public class InventoryService {
         return InventoryItemView.from(item);
     }
 
+    // ========== Báo hao hụt / Hư hỏng (Waste - UC-B06) ==========
+
+    @Transactional
+    public InventoryItemView waste(Long id, WasteReportRequest req, User currentUser) {
+        InventoryItem item = findItem(id);
+
+        if (req.quantity() == null || req.quantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw ApiException.badRequest("Số lượng báo hao hụt/hỏng phải lớn hơn 0.");
+        }
+
+        if (req.quantity().compareTo(item.getCurrentQuantity()) > 0) {
+            throw ApiException.badRequest("Số lượng báo hao hụt (" + req.quantity()
+                    + ") vượt quá số lượng tồn hiện tại (" + item.getCurrentQuantity() + ").");
+        }
+
+        StockTransaction tx = new StockTransaction();
+        tx.setInventoryItem(item);
+        tx.setCreatedBy(currentUser);
+        tx.setTransactionType(StockTransaction.WASTE);
+        tx.setQuantity(req.quantity());
+        tx.setReason("Hao hụt / Hư hỏng tại quầy pha chế");
+        tx.setNote(req.note());
+        txRepo.save(tx);
+
+        item.setCurrentQuantity(item.getCurrentQuantity().subtract(req.quantity()));
+        return InventoryItemView.from(item);
+    }
+
     // ========== Lịch sử giao dịch ==========
 
     @Transactional(readOnly = true)
@@ -181,6 +217,162 @@ public class InventoryService {
                 .stream().map(StockTransactionView::from).toList();
     }
 
+    // ========== Tự động trừ nguyên liệu khi Barista nhận đơn ==========
+
+    /**
+     * Tự động trừ nguyên liệu theo công thức khi Barista nhận đơn (hoặc tích hoàn thành món).
+     * Kiểm tra tồn kho trước, trừ số lượng tương ứng và ghi nhận giao dịch STOCK_OUT cho từng nguyên liệu.
+     */
+    @Transactional
+    public void deductForOrder(Order order, User barista) {
+        if (order.getItems() == null || order.getItems().isEmpty()) {
+            return;
+        }
+
+        List<InventoryItem> activeInventory = itemRepo.findAllByStatusOrderByItemNameAsc(InventoryItem.ACTIVE);
+        Map<Long, InventoryItem> invMap = activeInventory.stream()
+                .collect(Collectors.toMap(InventoryItem::getId, i -> i));
+
+        Map<Long, BigDecimal> requiredAmounts = new HashMap<>();
+
+        for (OrderItem item : order.getItems()) {
+            if (OrderItem.CANCELLED.equals(item.getItemStatus())) {
+                continue;
+            }
+            int qty = item.getQuantity() != null ? item.getQuantity() : 1;
+            MenuItem menu = item.getMenuItem();
+            Map<Long, BigDecimal> itemRecipe = resolveRecipe(menu, item, activeInventory);
+
+            for (Map.Entry<Long, BigDecimal> entry : itemRecipe.entrySet()) {
+                Long invId = entry.getKey();
+                BigDecimal amountPerDrink = entry.getValue();
+                BigDecimal totalNeededForLine = amountPerDrink.multiply(BigDecimal.valueOf(qty));
+                requiredAmounts.merge(invId, totalNeededForLine, BigDecimal::add);
+            }
+        }
+
+        if (requiredAmounts.isEmpty()) {
+            return;
+        }
+
+        // Bước 1: Kiểm tra đủ tồn kho cho toàn bộ nguyên liệu cần dùng
+        for (Map.Entry<Long, BigDecimal> entry : requiredAmounts.entrySet()) {
+            InventoryItem inv = invMap.get(entry.getKey());
+            if (inv == null) continue;
+            BigDecimal needed = entry.getValue();
+            if (needed.compareTo(inv.getCurrentQuantity()) > 0) {
+                throw ApiException.badRequest("Không đủ nguyên liệu \"" + inv.getItemName()
+                        + "\" để pha chế đơn " + OrderSupportService.displayNumber(order.getOrderNumber())
+                        + " (Tồn kho: " + inv.getCurrentQuantity() + " " + inv.getUnit()
+                        + ", cần: " + needed + " " + inv.getUnit()
+                        + "). Vui lòng báo thiếu nguyên liệu hoặc hủy món.");
+            }
+        }
+
+        // Bước 2: Thực hiện trừ kho và tạo các giao dịch STOCK_OUT
+        StringBuilder itemNames = new StringBuilder();
+        for (OrderItem i : order.getItems()) {
+            if (!OrderItem.CANCELLED.equals(i.getItemStatus())) {
+                if (!itemNames.isEmpty()) itemNames.append(", ");
+                itemNames.append(i.getQuantity()).append("x ").append(i.getMenuItem().getName());
+            }
+        }
+
+        for (Map.Entry<Long, BigDecimal> entry : requiredAmounts.entrySet()) {
+            InventoryItem inv = invMap.get(entry.getKey());
+            if (inv == null) continue;
+            BigDecimal needed = entry.getValue();
+
+            inv.setCurrentQuantity(inv.getCurrentQuantity().subtract(needed));
+            itemRepo.save(inv);
+
+            StockTransaction tx = new StockTransaction();
+            tx.setInventoryItem(inv);
+            tx.setCreatedBy(barista);
+            tx.setTransactionType(StockTransaction.STOCK_OUT);
+            tx.setQuantity(needed);
+            tx.setReason("Pha chế đơn #" + OrderSupportService.displayNumber(order.getOrderNumber()));
+            tx.setNote("Tự động trừ khi Barista nhận đơn (" + itemNames + ")");
+            txRepo.save(tx);
+        }
+    }
+
+    /**
+     * Xác định lượng nguyên liệu cần dùng cho 1 ly đồ uống.
+     * Ưu tiên đọc recipe_ingredients của món; nếu chưa cấu hình thì dùng chuẩn định lượng mặc định theo loại đồ uống.
+     */
+    private Map<Long, BigDecimal> resolveRecipe(MenuItem menu, OrderItem item, List<InventoryItem> activeInventory) {
+        Map<Long, BigDecimal> recipe = new HashMap<>();
+
+        if (menu != null && menu.getRecipeIngredients() != null && !menu.getRecipeIngredients().isBlank()) {
+            String[] lines = menu.getRecipeIngredients().split("[;\n]");
+            for (String rawLine : lines) {
+                String line = rawLine.trim();
+                if (line.isBlank()) continue;
+
+                Matcher m = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)").matcher(line);
+                BigDecimal amount = null;
+                if (m.find()) {
+                    try {
+                        amount = new BigDecimal(m.group(1));
+                    } catch (Exception ignored) {}
+                }
+
+                String lower = line.toLowerCase(Locale.ROOT);
+                for (InventoryItem inv : activeInventory) {
+                    if (lower.contains(inv.getItemName().toLowerCase(Locale.ROOT))) {
+                        recipe.put(inv.getId(), amount != null ? amount : BigDecimal.valueOf(0.02));
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Fallback định lượng chuẩn theo tên món và danh mục
+        if (recipe.isEmpty() && menu != null) {
+            String name = menu.getName() != null ? menu.getName().toLowerCase(Locale.ROOT) : "";
+            boolean isLarge = "L".equalsIgnoreCase(item.getSizeName());
+
+            // 1. Cà phê
+            if (name.contains("cà phê") || name.contains("americano") || name.contains("latte")
+                    || name.contains("cappuccino") || name.contains("bạc xỉu") || name.contains("espresso")) {
+                findItemByName(activeInventory, "coffee").ifPresent(inv ->
+                        recipe.put(inv.getId(), isLarge ? BigDecimal.valueOf(0.030) : BigDecimal.valueOf(0.020)));
+            }
+
+            // 2. Sữa tươi cho các món sữa / đá xay
+            if (name.contains("latte") || name.contains("cappuccino") || name.contains("bạc xỉu")
+                    || name.contains("sữa") || name.contains("đá xay")) {
+                findItemByName(activeInventory, "milk").ifPresent(inv ->
+                        recipe.put(inv.getId(), isLarge ? BigDecimal.valueOf(0.120) : BigDecimal.valueOf(0.080)));
+            }
+
+            // 3. Matcha
+            if (name.contains("matcha")) {
+                findItemByName(activeInventory, "matcha").ifPresent(inv ->
+                        recipe.put(inv.getId(), BigDecimal.valueOf(0.020)));
+            }
+        }
+
+        // Topping: Trân châu đen
+        if (item != null && item.getToppingDetails() != null) {
+            String toppingJson = item.getToppingDetails().toLowerCase(Locale.ROOT);
+            if (toppingJson.contains("trân châu") || toppingJson.contains("tapioca")) {
+                findItemByName(activeInventory, "tapioca").ifPresent(inv ->
+                        recipe.merge(inv.getId(), BigDecimal.valueOf(0.050), BigDecimal::add));
+            }
+        }
+
+        return recipe;
+    }
+
+    private java.util.Optional<InventoryItem> findItemByName(List<InventoryItem> items, String keyword) {
+        String kw = keyword.toLowerCase(Locale.ROOT);
+        return items.stream()
+                .filter(i -> i.getItemName().toLowerCase(Locale.ROOT).contains(kw))
+                .findFirst();
+    }
+
     // ========== Helper ==========
 
     private InventoryItem findItem(Long id) {
@@ -188,3 +380,4 @@ public class InventoryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nguyên liệu #" + id));
     }
 }
+
