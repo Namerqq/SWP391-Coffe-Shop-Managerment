@@ -18,4 +18,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     /** Danh sách đơn giao hàng (DELIVERY) mới nhất lên đầu cho màn hình Thu ngân. */
     List<Order> findByFulfillmentTypeOrderByCreatedAtDesc(String fulfillmentType);
+
+    /** Tìm kiếm lịch sử đơn hàng online theo số điện thoại khách hàng. */
+    List<Order> findByCustomerPhoneAndSourceOrderByCreatedAtDesc(String customerPhone, String source);
 }

@@ -39,28 +39,58 @@ function getStatusBadge(order, currentStep) {
 }
 
 export default function OnlineTracking() {
-  const [searchParams] = useSearchParams()
-  const orderId = searchParams.get('orderId') || localStorage.getItem('online_last_order_id')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialOrderId = searchParams.get('orderId') || localStorage.getItem('online_last_order_id')
 
+  const [activeOrderId, setActiveOrderId] = useState(initialOrderId)
+  const [phone, setPhone] = useState(() => localStorage.getItem('online_last_phone') || '')
+  const [orderList, setOrderList] = useState([])
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
 
-  // Tải thông tin đơn hàng từ API
+  // Tải danh sách các đơn theo số điện thoại
+  const loadOrderHistory = async (phoneNum, autoSelect = false) => {
+    if (!phoneNum || !phoneNum.trim()) return
+    try {
+      const res = await onlineOrderApi.getOrdersByPhone(phoneNum.trim())
+      const list = res.data || []
+      setOrderList(list)
+      if (list.length > 0 && (autoSelect || !activeOrderId)) {
+        selectOrder(list[0].orderId)
+      } else if (list.length === 0 && autoSelect) {
+        alert('Không tìm thấy đơn hàng nào với số điện thoại: ' + phoneNum.trim())
+      }
+    } catch {
+      // bỏ qua lỗi nếu không tìm thấy
+    }
+  }
+
+  useEffect(() => {
+    const savedPhone = localStorage.getItem('online_last_phone')
+    if (savedPhone) {
+      loadOrderHistory(savedPhone, false)
+    }
+  }, [])
+
+  // Tải thông tin đơn hàng đang chọn từ API
   const fetchOrder = async () => {
-    if (!orderId) {
+    if (!activeOrderId) {
       setLoading(false)
       return
     }
-   
-    if (order && (order.status === 'CANCELLED' || order.status === 'COMPLETED' || order.deliveryStatus === 'DELIVERED')) {
-      return
-    }
+
     try {
-      const res = await onlineOrderApi.getOrderById(orderId)
+      const res = await onlineOrderApi.getOrderById(activeOrderId)
       setOrder(res.data)
       setError('')
+      // Tự động đồng bộ số điện thoại nếu chưa có
+      if (res.data?.customerPhone && !phone) {
+        setPhone(res.data.customerPhone)
+        localStorage.setItem('online_last_phone', res.data.customerPhone)
+        loadOrderHistory(res.data.customerPhone, false)
+      }
     } catch (err) {
       if (!order) setError(errorMessage(err, 'Không tìm thấy thông tin đơn hàng.'))
     } finally {
@@ -68,8 +98,29 @@ export default function OnlineTracking() {
     }
   }
 
-  // Tự động làm mới trạng thái  mỗi 30 giâ
+  // Tự động làm mới trạng thái mỗi 30 giây
   usePolling(fetchOrder, 30000)
+
+  useEffect(() => {
+    if (activeOrderId) {
+      setLoading(true)
+      fetchOrder()
+    }
+  }, [activeOrderId])
+
+  const selectOrder = (id) => {
+    setActiveOrderId(id)
+    setSearchParams({ orderId: id })
+    localStorage.setItem('online_last_order_id', String(id))
+  }
+
+  const handlePhoneSearch = (e) => {
+    e.preventDefault()
+    if (phone.trim()) {
+      localStorage.setItem('online_last_phone', phone.trim())
+      loadOrderHistory(phone.trim(), true)
+    }
+  }
 
   // Xử lý khách bấm nút "Hủy đơn hàng"
   const handleCancel = async () => {
@@ -78,6 +129,7 @@ export default function OnlineTracking() {
     try {
       const res = await onlineOrderApi.cancelOrder(order.orderId, 'Khách hàng tự hủy trên website')
       setOrder(res.data)
+      if (phone) loadOrderHistory(phone)
       alert('Đã hủy đơn hàng thành công.')
     } catch (err) {
       alert(errorMessage(err, 'Không thể hủy đơn hàng vào lúc này.'))
@@ -97,15 +149,29 @@ export default function OnlineTracking() {
   }
 
   // 2. Chưa có đơn hàng nào
-  if (!orderId || !order) {
+  if (!activeOrderId && !order) {
     return (
       <>
         <h1 className="gx-title">Đơn hàng của bạn</h1>
+        <div className="gx-card mb-3 p-3">
+          <form onSubmit={handlePhoneSearch} className="d-flex gap-2">
+            <input
+              type="tel"
+              className="form-control"
+              placeholder="Nhập số điện thoại để tra cứu đơn..."
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              maxLength={10}
+            />
+            <button type="submit" className="btn btn-primary text-nowrap">
+              Tra cứu
+            </button>
+          </form>
+        </div>
         <div className="gx-card text-center p-4">
-          <div className="fs-1 mb-2"></div>
           <h5>Chưa có đơn hàng nào</h5>
           <p className="gx-muted">
-            {error || 'Bạn chưa đặt đơn hàng nào gần đây.'}
+            {error || 'Bạn chưa đặt đơn hàng nào gần đây hoặc chưa nhập đúng số điện thoại.'}
           </p>
           <div className="mt-3">
             <Link to="/online-order" className="btn btn-primary">
@@ -124,7 +190,43 @@ export default function OnlineTracking() {
 
   return (
     <>
-      <h1 className="gx-title">Đơn hàng của bạn</h1>
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h1 className="gx-title mb-0">Đơn hàng của bạn</h1>
+        <form onSubmit={handlePhoneSearch} className="d-flex gap-1" style={{ maxWidth: 280 }}>
+          <input
+            type="tel"
+            className="form-control form-control-sm"
+            placeholder="Tra cứu theo SĐT..."
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            maxLength={10}
+          />
+          <button type="submit" className="btn btn-outline-primary btn-sm text-nowrap">
+            Tìm
+          </button>
+        </form>
+      </div>
+
+      {/* Danh sách các đơn đã đặt */}
+      {orderList.length > 0 && (
+        <div className="d-flex gap-2 overflow-auto pb-2 mb-3 align-items-center" style={{ whiteSpace: 'nowrap' }}>
+          <span className="small text-muted me-1">Đơn của bạn:</span>
+          {orderList.map((item) => {
+            const isSelected = item.orderId === order?.orderId
+            return (
+              <button
+                key={item.orderId}
+                type="button"
+                className={`btn btn-sm ${isSelected ? 'btn-primary shadow-sm' : 'btn-outline-secondary'}`}
+                style={{ borderRadius: 20, fontSize: '0.8rem', padding: '4px 12px' }}
+                onClick={() => selectOrder(item.orderId)}
+              >
+                #{item.orderNumber || item.orderId} ({item.status})
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <article className="gx-card gx-order mb-3">
         {/* Header: Mã đơn + Thời gian đặt + Badge trạng thái */}

@@ -44,6 +44,15 @@ public class OnlineOrderController {
     }
 
     /**
+     * Tra cứu danh sách lịch sử đơn hàng online theo số điện thoại.
+     * GET /api/public/online/orders/by-phone?phone=...
+     */
+    @GetMapping("/orders/by-phone")
+    public ResponseEntity<java.util.List<OnlineOrderView>> getOrdersByPhone(@RequestParam String phone) {
+        return ResponseEntity.ok(onlineOrderService.getOrdersByPhone(phone));
+    }
+
+    /**
      * Khách hàng hủy đơn online (chỉ được hủy khi chưa bắt đầu pha chế hoặc chưa giao hàng).
      * POST /api/public/online/orders/{id}/cancel
      */
