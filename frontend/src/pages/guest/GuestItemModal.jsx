@@ -2,24 +2,25 @@ import { useEffect, useState } from 'react'
 import Modal from '../../components/Modal'
 import { assetUrl } from '../../utils/assetUrl'
 import { formatMoney } from '../../utils/orderFormat'
-import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS } from '../../utils/orderOptions'
+import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS, isSizeItem, isToppingItem } from '../../utils/orderOptions'
 import '../../styles/guest.css'
 
 const LEVEL_LABEL = { '100%': 'Bình thường', '70%': '70%', '50%': '50%', '30%': '30%', '0%': 'Không' }
 
 /**
  * Item Customize Modal (khách) — UC-CU02. Chọn size, đường, đá, topping, số lượng, ghi chú.
- * Size / Topping lấy từ danh mục "Size" / "Topping" trong menu (quy ước chung của nhóm).
+ * Topping bán riêng chỉ có số lượng và ghi chú. Size chỉ là lựa chọn kèm món.
  * onConfirm(line) trả về cùng dạng với ItemOptionsModal của nhân viên.
  */
 export default function GuestItemModal({ show, item, options, initial, confirmText = 'Thêm vào giỏ', onClose, onConfirm }) {
-  const standaloneTopping = item?.categoryType === 'TOPPING'
+  const sizeItem = isSizeItem(item, options)
+  const standaloneTopping = isToppingItem(item, options)
   const sizes = standaloneTopping ? [] : options?.sizes || []
   const toppings = standaloneTopping ? [] : options?.toppings || []
   const [form, setForm] = useState(null)
 
   useEffect(() => {
-    if (!show || !item) return
+    if (!show || !item || sizeItem) return
     setForm({
       quantity: initial?.quantity || 1,
       sizeId: standaloneTopping ? null : initial ? initial.sizeId ?? null : sizes[0]?.id ?? null,
@@ -28,9 +29,9 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
       iceLevel: standaloneTopping ? null : initial?.iceLevel || DEFAULT_LEVEL,
       note: initial?.note || '',
     })
-  }, [show, item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [show, item?.id, sizeItem, standaloneTopping]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!show || !item || !form) return null
+  if (!show || !item || sizeItem || !form) return null
 
   const size = sizes.find((s) => s.id === form.sizeId) || null
   const chosen = toppings.filter((t) => form.toppingIds.includes(t.id))
@@ -41,6 +42,7 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
 
   const confirm = () => onConfirm({
     menuItemId: item.id,
+    categoryType: standaloneTopping ? 'TOPPING' : item.categoryType,
     itemName: item.name,
     unitPrice: item.price,
     quantity: form.quantity,
@@ -49,8 +51,8 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
     sizePrice: size?.price ?? 0,
     toppingIds: chosen.map((t) => t.id),
     toppings: chosen,
-    sugarLevel: form.sugarLevel,
-    iceLevel: form.iceLevel,
+    sugarLevel: standaloneTopping ? null : form.sugarLevel,
+    iceLevel: standaloneTopping ? null : form.iceLevel,
     note: form.note.trim(),
   })
 

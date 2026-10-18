@@ -7,7 +7,7 @@ import { BrandLogo } from './HomeLayout'
 import { DEFAULT_HOME } from '../pages/home/homeDefaults'
 import GuestItemModal from '../pages/guest/GuestItemModal'
 import { loadCart, newRequestKey, sameOptions, saveCart, setGuestToken } from '../utils/guestSession'
-import { unitTotal } from '../utils/orderOptions'
+import { isSizeItem, standaloneCategories, unitTotal } from '../utils/orderOptions'
 import '../styles/guest.css'
 
 const GuestContext = createContext(null)
@@ -40,7 +40,7 @@ export default function GuestLayout() {
   const loadMenu = useCallback(() => {
     setMenuError('')
     guestTableApi.getMenu()
-      .then((res) => setMenu(res.data))
+      .then((res) => setMenu({ ...res.data, categories: standaloneCategories(res.data) }))
       .catch((e) => setMenuError(errorMessage(e, 'Chưa tải được thực đơn.')))
   }, [])
   useEffect(loadMenu, [loadMenu])
@@ -50,7 +50,7 @@ export default function GuestLayout() {
     const qr = new URLSearchParams(location.search).get('table')
     if (qr) {
       setTableError('')
-      guestTablet.openTable(qr)
+      guestTableApi.openTable(qr)
         .then((res) => {
           setGuestToken(res.data.token)
           setTable(res.data)
@@ -69,6 +69,13 @@ export default function GuestLayout() {
   // Giỏ hàng lưu theo từng bàn
   useEffect(() => { setCart(loadCart(table?.tableId)) }, [table?.tableId])
   useEffect(() => { if (table) saveCart(table.tableId, cart) }, [cart, table])
+
+  // Size cũ không được giữ thành dòng bán lẻ; sizeId chọn kèm đồ uống vẫn giữ nguyên.
+  useEffect(() => {
+    if (!menu || !cart.some((line) => isSizeItem(line, menu))) return
+    requestKey.current = null
+    setCart((current) => current.filter((line) => !isSizeItem(line, menu)))
+  }, [menu, cart])
 
   useEffect(() => {
     const previous = document.title
@@ -94,7 +101,9 @@ export default function GuestLayout() {
     return {
       table, tableChecked, tableError, menu, menuError, loadMenu, cart, count, total, expire,
       /** Mở hộp tùy chỉnh để thêm món, hoặc sửa 1 dòng trong giỏ (truyền line). */
-      pickItem: (item, line) => setPicking(line ? { item, key: line.key, initial: line } : { item }),
+      pickItem: (item, line) => {
+        if (!isSizeItem(item, menu)) setPicking(line ? { item, key: line.key, initial: line } : { item })
+      },
       setQty: (key, delta) => changeCart((cur) => cur.map((l) => (
         l.key === key ? { ...l, quantity: Math.min(50, Math.max(1, l.quantity + delta)) } : l))),
       removeLine: (key) => changeCart((cur) => cur.filter((l) => l.key !== key)),

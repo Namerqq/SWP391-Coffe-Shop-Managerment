@@ -103,4 +103,23 @@ class MenuManagementServiceTest {
         assertThrows(ApiException.class,()->service.saveCategory(4L,new CategoryRequest("Cỡ ly","DRINK")));
         assertThrows(ApiException.class,()->service.deleteItem(5L));
     }
+
+    @Test void sizeCannotBeOrderedAloneEvenWithLegacyStandaloneFlag() {
+        var s=item(5L,size,5000,true,MenuItem.AVAILABLE);
+        when(items.findById(5L)).thenReturn(Optional.of(s));
+        var support=new OrderSupportService(items,mock(OrderRepository.class),mock(PaymentRepository.class),mock(TableSessionRepository.class),new ObjectMapper(),mock(QrPaymentRequestRepository.class));
+        assertThrows(ApiException.class,()->support.buildItem(new OrderItemRequest(5L,1,null,List.of(),null,null,null)));
+    }
+
+    @Test void catalogKeepsSizeAsOptionAndToppingAsBothOptionAndStandaloneItem() {
+        var d=item(1L,drink,35000,true,MenuItem.AVAILABLE);
+        var s=item(5L,size,5000,true,MenuItem.AVAILABLE);
+        var t=item(3L,topping,10000,false,MenuItem.AVAILABLE);
+        when(items.findAllByOrderByNameAsc()).thenReturn(List.of(d,s,t));
+        var menu=new MenuCatalogService(categories,items).staffMenu();
+        var standalone=menu.categories().stream().flatMap(c->c.items().stream()).toList();
+        assertEquals(List.of(1L,3L),standalone.stream().map(m->m.id()).toList());
+        assertEquals(List.of(5L),menu.sizes().stream().map(m->m.id()).toList());
+        assertEquals(List.of(3L),menu.toppings().stream().map(m->m.id()).toList());
+    }
 }
