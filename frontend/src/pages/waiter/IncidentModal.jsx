@@ -3,6 +3,7 @@ import Modal from '../../components/Modal'
 import servingApi from '../../api/servingApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
+import { placeLabel } from '../../utils/orderFormat'
 
 const QUICK_REASONS = [
   'Vấp ngã / trượt chân khi mang ra',
@@ -17,7 +18,6 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
   const [action, setAction] = useState('REMAKE') // REMAKE | CANCEL
   const [quickReason, setQuickReason] = useState(QUICK_REASONS[0])
   const [customReason, setCustomReason] = useState('')
-  const [penaltyAmount, setPenaltyAmount] = useState(20000)
   const [loading, setLoading] = useState(false)
 
   if (!show || !order || !item) return null
@@ -34,7 +34,6 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
       const res = await servingApi.reportIncident(order.id, item.id, {
         action,
         reason: finalReason,
-        penaltyAmount: Number(penaltyAmount) || 0,
       })
       toast(
         action === 'REMAKE'
@@ -73,7 +72,7 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
           <i className="bi bi-exclamation-triangle-fill fs-5 me-2 text-warning" />
           <div>
             <strong>{item.quantity}× {item.itemName}</strong>
-            <span className="cf-muted ms-2">— Đơn {order.displayNumber} ({order.tableNumber ? `Bàn ${order.tableNumber}` : 'Mang đi'})</span>
+            <span className="cf-muted ms-2">— Đơn {order.displayNumber} ({placeLabel(order)})</span>
           </div>
         </div>
 
@@ -120,7 +119,7 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
         </div>
 
         {/* Lý do sự cố */}
-        <div className="mb-3">
+        <div className="mb-2">
           <label className="form-label fw-semibold" htmlFor="quickReasonSelect">
             2. Nguyên nhân sự cố
           </label>
@@ -142,28 +141,6 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
             onChange={(e) => setCustomReason(e.target.value)}
             maxLength={150}
           />
-        </div>
-
-        {/* Mức phạt đề xuất */}
-        <div className="mb-2">
-          <label className="form-label fw-semibold" htmlFor="penaltyInput">
-            3. Mức phạt đề xuất (VNĐ)
-          </label>
-          <div className="input-group">
-            <input
-              type="number"
-              id="penaltyInput"
-              className="form-control"
-              step="5000"
-              min="0"
-              value={penaltyAmount}
-              onChange={(e) => setPenaltyAmount(e.target.value)}
-            />
-            <span className="input-group-text">đ</span>
-          </div>
-          <div className="form-text">
-            Khoản phạt nội bộ nhân viên (lưu vào biên bản để quản lý duyệt trừ lương/thưởng), <strong>không tính vào hóa đơn của khách</strong>.
-          </div>
         </div>
       </form>
     </Modal>
