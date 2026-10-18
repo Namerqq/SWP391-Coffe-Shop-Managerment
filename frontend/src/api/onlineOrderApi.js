@@ -7,6 +7,8 @@ const onlineOrderApi = {
 
   getOrderById: (id) => axiosClient.get(`/public/online/orders/${id}`),
 
+  getOrdersByPhone: (phone) => axiosClient.get(`/public/online/orders/by-phone?phone=${encodeURIComponent(phone)}`),
+
   cancelOrder: (id, reason) =>
     axiosClient.post(`/public/online/orders/${id}/cancel`, reason ? { reason } : {}),
 }

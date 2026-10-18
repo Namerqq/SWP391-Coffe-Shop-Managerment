@@ -99,6 +99,19 @@ public class OnlineOrderService {
     }
 
     /**
+     * Lấy toàn bộ lịch sử đơn hàng online theo số điện thoại khách hàng.
+     */
+    @Transactional(readOnly = true)
+    public List<OnlineOrderView> getOrdersByPhone(String phone) {
+        if (phone == null || phone.isBlank()) return List.of();
+        List<Order> orders = orderRepository.findByCustomerPhoneAndSourceOrderByCreatedAtDesc(phone.trim(), Order.SOURCE_ONLINE);
+        return orders.stream().map(o -> {
+            Delivery d = deliveryRepository.findByOrder_Id(o.getId()).orElse(null);
+            return toView(o, d, null, null);
+        }).toList();
+    }
+
+    /**
      * Khách hàng tự hủy đơn hàng online.
      * Chỉ cho phép hủy khi đơn còn ở trạng thái chờ (chưa pha chế / chưa giao hàng).
      */

@@ -10,7 +10,6 @@ const OnlineContext = createContext(null)
 export const useOnline = () => useContext(OnlineContext)
 
 
-
 export default function OnlineLayout() {
   // Đọc giỏ hàng từ LocalStorage khi mở trang
   const [cart, setCart] = useState(() => {
