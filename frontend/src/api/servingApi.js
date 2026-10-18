@@ -4,6 +4,8 @@ import axiosClient from './axiosClient'
 const servingApi = {
   getBoard: () => axiosClient.get('/serving/board'), // Phục vụ: đơn tại bàn còn món chờ pha / chờ mang ra
   serveItem: (orderId, itemId) => axiosClient.patch(`/serving/orders/${orderId}/items/${itemId}/served`),
+  reportIncident: (orderId, itemId, data) => axiosClient.post(`/serving/orders/${orderId}/items/${itemId}/incident`, data),
+  getIncidents: () => axiosClient.get('/serving/incidents'),
   getReady: (type) => axiosClient.get('/serving/ready', { params: { type } }), // type: DINE_IN | PICKUP
   markServed: (orderId) => axiosClient.patch(`/serving/orders/${orderId}/served`),
 }

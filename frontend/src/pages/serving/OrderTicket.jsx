@@ -16,18 +16,38 @@ export default function OrderTicket({ order, items, tone, highlighted, matchItem
         <span className="kds-time"><i className="bi bi-clock me-1" />{elapsedLabel(order.createdAt)}</span>
       </header>
       <ul className="kds-items">
-        {items.map((i) => (
-          <li key={i.id} className={matchItem?.(i) ? 'match' : ''}>
-            {renderLeft?.(i)}
-            <span className="order-qty">{i.quantity}×</span>
-            <div className="flex-grow-1" style={{ minWidth: 0 }}>
-              <div className="fw-semibold">{i.itemName}</div>
-              {itemOptionsText(i) && <div className="cell-sub">{itemOptionsText(i)}</div>}
-              {i.note && <div className="order-note"><i className="bi bi-chat-left-text me-1" />{i.note}</div>}
-            </div>
-            {renderRight?.(i)}
-          </li>
-        ))}
+        {items.map((i) => {
+          const isRemake = i.note?.includes('[SỰ CỐ: PHA LẠI')
+          const isCancelledIncident = i.note?.includes('[SỰ CỐ: HỦY MÓN')
+          return (
+            <li key={i.id} className={`${matchItem?.(i) ? 'match' : ''} ${isRemake ? 'border-start border-danger border-3 ps-2' : ''}`}>
+              {renderLeft?.(i)}
+              <span className="order-qty">{i.quantity}×</span>
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                <div className="fw-semibold d-flex align-items-center flex-wrap gap-1">
+                  <span>{i.itemName}</span>
+                  {isRemake && (
+                    <span className="badge text-bg-danger" style={{ fontSize: '0.72rem' }}>
+                      🔥 Pha bù (Làm vỡ)
+                    </span>
+                  )}
+                  {isCancelledIncident && (
+                    <span className="badge text-bg-secondary" style={{ fontSize: '0.72rem' }}>
+                      Đã hủy (Sự cố)
+                    </span>
+                  )}
+                </div>
+                {itemOptionsText(i) && <div className="cell-sub">{itemOptionsText(i)}</div>}
+                {i.note && (
+                  <div className={`order-note ${isRemake ? 'text-danger fw-semibold' : ''}`}>
+                    <i className="bi bi-chat-left-text me-1" />{i.note}
+                  </div>
+                )}
+              </div>
+              {renderRight?.(i)}
+            </li>
+          )
+        })}
       </ul>
       {order.customerNote && <div className="order-note px-3 pb-2"><i className="bi bi-info-circle me-1" />{order.customerNote}</div>}
       {children}
