@@ -25,7 +25,7 @@ public record StockTransactionView(
                 t.getQuantity(),
                 t.getReason(),
                 t.getNote(),
-                t.getCreatedBy().getFullName(),
+                t.getCreatedBy() != null ? t.getCreatedBy().getFullName() : "Hệ thống",
                 t.getCreatedAt()
         );
     }

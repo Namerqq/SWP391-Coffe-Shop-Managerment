@@ -5,10 +5,13 @@ import com.example.project.dto.cashier.QrPaymentView;
 import com.example.project.dto.cashier.QrSessionRequest;
 import com.example.project.dto.cashier.QrTakeawayCart;
 import com.example.project.dto.cashier.QrTakeawayRequest;
+import com.example.project.dto.onlinepay.OnlineQrRequest;
+import com.example.project.dto.onlinepay.OnlineQrView;
 import com.example.project.dto.onlinepay.QrOnlineCart;
 import com.example.project.dto.order.OrderItemRequest;
 import com.example.project.entity.CafeTable;
 import com.example.project.entity.Customer;
+import com.example.project.entity.Delivery;
 import com.example.project.entity.MenuItem;
 import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
@@ -21,6 +24,7 @@ import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.payos.PayosClient;
 import com.example.project.payos.PayosException;
 import com.example.project.repository.CustomerRepository;
+import com.example.project.repository.DeliveryRepository;
 import com.example.project.repository.MenuItemRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
@@ -80,12 +84,15 @@ public class QrPaymentService {
     private final SystemSettingService settings;
     private final PayosClient payos;
     private final ObjectMapper objectMapper;
+    private final OnlineLoyaltyService onlineLoyalty;
+    private final DeliveryRepository deliveryRepository;
 
     public QrPaymentService(QrPaymentRequestRepository qrRepository, TableSessionRepository sessionRepository,
                             OrderRepository orderRepository, OrderLockRepository lockRepository,
                             CustomerRepository customerRepository, MenuItemRepository menuItemRepository,
                             CashierService cashier, OrderSupportService support, SystemSettingService settings,
-                            PayosClient payos, ObjectMapper objectMapper) {
+                            PayosClient payos, ObjectMapper objectMapper, OnlineLoyaltyService onlineLoyalty,
+                            DeliveryRepository deliveryRepository) {
         this.qrRepository = qrRepository;
         this.sessionRepository = sessionRepository;
         this.orderRepository = orderRepository;
@@ -97,6 +104,8 @@ public class QrPaymentService {
         this.settings = settings;
         this.payos = payos;
         this.objectMapper = objectMapper;
+        this.onlineLoyalty = onlineLoyalty;
+        this.deliveryRepository = deliveryRepository;
     }
 
     /** Thông tin tối thiểu của 1 mã để QrPaymentWatcher làm việc với payOS ngoài transaction. */
@@ -181,6 +190,54 @@ public class QrPaymentService {
         return open(r);
     }
 
+    // ===== Khách đặt online (ThangNN Iter2, BF-03-2) =====
+
+    /**
+     * Khách đặt online chọn trả QR: tính giá ở server, xác định khách thân thiết, trừ điểm, tạo mã payOS.
+     * Đơn CHƯA được tạo (giống mang đi): giỏ hàng + thông tin giao hàng lưu kèm mã, khách trả xong mới tạo đơn.
+     * Thành viên mới (nếu có) được tạo trong cùng transaction: payOS lỗi thì không lưu gì cả.
+     * Trả về paymentLinkId (chuỗi ngẫu nhiên do payOS cấp) để trang của khách hỏi trạng thái mã.
+     */
+    @Transactional
+    public String createForOnline(OnlineQrRequest req) {
+        if (!payos.isConfigured()) {
+            throw ApiException.badRequest("Quán chưa bật thanh toán QR, vui lòng thử lại sau.");
+        }
+        String name = OrderSupportService.blankToNull(req.customerName());
+        String address = OrderSupportService.blankToNull(req.deliveryAddress());
+        if (name == null || address == null) throw ApiException.badRequest("Vui lòng nhập họ tên và địa chỉ giao hàng.");
+        if (req.items() == null || req.items().isEmpty()) throw ApiException.badRequest("Giỏ hàng đang trống.");
+        String phone = OnlineLoyaltyService.normalizePhone(req.customerPhone());
+
+        List<QrTakeawayCart.Line> lines = new ArrayList<>();
+        long subtotal = 0;
+        for (OrderItemRequest i : req.items()) {
+            OrderItem built = support.buildItem(i); // kiểm tra món còn bán + lấy giá hiện tại ở server
+            lines.add(QrTakeawayCart.Line.of(built));
+            subtotal += built.getSubtotal();
+        }
+
+        Customer customer = onlineLoyalty.resolveCustomer(phone, name, Boolean.TRUE.equals(req.joinLoyalty()));
+        int redeem = req.pointsToRedeem() == null ? 0 : req.pointsToRedeem();
+        if (redeem > 0 && customer == null) {
+            throw ApiException.badRequest("Số điện thoại này chưa là thành viên nên chưa có điểm để dùng.");
+        }
+        long discount = cashier.pointsDiscount(subtotal, customer, redeem, null);
+        if (discount > 0 && discount >= subtotal) {
+            throw ApiException.badRequest("Điểm dùng không được trừ hết tiền đơn (số tiền trong mã QR phải lớn hơn 0đ). "
+                    + "Vui lòng dùng ít điểm hơn.");
+        }
+
+        QrPaymentRequest r = newRequest(QrPaymentRequest.ONLINE, subtotal, discount, customer, redeem, null);
+        r.setCartJson(writeOnlineCart(new QrOnlineCart(name, phone, address,
+                OrderSupportService.blankToNull(req.note()), lines)));
+        open(r);
+        if (r.getPaymentLinkId() == null || r.getPaymentLinkId().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "payOS không trả về mã link thanh toán, vui lòng thử lại.");
+        }
+        return r.getPaymentLinkId();
+    }
+
     private QrPaymentRequest newRequest(String target, long subtotal, long discount, Customer customer, int redeem,
                                         User createdBy) {
         long amount = subtotal - discount;
@@ -205,7 +262,9 @@ public class QrPaymentService {
         long expiredAt = r.getExpiresAt().atZone(ZoneId.systemDefault()).toEpochSecond();
         PayosClient.CreatedLink link;
         try {
-            link = payos.createLink(r.getOrderCode(), r.getAmount(), r.getDescription(), expiredAt);
+            link = r.isOnline()
+                    ? payos.createOnlineLink(r.getOrderCode(), r.getAmount(), r.getDescription(), expiredAt)
+                    : payos.createLink(r.getOrderCode(), r.getAmount(), r.getDescription(), expiredAt);
         } catch (PayosException e) {
             log.warn("Không tạo được link payOS (orderCode {}): [{}] {}", r.getOrderCode(), e.getCode(), e.getMessage());
             throw new ApiException(HttpStatus.BAD_GATEWAY, "Không tạo được mã QR: " + e.getMessage());
@@ -239,6 +298,27 @@ public class QrPaymentService {
     @Transactional(readOnly = true)
     public QrPaymentView view(Long id) {
         return toView(find(id));
+    }
+
+    /**
+     * Trang của khách đặt online hỏi trạng thái mã (mỗi 3 giây). Chỉ trả mã ONLINE; mã của thu ngân coi như không có.
+     * Việc biết khách đã trả vẫn do QrPaymentWatcher (webhook + hỏi payOS định kỳ) làm, hàm này chỉ đọc DB.
+     */
+    @Transactional(readOnly = true)
+    public OnlineQrView viewOnline(String paymentLinkId) {
+        QrPaymentRequest r = paymentLinkId == null || paymentLinkId.isBlank() ? null
+                : qrRepository.findByPaymentLinkId(paymentLinkId.trim()).orElse(null);
+        if (r == null || !r.isOnline()) throw new ResourceNotFoundException("Không tìm thấy mã thanh toán.");
+        QrOnlineCart cart = readOnlineCart(r.getCartJson());
+        Payment p = r.getPayment();
+        Order o = p == null ? null : p.getOrder();
+        long secondsLeft = r.isPending()
+                ? Math.max(0, Duration.between(LocalDateTime.now(), r.getExpiresAt()).getSeconds()) : 0;
+        return new OnlineQrView(r.getPaymentLinkId(), r.getStatus(),
+                r.getSubtotal(), r.getSubtotal() - r.getAmount(), r.getAmount(), r.getPointsToRedeem(),
+                r.getQrCode(), r.getCheckoutUrl(), r.getDescription(),
+                r.getExpiresAt(), secondsLeft, cart.itemCount(), cart.customerPhone(),
+                o == null ? null : OrderSupportService.displayNumber(o.getOrderNumber()), r.getPaidAt());
     }
 
     /**
@@ -307,7 +387,7 @@ public class QrPaymentService {
         r.setPaidAt(LocalDateTime.now());
         r.setBankReference(reference);
         r.setConfirmedVia(via);
-        String problem = r.isTable() ? settleTable(r) : settleTakeaway(r);
+        String problem = r.isTable() ? settleTable(r) : r.isOnline() ? settleOnline(r) : settleTakeaway(r);
         if (problem == null) {
             r.moveTo(QrPaymentRequest.PAID, null);
             log.info("Mã QR {} (orderCode {}) đã thanh toán {}đ, xác nhận qua {}.", r.getId(), r.getOrderCode(),
@@ -422,6 +502,48 @@ public class QrPaymentService {
                 Payment.BANK_TRANSFER, customer, r.getCreatedBy(), null);
         o.markPaid(p); // trả trước: đơn vào hàng chờ pha với trạng thái Đã thanh toán
         orderRepository.save(o);
+        r.setPayment(p);
+        return null;
+    }
+
+    /**
+     * Khách đặt online: tạo đơn ONLINE / DELIVERY từ giỏ đã lưu (đúng giá lúc tạo mã), ghi hóa đơn, trừ / cộng điểm,
+     * tạo dòng giao hàng. Đơn vào thẳng CONFIRMED để pha chế làm ngay (D7-A). Hóa đơn không có thu ngân xác nhận
+     * (confirmed_by = NULL) vì do payOS báo về.
+     */
+    private String settleOnline(QrPaymentRequest r) {
+        QrOnlineCart cart = readOnlineCart(r.getCartJson());
+        String pointsProblem = pointsProblem(r);
+        if (pointsProblem != null) return pointsProblem;
+
+        Customer customer = r.getCustomer();
+        Order o = new Order();
+        o.setOrderNumber(support.nextOrderNumber());
+        o.setSource(Order.SOURCE_ONLINE);
+        o.setFulfillmentType(Order.DELIVERY);
+        o.setStatus(Order.CONFIRMED);
+        o.setCustomerName(cart.customerName());
+        o.setCustomerPhone(cart.customerPhone());
+        o.setCustomerNote(cart.note());
+        o.setCustomer(customer);
+        for (QrTakeawayCart.Line line : cart.lines()) {
+            MenuItem item = menuItemRepository.findById(line.menuItemId()).orElse(null);
+            if (item == null) return "món \"" + line.itemName() + "\" không còn trong thực đơn.";
+            o.addItem(line.toOrderItem(item));
+        }
+        o.recalcTotal();
+        if (o.getTotalAmount() == null || o.getTotalAmount() != r.getSubtotal()) {
+            return "tiền giỏ hàng không khớp số tiền trong mã QR.";
+        }
+        orderRepository.save(o);
+
+        Payment p = new Payment();
+        p.setOrder(o);
+        cashier.record(p, r.getSubtotal(), r.getSubtotal() - r.getAmount(), r.getPointsToRedeem(),
+                Payment.BANK_TRANSFER, customer, null, null);
+        o.markPaid(p);
+        orderRepository.save(o);
+        deliveryRepository.save(new Delivery(o, cart.deliveryAddress()));
         r.setPayment(p);
         return null;
     }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import inventoryApi from '../../api/inventoryApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
@@ -95,6 +96,9 @@ export default function InventoryList() {
           <p className="page-subtitle mb-0">Quản lý số tồn, định mức cảnh báo và lịch sử nhập/xuất/cân chỉnh kho minh bạch</p>
         </div>
         <div className="d-flex gap-2">
+          <Link to="/manager/stock-receipts" className="btn btn-outline-primary d-flex align-items-center gap-2">
+            <i className="bi bi-file-earmark-arrow-down" /> Quản lý phiếu nhập kho
+          </Link>
           <button 
             type="button" 
             className="btn btn-light-soft d-flex align-items-center gap-2"

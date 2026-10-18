@@ -1,14 +1,21 @@
 package com.example.project.controller;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.example.project.dto.guest.GuestTableRequest;
 import com.example.project.dto.guest.GuestTableView;
 import com.example.project.dto.order.StaffMenuResponse;
-import com.example.project.service.GuestTableService;
 import com.example.project.service.GuestSessionStore;
+import com.example.project.service.GuestTableService;
 import com.example.project.service.MenuCatalogService;
+
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 /** Khách tại bàn: quét QR, xem menu (không cần đăng nhập, nằm dưới /api/public). */
 @RestController
@@ -42,4 +49,5 @@ public class GuestTableController {
     public StaffMenuResponse menu() {
         return menuCatalogService.staffMenu();
     }
+
 }

@@ -41,7 +41,9 @@ export default function QrPaymentNotifier() {
       markQrAnnounced(e.id)
       toast(e.target === 'TAKEAWAY'
         ? `Đơn mang đi ${shortNo(e.takeawayOrderNumber)}: khách đã thanh toán QR ${formatMoney(e.amount)}, đã gửi pha chế.`
-        : `${e.tableNumber}: khách đã thanh toán QR ${formatMoney(e.amount)}.${e.tableReleased ? ' Bàn đã trả về trống.' : ''}`)
+        : e.target === 'ONLINE'
+          ? `Đơn online ${shortNo(e.takeawayOrderNumber)}: khách đã thanh toán QR ${formatMoney(e.amount)}, đã gửi pha chế.`
+          : `${e.tableNumber}: khách đã thanh toán QR ${formatMoney(e.amount)}.${e.tableReleased ? ' Bàn đã trả về trống.' : ''}`)
     })
   }, [toast])
   usePolling(poll, 3000)

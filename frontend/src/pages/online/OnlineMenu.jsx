@@ -15,7 +15,7 @@ export default function OnlineMenu() {
   const [search, setSearch] = useState('')
 
   // Tải thực đơn từ Public API của backend
-  useEffect(() => {
+  const loadMenu = () => {
     publicApi
       .getMenu()
       .then((res) => {
@@ -29,6 +29,7 @@ export default function OnlineMenu() {
             desc: item.description || '',
             price: item.price,
             imageUrl: item.imageUrl,
+            categoryType: item.categoryType,
           })),
         }))
         setMenu(formatted)
@@ -37,6 +38,12 @@ export default function OnlineMenu() {
         setError('Chưa tải được thực đơn từ máy chủ. Vui lòng thử lại sau.')
       })
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadMenu()
+    window.addEventListener('focus', loadMenu)
+    return () => window.removeEventListener('focus', loadMenu)
   }, [])
 
   // Lọc món theo danh mục và từ khóa tìm kiếm

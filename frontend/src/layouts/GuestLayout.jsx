@@ -50,7 +50,7 @@ export default function GuestLayout() {
     const qr = new URLSearchParams(location.search).get('table')
     if (qr) {
       setTableError('')
-      guestTableApi.openTable(qr)
+      guestTablet.openTable(qr)
         .then((res) => {
           setGuestToken(res.data.token)
           setTable(res.data)

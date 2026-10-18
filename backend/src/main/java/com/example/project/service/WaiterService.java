@@ -43,13 +43,18 @@ public class WaiterService {
         this.tableBoardService = tableBoardService;
     }
 
-    /** Sửa số lượng / size / đường / đá / topping / ghi chú của 1 món (giá tính lại theo menu hiện tại). */
+    /**
+     * Sửa số lượng / size / đường / đá / topping / ghi chú hoặc đổi sang món khác
+     * (giá tính lại theo menu hiện tại).
+     */
     @Transactional
     public OrderView updateItem(Long orderId, Long itemId, OrderItemRequest req) {
         Order o = findEditable(orderId);
         OrderItem line = findLine(o, itemId);
-        OrderItem fresh = support.buildItem(new OrderItemRequest(line.getMenuItem().getId(), req.quantity(),
+        Long targetItemId = req.menuItemId() != null ? req.menuItemId() : line.getMenuItem().getId();
+        OrderItem fresh = support.buildItem(new OrderItemRequest(targetItemId, req.quantity(),
                 req.sizeId(), req.toppingIds(), req.sugarLevel(), req.iceLevel(), req.note()));
+        line.setMenuItem(fresh.getMenuItem());
         line.setQuantity(fresh.getQuantity());
         line.setUnitPrice(fresh.getUnitPrice());
         line.setSizeName(fresh.getSizeName());
