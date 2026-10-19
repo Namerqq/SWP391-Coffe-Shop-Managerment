@@ -173,9 +173,11 @@ public class ServingService {
 
         o.syncStatusFromItems();
         o.recalcTotal();
-        orderRepository.save(o);
+        if (o.isCancelled()) o.setCancelReason("Sự cố: " + reason);
+        orderRepository.saveAndFlush(o);
 
-        if (o.isServed()) support.closeSessionIfSettled(o.getTableSession());
+        support.closeSessionIfEmpty(o.getTableSession());   // hủy hết món, bàn không còn đơn nào -> trả bàn trống
+        support.closeSessionIfSettled(o.getTableSession()); // các đơn còn lại đã phục vụ + đã thanh toán -> đóng lượt
         return support.toView(o);
     }
 
