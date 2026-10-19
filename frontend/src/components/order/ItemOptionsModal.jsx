@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Modal from '../Modal'
 import { formatMoney } from '../../utils/orderFormat'
-import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS } from '../../utils/orderOptions'
+import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS, isSizeItem, isToppingItem } from '../../utils/orderOptions'
 
 /**
  * Chọn size / đường / đá / topping / số lượng / ghi chú cho 1 món (dùng chung: bán mang đi, sửa đơn...).
@@ -12,14 +12,15 @@ import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS } from '../../utils/orderOption
  *                         toppingIds, toppings, sugarLevel, iceLevel, note }
  */
 export default function ItemOptionsModal({ show, item, options, initial, confirmText = 'Thêm vào đơn', onClose, onConfirm }) {
-  const standaloneTopping = item?.categoryType === 'TOPPING'
+  const sizeItem = isSizeItem(item, options)
+  const standaloneTopping = isToppingItem(item, options)
   const sizes = standaloneTopping ? [] : options?.sizes || []
   const toppings = standaloneTopping ? [] : options?.toppings || []
   const [form, setForm] = useState(null)
 
   // Chỉ khởi tạo lại khi mở modal hoặc đổi món (tránh mất dữ liệu đang chọn khi trang cha cập nhật).
   useEffect(() => {
-    if (!show || !item) return
+    if (!show || !item || sizeItem) return
     setForm({
       quantity: initial?.quantity || 1,
       sizeId: standaloneTopping ? null : initial ? initial.sizeId ?? null : sizes[0]?.id ?? null,
@@ -28,9 +29,9 @@ export default function ItemOptionsModal({ show, item, options, initial, confirm
       iceLevel: standaloneTopping ? null : initial?.iceLevel || DEFAULT_LEVEL,
       note: initial?.note || '',
     })
-  }, [show, item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [show, item?.id, sizeItem, standaloneTopping]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!show || !item || !form) return null
+  if (!show || !item || sizeItem || !form) return null
 
   const size = sizes.find((s) => s.id === form.sizeId) || null
   const chosenToppings = toppings.filter((t) => form.toppingIds.includes(t.id))
@@ -41,6 +42,7 @@ export default function ItemOptionsModal({ show, item, options, initial, confirm
 
   const confirm = () => onConfirm({
     menuItemId: item.id,
+    categoryType: standaloneTopping ? 'TOPPING' : item.categoryType,
     itemName: item.name,
     unitPrice: item.price,
     quantity: form.quantity,
@@ -49,8 +51,8 @@ export default function ItemOptionsModal({ show, item, options, initial, confirm
     sizePrice: size?.price ?? 0,
     toppingIds: chosenToppings.map((t) => t.id),
     toppings: chosenToppings,
-    sugarLevel: form.sugarLevel,
-    iceLevel: form.iceLevel,
+    sugarLevel: standaloneTopping ? null : form.sugarLevel,
+    iceLevel: standaloneTopping ? null : form.iceLevel,
     note: form.note.trim(),
   })
 

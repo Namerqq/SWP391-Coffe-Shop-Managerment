@@ -16,7 +16,9 @@ export default function GuestCart() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
-  const editLine = (l) => pickItem(findMenuItem(menu, l.menuItemId) || { id: l.menuItemId, name: l.itemName, price: l.unitPrice }, l)
+  const editLine = (l) => pickItem(findMenuItem(menu, l.menuItemId) || {
+    id: l.menuItemId, name: l.itemName, price: l.unitPrice, categoryType: l.categoryType,
+  }, l)
 
   const send = async () => {
     setSending(true)
@@ -85,7 +87,7 @@ export default function GuestCart() {
 
       <div className="gx-actions">
         <Link to="/menu" className="btn btn-light-soft">Thêm món</Link>
-        <button type="button" className="btn btn-primary flex-grow-1 py-2" disabled={!table || sending} onClick={send}>
+        <button type="button" className="btn btn-primary flex-grow-1 py-2" disabled={!table || !menu || sending} onClick={send}>
           {sending && <span className="spinner-border spinner-border-sm me-2" />}
           Gửi đơn · {formatMoney(total)}
         </button>
