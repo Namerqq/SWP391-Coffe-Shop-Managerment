@@ -71,7 +71,6 @@ public class BaristaService {
      * tự động trừ kho nguyên liệu theo công thức.
      */
     @Transactional
-<<<<<<< Updated upstream
     public OrderView acceptOrder(Long orderId, User barista) {
         Order o = findForUpdate(orderId);
         if (o.getAcceptedAt() == null) {
@@ -92,11 +91,6 @@ public class BaristaService {
     public OrderView checkItem(Long orderId, Long itemId, boolean done, User barista) {
         Order o = findForUpdate(orderId);
         OrderItem line = findLine(o, itemId);
-=======
-    public OrderView checkItem(Long orderId, Long itemId, boolean done) {
-        Order o = findForUpdate(orderId);// tao order can tim
-        OrderItem line = findLine(o, itemId);// dong thu may
->>>>>>> Stashed changes
         if (done) {
             if (!line.isWaitingForPreparation()) throw ApiException.badRequest("Món này không còn ở trạng thái Chờ pha.");
             if (o.getAcceptedAt() == null) {
@@ -120,11 +114,7 @@ public class BaristaService {
      * Món nào trong lúc đó đã bị hủy / đã được tích thì bỏ qua. Trả về bảng pha chế mới.
      */
     @Transactional
-<<<<<<< Updated upstream
     public List<OrderView> checkItems(List<Long> itemIds, User barista) {
-=======
-    public List<OrderView> checkItems(List<Long> itemIds) {//gom va nhom cac orderID
->>>>>>> Stashed changes
         Set<Long> wanted = new HashSet<>(itemIds);
         List<Long> orderIds = itemRepository.findAllById(wanted).stream()
                 .map(i -> i.getOrder().getId())
