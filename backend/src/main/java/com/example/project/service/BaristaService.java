@@ -55,7 +55,7 @@ public class BaristaService {
     /** Đơn còn món chờ pha hoặc chờ mang ra, đơn đến trước nằm trên. Frontend chia món vào 2 cột. */
     @Transactional(readOnly = true)
     public List<OrderView> board() {
-        return orderRepository.findByStatusInOrderByCreatedAtAsc(BOARD_STATUSES).stream()
+        return orderRepository.findByStatusInOrderByCreatedAtAsc(BOARD_STATUSES).stream()//tra ve list cac order chi barista thay duoc
                 .filter(BaristaService::visibleToBarista)
                 .map(support::toView)
                 .toList();
@@ -154,8 +154,8 @@ public class BaristaService {
             throw ApiException.badRequest("Đơn " + num(o) + " đã thanh toán, hủy món cần hoàn tiền. Vui lòng báo thu ngân.");
         }
         line.setItemStatus(OrderItem.CANCELLED);
-        o.recalcTotal();
-        o.syncStatusFromItems();
+        o.recalcTotal();//tinh lai tien trong order sau khi huy mon
+        o.syncStatusFromItems();//dong bo tu dong hoa trang thai don hang(nen de auto)
         if (o.isCancelled()) o.setCancelReason(OUT_OF_STOCK);
         orderRepository.saveAndFlush(o);
         support.closeSessionIfEmpty(o.getTableSession());

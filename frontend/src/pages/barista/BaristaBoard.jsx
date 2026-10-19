@@ -45,7 +45,7 @@ export default function BaristaBoard() {
       setLoading(false)
     }
   }, [])
-  usePolling(load, 5000)
+  usePolling(load, 5000)//khoang cach thoi gian board gui yeu cau den database de lay du lieu
 
   // Tổng cần pha: gộp các món còn chờ pha theo loại món, kèm id từng dòng món để tích xong cả loạt.
   const summary = useMemo(() => {

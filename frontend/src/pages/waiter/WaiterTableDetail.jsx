@@ -182,7 +182,7 @@ export default function WaiterTableDetail() {
                             <span className="status-pill tone-pending" style={{ fontSize: '0.72rem' }}>Đang pha</span>
                           )}
                           {i.note?.includes('[SỰ CỐ: PHA LẠI') && (
-                            <span className="badge text-bg-danger" style={{ fontSize: '0.7rem' }}>🔥 Pha bù</span>
+                            <span className="badge text-bg-danger" style={{ fontSize: '0.7rem' }}>Pha bù</span>
                           )}
                         </div>
                         {itemOptionsText(i) && <div className="cell-sub">{itemOptionsText(i)}</div>}
