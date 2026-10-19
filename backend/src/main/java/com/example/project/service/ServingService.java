@@ -28,6 +28,7 @@ public class ServingService {
 
     private static final List<String> ACTIVE_STATUSES =
             List.of(Order.PENDING, Order.CONFIRMED, Order.PREPARING, Order.READY);
+    private static final int NOTE_MAX = 300; // = độ dài cột order_items.note
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository itemRepository;
@@ -146,7 +147,7 @@ public class ServingService {
         long penalty = (req.penaltyAmount() != null && req.penaltyAmount() > 0) ? req.penaltyAmount() : 0L;
         String penaltyText = penalty > 0 ? " | Phạt: " + String.format("%,dđ", penalty) : "";
 
-        // Tách ghi chú gốc nếu trước đó đã có
+        // Tách ghi chú gốc của khách nếu trước đó đã có tag sự cố (tag chỉ có đúng 1 dấu ']' ở cuối)
         String originalNote = line.getNote() != null ? line.getNote().trim() : "";
         if (originalNote.startsWith("[SỰ CỐ") && originalNote.contains("]")) {
             int closeBracket = originalNote.indexOf(']');
@@ -155,18 +156,10 @@ public class ServingService {
 
         if ("REMAKE".equals(action)) {
             line.setItemStatus(OrderItem.PENDING);
-            String incidentTag = "[SỰ CỐ: PHA LẠI | NV: " + staffName + penaltyText + " | Lý do: " + reason + "]";
-            line.setNote(originalNote.isBlank() ? incidentTag : incidentTag + " - " + originalNote);
-            if (line.getNote().length() > 300) {
-                line.setNote(line.getNote().substring(0, 300));
-            }
+            line.setNote(incidentNote("PHA LẠI", staffName, penaltyText, reason, originalNote));
         } else if ("CANCEL".equals(action)) {
             line.setItemStatus(OrderItem.CANCELLED);
-            String incidentTag = "[SỰ CỐ: HỦY MÓN | NV: " + staffName + penaltyText + " | Lý do: " + reason + "]";
-            line.setNote(originalNote.isBlank() ? incidentTag : incidentTag + " - " + originalNote);
-            if (line.getNote().length() > 300) {
-                line.setNote(line.getNote().substring(0, 300));
-            }
+            line.setNote(incidentNote("HỦY MÓN", staffName, penaltyText, reason, originalNote));
         } else {
             throw ApiException.badRequest("Hướng xử lý chỉ được chọn REMAKE (Pha lại) hoặc CANCEL (Hủy món).");
         }
@@ -187,5 +180,29 @@ public class ServingService {
         return itemRepository.findByNoteContainingOrderByIdDesc("[SỰ CỐ").stream()
                 .map(support::toItemView)
                 .toList();
+    }
+
+    /**
+     * Ghép note món = "[SỰ CỐ: ... | Lý do: ...] - ghi chú của khách", tối đa NOTE_MAX ký tự.
+     * Ưu tiên giữ nguyên ghi chú của khách: lý do bị rút gọn cho vừa chỗ còn lại.
+     * Tên NV / lý do được đổi '[' ']' thành '(' ')' để tag luôn kết thúc đúng ở dấu ']' duy nhất.
+     */
+    private static String incidentNote(String label, String staffName, String penaltyText,
+                                       String reason, String customerNote) {
+        String head = "[SỰ CỐ: " + label + " | NV: " + noBrackets(staffName) + penaltyText + " | Lý do: ";
+        String sep = customerNote.isBlank() ? "" : " - ";
+        int room = NOTE_MAX - head.length() - 1 - sep.length() - customerNote.length();
+        String note = head + shorten(noBrackets(reason), room) + "]" + sep + customerNote;
+        // Ghi chú khách quá dài, không còn chỗ cho lý do: tag vẫn giữ nguyên, đành cắt phần cuối ghi chú khách.
+        return note.length() > NOTE_MAX ? note.substring(0, NOTE_MAX) : note;
+    }
+
+    private static String noBrackets(String s) {
+        return s.replace('[', '(').replace(']', ')');
+    }
+
+    private static String shorten(String s, int max) {
+        if (s.length() <= max) return s;
+        return max <= 3 ? "..." : s.substring(0, max - 3) + "...";
     }
 }
