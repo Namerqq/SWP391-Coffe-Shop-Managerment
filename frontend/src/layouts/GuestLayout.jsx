@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import guestTableApi from '../api/guestTableApi'
 import publicApi from '../api/publicApi'
@@ -11,15 +11,26 @@ import { isSizeItem, standaloneCategories, unitTotal } from '../utils/orderOptio
 import '../styles/guest.css'
 
 const GuestContext = createContext(null)
-/** Dữ liệu chung của trang khách tại bàn: bàn, menu, giỏ hàng. */
-export const useGuest = () => useContext(GuestContext)
+const MAX_QUANTITY = 50
+let lineSequence = 0
 
-let lineSeq = 0
+/** Lấy dữ liệu dùng chung cho trang Thực đơn, Giỏ hàng và Đơn của tôi. */
+export function useGuest() {
+  return useContext(GuestContext)
+}
 
-/**
- * Khung trang khách gọi món tại bàn (mở bằng QR: /menu?table=<mã QR bàn>).
- * Gọn cho điện thoại, tách riêng trang chủ và hệ thống quản lý.
- */
+/** Tải menu lần đầu hoặc khi nhấn Thử lại; loại size khỏi món bán riêng. */
+async function loadMenuData(setMenu, setMenuError) {
+  setMenuError('')
+  try {
+    const response = await guestTableApi.getMenu()
+    setMenu({ ...response.data, categories: standaloneCategories(response.data) })
+  } catch (error) {
+    setMenuError(errorMessage(error, 'Chưa tải được thực đơn.'))
+  }
+}
+
+/** Khung trang khách tại bàn: quản lý phiên QR, menu, giỏ hàng và hộp chọn món. */
 export default function GuestLayout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -30,133 +41,220 @@ export default function GuestLayout() {
   const [menu, setMenu] = useState(null)
   const [menuError, setMenuError] = useState('')
   const [cart, setCart] = useState([])
-  const [picking, setPicking] = useState(null) // { item, key?, initial? }
-  const requestKey = useRef(null)
+  const [picking, setPicking] = useState(null)
+  const orderRequestKey = useRef(null) // Giữ mã chống gửi trùng qua các lần render.
+  const qrCode = new URLSearchParams(location.search).get('table')
+  const tableId = table ? table.tableId : null
 
+  // Tải thông tin quán và menu khi mở trang; lỗi cấu hình thì dùng thương hiệu mặc định.
   useEffect(() => {
-    publicApi.getHome().then((res) => setBrand({ ...DEFAULT_HOME, ...res.data })).catch(() => {})
-  }, [])
-
-  const loadMenu = useCallback(() => {
-    setMenuError('')
-    guestTableApi.getMenu()
-      .then((res) => setMenu({ ...res.data, categories: standaloneCategories(res.data) }))
-      .catch((e) => setMenuError(errorMessage(e, 'Chưa tải được thực đơn.')))
-  }, [])
-  useEffect(loadMenu, [loadMenu])
-
-  // Quét QR (?table=...) -> xác nhận bàn; không có thì hỏi server phiên đang dùng.
-  useEffect(() => {
-    const qr = new URLSearchParams(location.search).get('table')
-    if (qr) {
-      setTableError('')
-      guestTableApi.openTable(qr)
-        .then((res) => {
-          setGuestToken(res.data.token)
-          setTable(res.data)
-          navigate(location.pathname, { replace: true })
-        })
-        .catch((e) => setTableError(errorMessage(e, 'Không xác nhận được bàn.')))
-        .finally(() => setTableChecked(true))
-    } else if (!table) {
-      guestTableApi.getContext()
-        .then((res) => setTable(res.status === 204 ? null : res.data))
-        .catch(() => setTable(null))
-        .finally(() => setTableChecked(true))
+    async function loadBrand() {
+      try {
+        const response = await publicApi.getHome()
+        setBrand({ ...DEFAULT_HOME, ...response.data })
+      } catch {
+        // Giữ DEFAULT_HOME nếu chưa tải được cấu hình quán.
+      }
     }
-  }, [location.search]) // eslint-disable-line react-hooks/exhaustive-deps
+    loadBrand()
+    loadMenuData(setMenu, setMenuError)
+  }, [])
 
-  // Giỏ hàng lưu theo từng bàn
-  useEffect(() => { setCart(loadCart(table?.tableId)) }, [table?.tableId])
-  useEffect(() => { if (table) saveCart(table.tableId, cart) }, [cart, table])
-
-  // Size cũ không được giữ thành dòng bán lẻ; sizeId chọn kèm đồ uống vẫn giữ nguyên.
+  // Xác nhận bàn từ QR hoặc phiên cũ, rồi khôi phục đúng giỏ; bỏ phản hồi đã lỗi thời.
   useEffect(() => {
-    if (!menu || !cart.some((line) => isSizeItem(line, menu))) return
-    requestKey.current = null
-    setCart((current) => current.filter((line) => !isSizeItem(line, menu)))
-  }, [menu, cart])
+    if (!qrCode && table) return
+    let cancelled = false
+    async function checkTable() {
+      try {
+        let response
+        if (qrCode) {
+          setTableError('')
+          response = await guestTableApi.openTable(qrCode)
+        } else {
+          response = await guestTableApi.getContext()
+        }
+        if (cancelled) return
+        const tableData = response.status === 204 ? null : response.data
+        if (qrCode) setGuestToken(tableData.token)
+        orderRequestKey.current = null
+        setTable(tableData)
+        setCart(tableData ? loadCart(tableData.tableId) : [])
+        if (qrCode) navigate(location.pathname, { replace: true })
+      } catch (error) {
+        if (cancelled) return
+        if (qrCode) {
+          setTableError(errorMessage(error, 'Không xác nhận được bàn.'))
+        } else {
+          setTable(null)
+          setCart([])
+        }
+      } finally {
+        if (!cancelled) setTableChecked(true)
+      }
+    }
+    checkTable()
+    return () => { cancelled = true }
+  }, [qrCode, location.pathname, navigate, table])
 
+  // Loại dòng size bán riêng trong giỏ cũ và lưu giỏ hợp lệ theo bàn.
   useEffect(() => {
-    const previous = document.title
+    const validCart = []
+    for (const line of cart) {
+      if (!menu || !isSizeItem(line, menu)) validCart.push(line)
+    }
+    if (validCart.length !== cart.length) {
+      orderRequestKey.current = null
+      setCart(validCart)
+    }
+    if (tableId) saveCart(tableId, validCart)
+  }, [tableId, cart, menu])
+
+  // Đổi tiêu đề theo tên quán và khôi phục khi rời trang khách.
+  useEffect(() => {
+    const previousTitle = document.title
     document.title = `Gọi món - ${brand['home.brand.name'] || 'Gạch Coffee'}`
-    return () => { document.title = previous }
+    return () => { document.title = previousTitle }
   }, [brand])
 
-  /** Phiên hết hạn (backend trả 410): xóa bàn, khách quét lại QR. */
-  const expire = useCallback((message) => {
+  /** Khi phiên hết hạn, xoá token và giỏ trên giao diện rồi yêu cầu quét lại QR. */
+  function expire(message) {
     setGuestToken(null)
     setTable(null)
+    setCart([])
+    orderRequestKey.current = null
     setTableError(message || 'Phiên gọi món đã hết hạn. Vui lòng quét lại mã QR trên bàn.')
-  }, [])
-
-  const changeCart = (updater) => {
-    requestKey.current = null // giỏ đổi -> lần gửi tới là đơn mới
-    setCart(updater)
   }
 
-  const value = useMemo(() => {
-    const count = cart.reduce((s, l) => s + l.quantity, 0)
-    const total = cart.reduce((s, l) => s + unitTotal(l) * l.quantity, 0)
-    return {
-      table, tableChecked, tableError, menu, menuError, loadMenu, cart, count, total, expire,
-      /** Mở hộp tùy chỉnh để thêm món, hoặc sửa 1 dòng trong giỏ (truyền line). */
-      pickItem: (item, line) => {
-        if (!isSizeItem(item, menu)) setPicking(line ? { item, key: line.key, initial: line } : { item })
-      },
-      setQty: (key, delta) => changeCart((cur) => cur.map((l) => (
-        l.key === key ? { ...l, quantity: Math.min(50, Math.max(1, l.quantity + delta)) } : l))),
-      removeLine: (key) => changeCart((cur) => cur.filter((l) => l.key !== key)),
-      clearCart: () => changeCart([]),
-      /** Mã chống gửi trùng: giữ nguyên khi gửi lại cùng giỏ hàng. */
-      requestKey: () => (requestKey.current ||= newRequestKey()),
-    }
-  }, [table, tableChecked, tableError, menu, menuError, loadMenu, cart, expire])
+  /** Tăng/giảm số lượng trong khoảng 1–50, không sửa trực tiếp state cũ. */
+  function setQty(key, delta) {
+    orderRequestKey.current = null
+    setCart(function (currentCart) {
+      const updatedCart = []
+      for (const line of currentCart) {
+        if (line.key === key) {
+          const quantity = Math.min(MAX_QUANTITY, Math.max(1, line.quantity + delta))
+          updatedCart.push({ ...line, quantity })
+        } else {
+          updatedCart.push(line)
+        }
+      }
+      return updatedCart
+    })
+  }
 
-  const confirmLine = (line) => {
-    const editingKey = picking?.key
-    lineSeq += 1
-    const key = `g${Date.now()}${lineSeq}`
-    changeCart((cur) => {
-      if (editingKey) return cur.map((l) => (l.key === editingKey ? { ...line, key: editingKey } : l))
-      const same = cur.find((l) => sameOptions(l, line))
-      if (same) return cur.map((l) => (l === same ? { ...l, quantity: Math.min(50, l.quantity + line.quantity) } : l))
-      return [...cur, { ...line, key }]
+  /** Lưu lựa chọn: sửa dòng cũ, gộp món trùng hoặc thêm dòng mới; giới hạn 50 phần. */
+  function confirmLine(newLine) {
+    const editingKey = picking ? picking.key : null
+    lineSequence += 1
+    const newKey = `g${Date.now()}${lineSequence}`
+    orderRequestKey.current = null
+    setCart(function (currentCart) {
+      const updatedCart = []
+      let matchingLine = null
+      if (!editingKey) {
+        for (const line of currentCart) {
+          if (sameOptions(line, newLine)) {
+            matchingLine = line
+            break
+          }
+        }
+      }
+
+      for (const line of currentCart) {
+        if (editingKey && line.key === editingKey) {
+          updatedCart.push({ ...newLine, key: editingKey })
+        } else if (!editingKey && line === matchingLine) {
+          const quantity = Math.min(MAX_QUANTITY, line.quantity + newLine.quantity)
+          updatedCart.push({ ...line, quantity })
+        } else {
+          updatedCart.push(line)
+        }
+      }
+      if (!editingKey && !matchingLine) updatedCart.push({ ...newLine, key: newKey })
+      return updatedCart
     })
     setPicking(null)
   }
 
+  // Tính số món và tổng tiền trực tiếp bằng vòng lặp, không cần useMemo.
+  let count = 0
+  let total = 0
+  for (const line of cart) {
+    count += line.quantity
+    total += unitTotal(line) * line.quantity
+  }
+  // Các thao tác ngắn đặt ngay trong Context, không tách thành hàm phụ.
+  const guestData = {
+    table, tableChecked, tableError, menu, menuError, cart, count, total, expire, setQty,
+    loadMenu: () => loadMenuData(setMenu, setMenuError),
+    pickItem(item, line) {
+      if (!isSizeItem(item, menu)) {
+        setPicking(line ? { item, key: line.key, initial: line } : { item })
+      }
+    },
+    removeLine(key) {
+      orderRequestKey.current = null
+      setCart(function (currentCart) {
+        const remainingCart = []
+        for (const line of currentCart) {
+          if (line.key !== key) remainingCart.push(line)
+        }
+        return remainingCart
+      })
+    },
+    clearCart() {
+      orderRequestKey.current = null
+      setCart([])
+    },
+    requestKey() {
+      if (!orderRequestKey.current) orderRequestKey.current = newRequestKey()
+      return orderRequestKey.current
+    },
+  }
+  let confirmText = 'Thêm vào giỏ'
+  if (picking && picking.key) confirmText = 'Cập nhật'
+
   return (
-    <GuestContext.Provider value={value}>
+    <GuestContext.Provider value={guestData}>
       <div className="gx-shell">
         <header className="gx-header">
           <div className="gx-header-inner">
-            <Link to="/menu" className="gx-brand" aria-label="Thực đơn"><BrandLogo content={brand} size="sm" /></Link>
-            {table
-              ? <span className="gx-table-chip"><i className="bi bi-geo-alt-fill" />{table.tableNumber}</span>
-              : <span className="gx-table-chip muted"><i className="bi bi-qr-code-scan" />Chưa quét QR</span>}
+            <Link to="/menu" className="gx-brand" aria-label="Thực đơn">
+              <BrandLogo content={brand} size="sm" />
+            </Link>
+            {table ? (
+              <span className="gx-table-chip">
+                <i className="bi bi-geo-alt-fill" />{table.tableNumber}
+              </span>
+            ) : (
+              <span className="gx-table-chip muted">
+                <i className="bi bi-qr-code-scan" />Chưa quét QR
+              </span>
+            )}
           </div>
           <nav className="gx-tabs" aria-label="Gọi món">
             <NavLink to="/menu"><i className="bi bi-cup-hot" /><span>Thực đơn</span></NavLink>
             <NavLink to="/cart">
               <i className="bi bi-bag" /><span>Giỏ hàng</span>
-              {value.count > 0 && <b className="gx-badge">{value.count}</b>}
+              {count > 0 && <b className="gx-badge">{count}</b>}
             </NavLink>
             <NavLink to="/orders"><i className="bi bi-receipt" /><span>Đơn của tôi</span></NavLink>
           </nav>
         </header>
-
         <main className="gx-main">
           {tableError && (
-            <div className="gx-alert" role="alert"><i className="bi bi-exclamation-circle" />{tableError}</div>
+            <div className="gx-alert" role="alert">
+              <i className="bi bi-exclamation-circle" />{tableError}
+            </div>
           )}
           <Outlet />
         </main>
       </div>
-
-      <GuestItemModal show={!!picking} item={picking?.item} options={menu} initial={picking?.initial}
-                      confirmText={picking?.key ? 'Cập nhật' : 'Thêm vào giỏ'}
-                      onClose={() => setPicking(null)} onConfirm={confirmLine} />
+      <GuestItemModal
+        show={picking !== null} item={picking ? picking.item : null} options={menu}
+        initial={picking ? picking.initial : null} confirmText={confirmText}
+        onClose={() => setPicking(null)} onConfirm={confirmLine}
+      />
     </GuestContext.Provider>
   )
 }
