@@ -24,7 +24,7 @@ import java.util.Set;
  * UC-B01 Process Orders, UC-B02 View Orders details, UC-B03 Update Order status.
  * Pha chế theo TỪNG MÓN: tích món pha xong -> món sang Chờ mang ra ngay,
  * đơn tự đổi trạng thái theo các món (Order.syncStatusFromItems).
- * Thêm chức năng: Barista nhận đơn -> tự động trừ nguyên liệu tồn kho theo định lượng công thức.
+ * Tích món đầu tiên của đơn -> tự động trừ nguyên liệu tồn kho theo định lượng công thức.
  * Theo BF-02: thiếu nguyên liệu thì Pha chế hủy món còn chờ pha; hủy hết món thì đơn tự hủy.
  */
 @Service
@@ -64,23 +64,6 @@ public class BaristaService {
     @Transactional(readOnly = true)
     public OrderView detail(Long id) {
         return support.toView(find(id));
-    }
-
-    /**
-     * Barista bấm "Nhận đơn": chuyển đơn sang PREPARING,
-     * tự động trừ kho nguyên liệu theo công thức.
-     */
-    @Transactional
-    public OrderView acceptOrder(Long orderId, User barista) {
-        Order o = findForUpdate(orderId);
-        if (o.getAcceptedAt() == null) {
-            o.setStatus(Order.PREPARING);
-            o.setAcceptedBy(barista);
-            o.setAcceptedAt(LocalDateTime.now());
-            inventoryService.deductForOrder(o, barista);
-            orderRepository.save(o);
-        }
-        return support.toView(o);
     }
 
     /**
