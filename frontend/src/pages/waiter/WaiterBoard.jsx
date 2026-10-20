@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext'
 import usePolling from '../../utils/usePolling'
 import { ON_BOARD, isItemCancelled, isItemReady, isItemWaiting } from '../../utils/itemStatus'
 import OrderTicket from '../serving/OrderTicket'
+import IncidentModal from './IncidentModal'
 import '../../styles/danmt.css'
 
 // Order Ready to Serve (Waiter) — SRS 1.4.2, UC-W08. Bảng 2 cột giống pha chế, chỉ đơn tại bàn:
@@ -20,6 +21,7 @@ export default function WaiterBoard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyItemId, setBusyItemId] = useState(null)
+  const [incidentTarget, setIncidentTarget] = useState(null) // { order, item } khi bấm báo sự cố vỡ ly
 
   const load = useCallback(async () => {
     try {
@@ -80,6 +82,15 @@ export default function WaiterBoard() {
                      <input type="checkbox" className="form-check-input kds-check" checked={false}
                             disabled={busyItemId === i.id} onChange={() => serve(o, i)}
                             aria-label={`Đã mang ${i.itemName} ra bàn`} title="Tích khi đã mang món này ra bàn" />
+                   )}
+                   renderRight={(i) => (
+                     <button type="button"
+                             className="btn btn-sm btn-outline-danger border-0 p-1 ms-1"
+                             disabled={busyItemId === i.id}
+                             title="Báo sự cố làm đổ / vỡ ly này"
+                             onClick={() => setIncidentTarget({ order: o, item: i })}>
+                       <i className="bi bi-exclamation-triangle-fill" />
+                     </button>
                    )}>
         {waitingLeft === 0 && cancelledNote(o)}
         <div className="kds-waiting">
@@ -88,6 +99,12 @@ export default function WaiterBoard() {
         </div>
       </OrderTicket>
     )
+  }
+
+  const handleIncidentSuccess = (updatedOrder) => {
+    setOrders((list) => list
+      .map((x) => (x.id === updatedOrder.id ? updatedOrder : x))
+      .filter((x) => ON_BOARD.includes(x.status)))
   }
 
   return (
@@ -113,6 +130,15 @@ export default function WaiterBoard() {
           )
         })}
       </div>
+
+      {/* Modal báo cáo sự cố làm vỡ / đổ nước */}
+      <IncidentModal
+        show={Boolean(incidentTarget)}
+        order={incidentTarget?.order}
+        item={incidentTarget?.item}
+        onClose={() => setIncidentTarget(null)}
+        onSuccess={handleIncidentSuccess}
+      />
     </>
   )
 }

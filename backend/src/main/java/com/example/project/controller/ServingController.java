@@ -1,8 +1,13 @@
 package com.example.project.controller;
 
+import com.example.project.dto.order.OrderItemView;
 import com.example.project.dto.order.OrderView;
+import com.example.project.dto.waiter.IncidentItemRequest;
+import com.example.project.entity.User;
+import com.example.project.security.AuthInterceptor;
 import com.example.project.security.RequireRole;
 import com.example.project.service.ServingService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,6 +36,22 @@ public class ServingController {
     @RequireRole("WAITER")
     public OrderView serveItem(@PathVariable Long orderId, @PathVariable Long itemId) {
         return service.serveItem(orderId, itemId);
+    }
+
+    /** Phục vụ báo sự cố làm vỡ / đổ món trước khi giao cho khách. */
+    @PostMapping("/orders/{orderId}/items/{itemId}/incident")
+    @RequireRole("WAITER")
+    public OrderView reportIncident(@PathVariable Long orderId,
+                                    @PathVariable Long itemId,
+                                    @Valid @RequestBody IncidentItemRequest req,
+                                    @RequestAttribute(AuthInterceptor.CURRENT_USER) User waiter) {
+        return service.reportIncident(orderId, itemId, req, waiter);
+    }
+
+    /** Danh sách các món từng xảy ra sự cố (để quản lý / phục vụ tra cứu). */
+    @GetMapping("/incidents")
+    public List<OrderItemView> incidents() {
+        return service.listIncidents();
     }
 
     /** type = DINE_IN (mặc định) hoặc PICKUP */
