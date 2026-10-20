@@ -206,8 +206,14 @@ export default function ShipOrderList() {
             const isPending = o.status === 'PENDING_CONFIRMATION' || o.status === 'PENDING'
             const isProcessing = processingId === o.orderId
             const isPaid = o.paymentStatus === 'PAID'
-            const paymentMethodText =
-              o.paymentMethod === 'VNPAY' ? 'VNPay' : o.paymentMethod === 'MOMO' ? 'MoMo' : 'Tiền mặt (COD)'
+            const PAYMENT_METHOD_LABEL = {
+              CASH: 'Tiền mặt (COD)',
+              BANK_TRANSFER: 'Chuyển khoản QR',
+              PAYOS_QR: 'QR (chưa thanh toán)',
+            }
+
+            // trong map:
+            const paymentMethodText = PAYMENT_METHOD_LABEL[o.paymentMethod] || o.paymentMethod
 
             return (
               <div key={o.orderId} className="col-12 col-lg-6 col-xl-4">
@@ -257,9 +263,8 @@ export default function ShipOrderList() {
                       {o.items?.map((it, idx) => (
                         <div
                           key={idx}
-                          className={`d-flex justify-content-between align-items-baseline py-1 small ${
-                            idx < (o.items?.length || 0) - 1 ? 'border-bottom' : ''
-                          }`}
+                          className={`d-flex justify-content-between align-items-baseline py-1 small ${idx < (o.items?.length || 0) - 1 ? 'border-bottom' : ''
+                            }`}
                         >
                           <div>
                             <span className="fw-bold me-1">{it.quantity}x</span>
@@ -287,9 +292,8 @@ export default function ShipOrderList() {
                       <div>
                         <div className="small text-muted">{paymentMethodText}</div>
                         <span
-                          className={`badge ${
-                            isPaid ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'
-                          } border`}
+                          className={`badge ${isPaid ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'
+                            } border`}
                           style={{ fontSize: '0.72rem' }}
                         >
                           {isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
