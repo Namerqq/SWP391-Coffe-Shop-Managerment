@@ -138,11 +138,12 @@ export default function HomeLayout() {
         {menuOpen && (
           <nav className="gc-mobile-menu" aria-label="Menu">
             <Link to="/thuc-don">Thực đơn</Link>
+            <Link to="/online-order">Đặt hàng online</Link>
             <div className="gc-mobile-group">Về {brand}</div>
             {ABOUT_SECTIONS.map((s) => (
               <button type="button" key={s.id} onClick={() => goSection(s.id)}><i className={`bi ${s.icon}`} /> {s.label}</button>
             ))}
-            <Link to="/online-order" className="gc-btn gc-btn-primary mt-2"><i className="bi bi-bag" /> Đặt hàng online</Link>
+
           </nav>
         )}
       </header>
