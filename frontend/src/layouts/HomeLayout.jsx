@@ -52,7 +52,7 @@ export default function HomeLayout() {
     setMenuOpen(false)
     setAboutOpen(false)
     if (!location.state?.scrollTo) window.scrollTo(0, 0)
-  }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [location.pathname]) 
 
   // Cuộn chuột xuống thì đổi kiểu header
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useState } from 'react'
 import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
 import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderFormat'
@@ -41,7 +41,7 @@ export default function ShipOrderList() {
   const [keyword, setKeyword] = useState('')
 
   // Tải danh sách đơn giao hàng từ API
-  const loadOrders = useCallback(async () => {
+  const loadOrders = async () => {
     try {
       const res = await cashierApi.getDeliveryOrders()
       setOrders(res.data || [])
@@ -51,7 +51,7 @@ export default function ShipOrderList() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
 
   // Tự động cập nhật ngầm mỗi 10 giây
   usePolling(loadOrders, 10000)
@@ -104,39 +104,34 @@ export default function ShipOrderList() {
   }
 
   // Lọc danh sách đơn theo từ khóa và tab
-  const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
-      if (keyword.trim()) {
-        const kw = keyword.trim().toLowerCase()
-        const matchName = o.customerName?.toLowerCase().includes(kw)
-        const matchPhone = o.customerPhone?.toLowerCase().includes(kw)
-        const matchAddr = o.deliveryAddress?.toLowerCase().includes(kw)
-        const matchNo = (o.displayNumber || o.orderNumber || '').toLowerCase().includes(kw)
-        if (!matchName && !matchPhone && !matchAddr && !matchNo) return false
-      }
+  const filteredOrders = orders.filter((o) => {
+    if (keyword.trim()) {
+      const kw = keyword.trim().toLowerCase()
+      const matchName = o.customerName?.toLowerCase().includes(kw)
+      const matchPhone = o.customerPhone?.toLowerCase().includes(kw)
+      const matchAddr = o.deliveryAddress?.toLowerCase().includes(kw)
+      const matchNo = (o.displayNumber || o.orderNumber || '').toLowerCase().includes(kw)
+      if (!matchName && !matchPhone && !matchAddr && !matchNo) return false
+    }
 
-      if (activeTab === 'ALL') return true
-      if (activeTab === 'CANCELLED') return o.status === 'CANCELLED' || o.deliveryStatus === 'CANCELLED'
-      if (activeTab === 'COMPLETED') return o.status === 'COMPLETED' || o.deliveryStatus === 'DELIVERED'
-      if (activeTab === 'DELIVERING') return o.deliveryStatus === 'OUT_FOR_DELIVERY' || o.deliveryStatus === 'PICKED_UP'
-      if (activeTab === 'CONFIRMED') return o.status === 'CONFIRMED' || o.status === 'PREPARING' || o.status === 'READY'
-      if (activeTab === 'PENDING') return o.status === 'PENDING_CONFIRMATION' || o.status === 'PENDING'
-      return true
-    })
-  }, [orders, activeTab, keyword])
+    if (activeTab === 'ALL') return true
+    if (activeTab === 'CANCELLED') return o.status === 'CANCELLED' || o.deliveryStatus === 'CANCELLED'
+    if (activeTab === 'COMPLETED') return o.status === 'COMPLETED' || o.deliveryStatus === 'DELIVERED'
+    if (activeTab === 'DELIVERING') return o.deliveryStatus === 'OUT_FOR_DELIVERY' || o.deliveryStatus === 'PICKED_UP'
+    if (activeTab === 'CONFIRMED') return o.status === 'CONFIRMED' || o.status === 'PREPARING' || o.status === 'READY'
+    if (activeTab === 'PENDING') return o.status === 'PENDING_CONFIRMATION' || o.status === 'PENDING'
+    return true
+  })
 
   // Đếm số lượng đơn theo từng tab
-  const counts = useMemo(() => {
-    const res = { ALL: orders.length, PENDING: 0, CONFIRMED: 0, DELIVERING: 0, COMPLETED: 0, CANCELLED: 0 }
-    orders.forEach((o) => {
-      if (o.status === 'CANCELLED' || o.deliveryStatus === 'CANCELLED') res.CANCELLED++
-      else if (o.status === 'COMPLETED' || o.deliveryStatus === 'DELIVERED') res.COMPLETED++
-      else if (o.deliveryStatus === 'OUT_FOR_DELIVERY' || o.deliveryStatus === 'PICKED_UP') res.DELIVERING++
-      else if (o.status === 'CONFIRMED' || o.status === 'PREPARING' || o.status === 'READY') res.CONFIRMED++
-      else res.PENDING++
-    })
-    return res
-  }, [orders])
+  const counts = { ALL: orders.length, PENDING: 0, CONFIRMED: 0, DELIVERING: 0, COMPLETED: 0, CANCELLED: 0 }
+  orders.forEach((o) => {
+    if (o.status === 'CANCELLED' || o.deliveryStatus === 'CANCELLED') counts.CANCELLED++
+    else if (o.status === 'COMPLETED' || o.deliveryStatus === 'DELIVERED') counts.COMPLETED++
+    else if (o.deliveryStatus === 'OUT_FOR_DELIVERY' || o.deliveryStatus === 'PICKED_UP') counts.DELIVERING++
+    else if (o.status === 'CONFIRMED' || o.status === 'PREPARING' || o.status === 'READY') counts.CONFIRMED++
+    else counts.PENDING++
+  })
 
   return (
     <div className="staff-content p-3 p-md-4">
@@ -290,7 +285,7 @@ export default function ShipOrderList() {
                           className={`badge ${
                             isPaid ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'
                           } border`}
-                          style={{ fontSize: '0.72rem' }}
+                         style={{ fontSize: '0.72rem' }}
                         >
                           {isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
                         </span>
