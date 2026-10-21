@@ -43,7 +43,6 @@ export default function OnlineCheckout() {
       })
       return
     }
-    navigate('/online-order/orders')
     setSubmitting(true)
 
     try {
@@ -59,14 +58,15 @@ export default function OnlineCheckout() {
 
       const res = await onlineOrderApi.placeOrder(payload)
 
-      if (clearCart) clearCart()
-
+      // Lưu SĐT + mã đơn trước, rồi mới chuyển trang để trang Theo dõi đọc được đơn vừa tạo
+      const orderId = res?.data?.orderId
       localStorage.setItem('online_last_phone', form.phone.trim())
-      if (res?.data?.orderId) {
-        localStorage.setItem('online_last_order_id', res.data.orderId)
+      if (orderId) {
+        localStorage.setItem('online_last_order_id', orderId)
       }
 
-      navigate('/online-order/orders')
+      navigate(orderId ? `/online-order/orders?orderId=${orderId}` : '/online-order/orders')
+      if (clearCart) clearCart()
     } catch (err) {
       setError(errorMessage(err, 'Đặt hàng chưa thành công, vui lòng thử lại.'))
     } finally {
