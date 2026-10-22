@@ -28,7 +28,7 @@ export default function GuestOrders() {
       setOrders(res.data)
       setError('')
     } catch (e) {
-      if (e.response?.status === 410) expire(errorMessage(e))
+      if (e.response?.status === 410) expire(e)
       else setError(errorMessage(e, 'Chưa tải được đơn hàng.'))
     } finally {
       setLoading(false)

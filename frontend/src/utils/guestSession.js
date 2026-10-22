@@ -1,6 +1,10 @@
 // Lưu trên máy khách: mã phiên gọi món (cấp khi quét QR) và giỏ hàng theo từng bàn.
 const TOKEN_KEY = 'gc_guest_token'
-const cartKey = (tableId) => `gc_guest_cart_${tableId}`
+const CART_PREFIX = 'gc_guest_cart_'
+const cartKey = (tableId) => `${CART_PREFIX}${tableId}`
+
+/** Mã lỗi backend trả về (410) khi lượt khách đã phục vụ + thanh toán xong. */
+export const SESSION_ENDED_CODE = 'GUEST_SESSION_ENDED'
 
 const read = (key, fallback) => {
   try {
@@ -28,6 +32,17 @@ export const guestHeaders = () => {
 
 export const loadCart = (tableId) => (tableId ? read(cartKey(tableId), []) : [])
 export const saveCart = (tableId, cart) => tableId && write(cartKey(tableId), cart.length ? cart : null)
+
+/** Xóa mọi giỏ hàng khách đã lưu trên máy (dùng khi lượt khách đã xong để khách sau không thấy). */
+export const clearAllCarts = () => {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(CART_PREFIX))
+      .forEach((key) => localStorage.removeItem(key))
+  } catch {
+    // trình duyệt chặn lưu trữ: không có gì để xóa
+  }
+}
 
 /** Mã yêu cầu chống gửi trùng đơn (giữ nguyên khi gửi lại sau lỗi mạng). */
 export const newRequestKey = () =>

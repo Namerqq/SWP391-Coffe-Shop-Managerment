@@ -20,7 +20,10 @@ public class GuestTableService {
         this.guests = guests;
     }
 
-    /** Quét QR: xác nhận bàn, giữ phiên cũ nếu vẫn là bàn đó (để còn xem đơn đã gọi). */
+    /**
+     * Quét QR: xác nhận bàn, giữ phiên cũ nếu vẫn là bàn đó (để còn xem đơn đã gọi).
+     * Phiên cũ đã kết thúc (lượt đã phục vụ + thanh toán xong) thì find() trả null -> luôn cấp phiên mới.
+     */
     @Transactional(readOnly = true)
     public GuestTableView openTable(String qrCode, String token) {
         String qr = qrCode == null ? "" : qrCode.trim();
@@ -36,9 +39,13 @@ public class GuestTableService {
         return new GuestTableView(useToken, table.getId(), table.getTableNumber());
     }
 
-    /** Phiên hiện tại (null nếu chưa quét QR hoặc đã hết hạn). */
+    /**
+     * Phiên hiện tại (null nếu chưa quét QR hoặc đã hết hạn).
+     * Lượt khách đã xong -> 410 kèm mã GUEST_SESSION_ENDED để trang khách hiện lời cảm ơn và xóa dữ liệu trên máy.
+     */
     @Transactional(readOnly = true)
     public GuestTableView context(String token) {
+        if (guests.isEnded(token)) throw GuestSessionStore.endedError();
         GuestSessionStore.Guest g = guests.find(token);
         if (g == null) return null;
         return tableRepository.findById(g.tableId())
