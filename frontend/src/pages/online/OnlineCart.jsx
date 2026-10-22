@@ -30,8 +30,8 @@ export default function OnlineCart() {
           <div className="gx-line" key={item.key}>
             <div className="gx-line-main">
               <span className="gx-line-name">{item.itemName}</span>
-              {itemOptionsText(item) && (
-                <div className="gx-muted">{itemOptionsText(item)}</div>
+              {itemOptionsText(item, { showDefaults: true }) && (
+                <div className="gx-muted">{itemOptionsText(item, { showDefaults: true })}</div>
               )}
 
               {item.note && <div className="gx-note">{item.note}</div>}
