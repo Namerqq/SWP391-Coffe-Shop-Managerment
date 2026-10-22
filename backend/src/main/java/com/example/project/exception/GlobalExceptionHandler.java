@@ -23,7 +23,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Map<String, String>> handleApi(ApiException ex) {
-        return ResponseEntity.status(ex.getStatus()).body(Map.of("message", ex.getMessage()));
+        // Có mã lỗi thì trả kèm { code, message } để frontend phân biệt; không có thì giữ như cũ.
+        Map<String, String> body = ex.getCode() == null
+                ? Map.of("message", ex.getMessage())
+                : Map.of("code", ex.getCode(), "message", ex.getMessage());
+        return ResponseEntity.status(ex.getStatus()).body(body);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

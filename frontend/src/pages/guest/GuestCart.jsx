@@ -30,7 +30,7 @@ export default function GuestCart() {
       toast(`Đã gửi đơn ${res.data.displayNumber}. Quán đang chuẩn bị cho bạn.`)
       navigate('/orders')
     } catch (e) {
-      if (e.response?.status === 410) expire(errorMessage(e))
+      if (e.response?.status === 410) expire(e)
       else setError(errorMessage(e, 'Gửi đơn chưa được, vui lòng thử lại.'))
     } finally {
       setSending(false)
