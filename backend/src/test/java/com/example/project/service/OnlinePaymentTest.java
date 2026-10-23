@@ -6,7 +6,6 @@ import com.example.project.dto.onlinepay.OnlineQrRequest;
 import com.example.project.dto.onlinepay.QrOnlineCart;
 import com.example.project.dto.order.OrderItemRequest;
 import com.example.project.entity.Category;
-import com.example.project.entity.Customer;
 import com.example.project.entity.Delivery;
 import com.example.project.entity.MenuItem;
 import com.example.project.entity.Order;
@@ -37,7 +36,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * ThangNN Iter2: thanh toán QR + tích điểm cho khách đặt online (QrPaymentService, OnlineLoyaltyService).
+ * ThangNN Iter2: thanh toán QR cho khách đặt online (QrPaymentService). Khách online không tích / dùng điểm.
  * Chạy riêng: mvn test -Dtest=OnlinePaymentTest
  */
 class OnlinePaymentTest {
@@ -52,11 +51,9 @@ class OnlinePaymentTest {
     private SystemSettingService settings;
     private PayosClient payos;
     private DeliveryRepository deliveryRepository;
-    private OnlineLoyaltyService loyalty;
     private QrPaymentService service;
 
     private MenuItem bacXiu;
-    private Customer member;
 
     @BeforeEach
     void setUp() {
@@ -69,10 +66,9 @@ class OnlinePaymentTest {
         settings = mock(SystemSettingService.class);
         payos = mock(PayosClient.class);
         deliveryRepository = mock(DeliveryRepository.class);
-        loyalty = new OnlineLoyaltyService(customerRepository, settings);
         service = new QrPaymentService(qrRepository, mock(TableSessionRepository.class), orderRepository,
                 mock(OrderLockRepository.class), customerRepository, menuItemRepository, cashier, support, settings,
-                payos, objectMapper, loyalty, deliveryRepository);
+                payos, objectMapper, deliveryRepository);
 
         when(settings.getLong(anyString(), anyLong())).thenAnswer(inv -> inv.getArgument(1));
         when(settings.qrTimeoutMinutes()).thenReturn(15L);
@@ -83,12 +79,6 @@ class OnlinePaymentTest {
         ReflectionTestUtils.setField(bacXiu, "name", "Bạc xỉu");
         ReflectionTestUtils.setField(bacXiu, "basePrice", 29000L);
         ReflectionTestUtils.setField(bacXiu, "category", new Category());
-
-        member = new Customer();
-        ReflectionTestUtils.setField(member, "id", 3L);
-        member.setPhoneNumber("0901111111");
-        member.setFullName("An");
-        member.setCurrentPoints(10);
     }
 
     private OrderItem line(int qty) {
@@ -103,69 +93,39 @@ class OnlinePaymentTest {
         return i;
     }
 
-    private OnlineQrRequest request(String phone, boolean join, int points) {
+    private OnlineQrRequest request(String phone) {
         return new OnlineQrRequest("An", phone, " 12 Cầu Giấy ", null,
-                List.of(new OrderItemRequest(1L, 2, null, List.of(), null, null, null)), join, points);
-    }
-
-    // ===== OnlineLoyaltyService.resolveCustomer (Q5) =====
-
-    @Test
-    void resolveCustomer_memberIsAlwaysLinked_evenWithoutJoining() {
-        when(customerRepository.findByPhoneNumber("0901111111")).thenReturn(Optional.of(member));
-        assertSame(member, loyalty.resolveCustomer("0901111111", "An", false));
-        verify(customerRepository, never()).save(any());
-    }
-
-    @Test
-    void resolveCustomer_newPhoneWithoutJoining_returnsNullAndSavesNothing() {
-        when(customerRepository.findByPhoneNumber("0902222222")).thenReturn(Optional.empty());
-        assertNull(loyalty.resolveCustomer("0902222222", "Bình", false));
-        verify(customerRepository, never()).save(any());
-    }
-
-    @Test
-    void resolveCustomer_newPhoneJoining_createsMemberWithZeroPoints() {
-        when(customerRepository.findByPhoneNumber("0902222222")).thenReturn(Optional.empty());
-        when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
-        Customer c = loyalty.resolveCustomer("0902222222", "Bình", true);
-        assertEquals("0902222222", c.getPhoneNumber());
-        assertEquals("Bình", c.getFullName());
-        assertEquals(0, (int) c.getCurrentPoints());
+                List.of(new OrderItemRequest(1L, 2, null, List.of(), null, null, null)));
     }
 
     // ===== createForOnline =====
 
     @Test
-    void createForOnline_nonMemberCannotRedeemPoints() {
-        when(support.buildItem(any())).thenReturn(line(2));
-        when(customerRepository.findByPhoneNumber("0905555555")).thenReturn(Optional.empty());
-        ApiException ex = assertThrows(ApiException.class, () -> service.createForOnline(request("0905555555", false, 3)));
-        assertTrue(ex.getMessage().contains("chưa là thành viên"));
-        verify(payos, never()).createOnlineLink(anyLong(), anyLong(), anyString(), anyLong());
-    }
-
-    @Test
-    void createForOnline_savesOnlineRequestAndCreatesNoOrder() {
+    void createForOnline_fullPriceNoLoyaltyAndCreatesNoOrder() {
         when(support.buildItem(any())).thenReturn(line(2)); // 2 x 29.000 = 58.000
-        when(customerRepository.findByPhoneNumber("0901111111")).thenReturn(Optional.of(member));
-        when(cashier.pointsDiscount(58000L, member, 5, null)).thenReturn(5000L);
-        when(payos.createOnlineLink(anyLong(), eq(53000L), anyString(), anyLong()))
+        when(payos.createOnlineLink(anyLong(), eq(58000L), anyString(), anyLong()))
                 .thenReturn(new PayosClient.CreatedLink("link-1", "QRDATA", "https://pay.payos.vn/link-1", "PENDING"));
 
-        assertEquals("link-1", service.createForOnline(request("0901111111", false, 5)));
+        assertEquals("link-1", service.createForOnline(request("0901111111")));
 
         ArgumentCaptor<QrPaymentRequest> saved = ArgumentCaptor.forClass(QrPaymentRequest.class);
         verify(qrRepository).save(saved.capture());
         QrPaymentRequest r = saved.getValue();
         assertEquals(QrPaymentRequest.ONLINE, r.getTargetType());
         assertNull(r.getCreatedBy());
-        assertSame(member, r.getCustomer());
+        assertNull(r.getCustomer());            // không gắn khách thân thiết
         assertEquals(58000L, r.getSubtotal());
-        assertEquals(53000L, r.getAmount());
-        assertEquals(5, r.getPointsToRedeem());
+        assertEquals(58000L, r.getAmount());    // không giảm bằng điểm
+        assertEquals(0, r.getPointsToRedeem());
+        verifyNoInteractions(customerRepository); // không tra / tạo thành viên
         verify(payos, never()).createLink(anyLong(), anyLong(), anyString(), anyLong());
         verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void createForOnline_rejectsInvalidPhone() {
+        assertThrows(ApiException.class, () -> service.createForOnline(request("12345")));
+        verify(payos, never()).createOnlineLink(anyLong(), anyLong(), anyString(), anyLong());
     }
 
     // ===== applyPaid -> settleOnline =====
@@ -176,9 +136,7 @@ class OnlinePaymentTest {
         ReflectionTestUtils.setField(r, "id", 7L);
         r.setTargetType(QrPaymentRequest.ONLINE);
         r.setSubtotal(58000L);
-        r.setAmount(53000L);
-        r.setCustomer(member);
-        r.setPointsToRedeem(5);
+        r.setAmount(58000L);
         r.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         r.setCartJson(objectMapper.writeValueAsString(new QrOnlineCart("An", "0901111111", "12 Cầu Giấy", "gọi trước",
                 List.of(QrTakeawayCart.Line.of(line(2))))));
@@ -197,10 +155,10 @@ class OnlinePaymentTest {
         assertEquals(Order.CONFIRMED, o.getStatus());
         assertEquals(Order.PAID, o.getPaymentStatus());
         assertEquals("0901111111", o.getCustomerPhone());
-        assertSame(member, o.getCustomer());
+        assertNull(o.getCustomer());
         assertEquals(58000L, (long) o.getTotalAmount());
-        verify(cashier).record(any(Payment.class), eq(58000L), eq(5000L), eq(5), eq(Payment.BANK_TRANSFER),
-                eq(member), isNull(), isNull());
+        verify(cashier).record(any(Payment.class), eq(58000L), eq(0L), eq(0), eq(Payment.BANK_TRANSFER),
+                isNull(), isNull(), isNull());
         ArgumentCaptor<Delivery> delivery = ArgumentCaptor.forClass(Delivery.class);
         verify(deliveryRepository).save(delivery.capture());
         assertEquals("12 Cầu Giấy", delivery.getValue().getDeliveryAddress());

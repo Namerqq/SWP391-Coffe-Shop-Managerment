@@ -11,9 +11,7 @@ import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
 import com.example.project.entity.Payment;
 import com.example.project.entity.TableSession;
-import com.example.project.entity.IncidentReport;
 import com.example.project.exception.ApiException;
-import com.example.project.repository.IncidentReportRepository;
 import com.example.project.repository.MenuItemRepository;
 import com.example.project.repository.OrderRepository;
 import com.example.project.repository.PaymentRepository;
@@ -48,11 +46,6 @@ public class OrderSupportService {
     private final ObjectMapper objectMapper;
     private final QrPaymentRequestRepository qrRepository;
     private final GuestSessionStore guestSessions;
-
-    // Biên bản sự cố: dùng để đánh dấu món đang được làm lại sau khi phục vụ làm đổ / vỡ.
-    // Tiêm qua field để không đổi các hàm tạo đang được unit test gọi trực tiếp (khi đó = null).
-    @Autowired
-    private IncidentReportRepository incidentRepository;
 
     @Autowired
     public OrderSupportService(MenuItemRepository menuItemRepository, OrderRepository orderRepository,
@@ -140,6 +133,27 @@ public class OrderSupportService {
     public String nextPaymentCode() {
         String prefix = "PM" + LocalDate.now().format(DAY) + "-";
         return prefix + String.format("%04d", paymentRepository.countByPaymentCodeStartingWith(prefix) + 1);
+    }
+
+    /** Bỏ khoảng trắng, dấu chấm, gạch; số Việt Nam 10-11 số bắt đầu bằng 0 (giống màn Thu ngân). */
+    public static String normalizePhone(String phone) {
+        String p = phone == null ? "" : phone.replaceAll("[\\s.\\-]", "");
+        if (!p.matches("^0\\d{9,10}$")) {
+            throw ApiException.badRequest("Số điện thoại gồm 10-11 chữ số và bắt đầu bằng 0.");
+        }
+        return p;
+    }
+
+    /**
+     * Mã đơn khách nhập để tra đơn online: chấp nhận "261023-0008", "#261023-0008", có khoảng trắng.
+     * Trả về đúng dạng lưu trong orders.order_number (yyMMdd-0001).
+     */
+    public static String normalizeOrderCode(String code) {
+        String c = code == null ? "" : code.replaceAll("[\\s#]", "");
+        if (!c.matches("^\\d{6}-\\d{4,}$")) {
+            throw ApiException.badRequest("Mã đơn không đúng. Mã đơn có dạng 261023-0008.");
+        }
+        return c;
     }
 
     /** Số ngắn để gọi đơn: "261002-0007" -> "#0007". */
@@ -254,14 +268,7 @@ public class OrderSupportService {
         return new OrderItemView(i.getId(), i.getMenuItem().getId(), i.getMenuItem().getName(), i.getQuantity(),
                 nz(i.getUnitPrice()), i.getSizeName(), nz(i.getSizePrice()), readToppings(i.getToppingDetails()),
                 nz(i.getToppingPrice()), i.getSugarLevel(), i.getIceLevel(), i.getNote(), i.getItemStatus(),
-                nz(i.getSubtotal()), isRemake(i));
-    }
-
-    /** Món đang được pha chế làm lại vì phục vụ làm đổ / vỡ (chỉ xét món còn chờ pha / chờ mang ra). */
-    private boolean isRemake(OrderItem i) {
-        if (incidentRepository == null) return false;
-        if (!i.isWaitingForPreparation() && !OrderItem.READY.equals(i.getItemStatus())) return false;
-        return incidentRepository.existsByOrderItem_IdAndAction(i.getId(), IncidentReport.REMAKE);
+                nz(i.getSubtotal()));
     }
 
     public List<ToppingView> readToppings(String json) {

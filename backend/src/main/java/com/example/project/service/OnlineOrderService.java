@@ -82,47 +82,30 @@ public class OnlineOrderService {
     }
 
     /**
-     * Lấy chi tiết đơn hàng online theo ID để theo dõi trạng thái (Tracking).
+     * Theo dõi đơn online bằng mã đơn khách nhập (dạng 261023-0008). Khách chỉ xem được đơn mình có mã,
+     * không còn tra theo SĐT hay theo id (để không liệt kê / dò được đơn của người khác).
      */
     @Transactional(readOnly = true)
-    public OnlineOrderView getOrderById(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
-
-        if (!Order.SOURCE_ONLINE.equalsIgnoreCase(order.getSource())) {
-            throw ApiException.notFound("Không tìm thấy đơn hàng online #" + id);
-        }
-
+    public OnlineOrderView getOrderByCode(String code) {
+        Order order = findOnlineByCode(code);
         Delivery delivery = deliveryRepository.findByOrder_Id(order.getId()).orElse(null);
         String paymentMethod = Order.PENDING.equals(order.getStatus()) ? "PAYOS_QR" : "CASH";
         return toView(order, delivery, paymentMethod, null);
     }
 
-    /**
-     * Lấy toàn bộ lịch sử đơn hàng online theo số điện thoại khách hàng.
-     */
-    @Transactional(readOnly = true)
-    public List<OnlineOrderView> getOrdersByPhone(String phone) {
-        if (phone == null || phone.isBlank()) return List.of();
-        List<Order> orders = orderRepository.findByCustomerPhoneAndSourceOrderByCreatedAtDesc(phone.trim(), Order.SOURCE_ONLINE);
-        return orders.stream().map(o -> {
-            Delivery d = deliveryRepository.findByOrder_Id(o.getId()).orElse(null);
-            return toView(o, d, null, null);
-        }).toList();
+    private Order findOnlineByCode(String code) {
+        String c = OrderSupportService.normalizeOrderCode(code);
+        return orderRepository.findFirstByOrderNumberAndSourceOrderByIdDesc(c, Order.SOURCE_ONLINE)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn đặt online có mã " + c + "."));
     }
 
     /**
-     * Khách hàng tự hủy đơn hàng online.
+     * Khách hàng tự hủy đơn hàng online (theo mã đơn).
      * Chỉ cho phép hủy khi đơn còn ở trạng thái chờ (chưa pha chế / chưa giao hàng).
      */
     @Transactional
-    public OnlineOrderView cancelOrder(Long id, String reason) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
-
-        if (!Order.SOURCE_ONLINE.equalsIgnoreCase(order.getSource())) {
-            throw ApiException.notFound("Không tìm thấy đơn hàng online #" + id);
-        }
+    public OnlineOrderView cancelOrder(String code, String reason) {
+        Order order = findOnlineByCode(code);
 
         if (order.isCancelled()) {
             throw ApiException.badRequest("Đơn hàng này đã được hủy trước đó.");
