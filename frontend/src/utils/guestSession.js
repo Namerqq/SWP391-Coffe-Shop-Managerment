@@ -1,5 +1,6 @@
 // Lưu trên máy khách: mã phiên gọi món (cấp khi quét QR) và giỏ hàng theo từng bàn.
 const TOKEN_KEY = 'gc_guest_token'
+const QR_KEY = 'gc_guest_qr' // mã QR của bàn đã quét, để tự mở phiên mới khi lượt trước xong
 const CART_PREFIX = 'gc_guest_cart_'
 const cartKey = (tableId) => `${CART_PREFIX}${tableId}`
 
@@ -25,6 +26,17 @@ const write = (key, value) => {
 
 export const getGuestToken = () => read(TOKEN_KEY, null)
 export const setGuestToken = (token) => write(TOKEN_KEY, token)
+export const getGuestQr = () => read(QR_KEY, null)
+export const setGuestQr = (qrCode) => write(QR_KEY, qrCode)
+
+// Các phiên (token) đã kết thúc mà máy này đã xử lý + đã báo "Cảm ơn quý khách" -> không báo lại lần 2.
+const ENDED_SEEN_KEY = 'gc_guest_ended_seen'
+export const wasEndedHandled = (token) => !!token && read(ENDED_SEEN_KEY, []).includes(token)
+export const markEndedHandled = (token) => {
+  if (!token) return
+  const seen = read(ENDED_SEEN_KEY, []).filter((t) => t !== token)
+  write(ENDED_SEEN_KEY, [...seen, token].slice(-20)) // chỉ giữ 20 phiên gần nhất
+}
 export const guestHeaders = () => {
   const token = getGuestToken()
   return token ? { 'X-Guest-Token': token } : {}
