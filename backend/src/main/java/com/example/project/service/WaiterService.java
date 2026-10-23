@@ -3,6 +3,7 @@ package com.example.project.service;
 import com.example.project.dto.order.OrderItemRequest;
 import com.example.project.dto.order.OrderView;
 import com.example.project.dto.order.SessionView;
+import com.example.project.dto.waiter.WaiterNotificationView;
 import com.example.project.entity.CafeTable;
 import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
@@ -10,12 +11,16 @@ import com.example.project.entity.TableSession;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.CafeTableRepository;
+import com.example.project.repository.OrderItemRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
 import com.example.project.repository.TableSessionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -31,16 +36,43 @@ public class WaiterService {
     private final CafeTableRepository tableRepository;
     private final TableSessionRepository sessionRepository;
     private final TableBoardService tableBoardService;
+    private final OrderItemRepository itemRepository;
 
     public WaiterService(OrderRepository orderRepository, OrderLockRepository lockRepository,
                          OrderSupportService support, CafeTableRepository tableRepository,
-                         TableSessionRepository sessionRepository, TableBoardService tableBoardService) {
+                         TableSessionRepository sessionRepository, TableBoardService tableBoardService,
+                         OrderItemRepository itemRepository) {
         this.orderRepository = orderRepository;
         this.lockRepository = lockRepository;
         this.support = support;
         this.tableRepository = tableRepository;
         this.sessionRepository = sessionRepository;
         this.tableBoardService = tableBoardService;
+        this.itemRepository = itemRepository;
+    }
+
+    /**
+     * Chuông thông báo của phục vụ: các món tại bàn bị pha chế hủy vì hết nguyên liệu trong hôm nay
+     * (món có tag [HẾT NGUYÊN LIỆU] ở ghi chú), mới nhất lên đầu, tối đa 30 thông báo.
+     */
+    @Transactional(readOnly = true)
+    public List<WaiterNotificationView> notifications() {
+        LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
+        List<WaiterNotificationView> result = new ArrayList<>();
+        for (OrderItem i : itemRepository.findByNoteContainingOrderByIdDesc(BaristaService.OUT_OF_STOCK_TAG)) {
+            Order o = i.getOrder();
+            if (!Order.DINE_IN.equals(o.getFulfillmentType())) continue;
+            if (o.getCreatedAt().isBefore(startOfToday)) continue;
+            String tableNumber = null;
+            if (o.getTableSession() != null) {
+                tableNumber = o.getTableSession().getTable().getTableNumber();
+            }
+            result.add(new WaiterNotificationView(i.getId(), o.getId(),
+                    OrderSupportService.displayNumber(o.getOrderNumber()), tableNumber,
+                    i.getMenuItem().getName(), i.getQuantity()));
+            if (result.size() == 30) break;
+        }
+        return result;
     }
 
     /**

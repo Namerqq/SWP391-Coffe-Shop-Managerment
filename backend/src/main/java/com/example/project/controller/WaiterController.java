@@ -5,10 +5,13 @@ import com.example.project.dto.order.OrderView;
 import com.example.project.dto.order.SessionView;
 import com.example.project.dto.waiter.CancelOrderRequest;
 import com.example.project.dto.waiter.ChangeTableRequest;
+import com.example.project.dto.waiter.WaiterNotificationView;
 import com.example.project.security.RequireRole;
 import jakarta.validation.Valid;
 import com.example.project.service.WaiterService;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Màn hình Phục vụ: sửa / bỏ món, hủy đơn còn chờ pha, đổi bàn cho khách (SRS screen #20).
@@ -41,6 +44,12 @@ public class WaiterController {
     public OrderView cancel(@PathVariable Long orderId,
                             @Valid @RequestBody(required = false) CancelOrderRequest req) {
         return service.cancel(orderId, req == null ? null : req.reason());
+    }
+
+    /** Chuông thông báo: món bị pha chế hủy vì hết nguyên liệu, phục vụ cần báo lại cho khách. */
+    @GetMapping("/notifications")
+    public List<WaiterNotificationView> notifications() {
+        return service.notifications();
     }
 
     /** Đổi bàn cho khách (SRS #20 Change Table): chuyển lượt khách sang bàn trống khác. */

@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import baristaApi from '../../api/baristaApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
-import usePolling from '../../utils/usePolling'
 import { ON_BOARD, isItemCancelled, isItemDone, isItemReady, isItemWaiting } from '../../utils/itemStatus'
 import ConfirmModal from '../../components/ConfirmModal'
 import OrderTicket from '../serving/OrderTicket'
@@ -33,7 +32,7 @@ export default function BaristaBoard() {
   const [cancelling, setCancelling] = useState(null) // { order, item } đang chờ xác nhận hủy món
   const [cancelBusy, setCancelBusy] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = async () => {
     try {
       const res = await baristaApi.getBoard()
       setOrders(res.data)
@@ -43,25 +42,37 @@ export default function BaristaBoard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Tải đơn ngay khi mở trang, sau đó cứ 5 giây tải lại 1 lần; rời trang thì dừng.
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 5000)//khoang cach thoi gian board gui yeu cau den database de lay du lieu
+    return () => clearInterval(timer)
   }, [])
-  usePolling(load, 5000)//khoang cach thoi gian board gui yeu cau den database de lay du lieu
 
   // Tổng cần pha: gộp các món còn chờ pha theo loại món, kèm id từng dòng món để tích xong cả loạt.
-  const summary = useMemo(() => {
-    const map = new Map()
-    orders.forEach((o) => {
-      o.items.filter(isItemWaiting).forEach((i) => {
-        const cur = map.get(i.menuItemId) || { menuItemId: i.menuItemId, name: i.itemName, total: 0, sizes: {}, orderIds: new Set(), itemIds: [] }
-        cur.total += i.quantity
-        const size = i.sizeName || ''
-        cur.sizes[size] = (cur.sizes[size] || 0) + i.quantity
-        cur.orderIds.add(o.id)
-        cur.itemIds.push(i.id)
-        map.set(i.menuItemId, cur)
-      })
+  const summary = []
+  orders.forEach((o) => {
+    o.items.filter(isItemWaiting).forEach((i) => {
+      // Tìm nhóm của loại món này, chưa có thì tạo nhóm mới
+      let group = summary.find((g) => g.menuItemId === i.menuItemId)
+      if (!group) {
+        group = { menuItemId: i.menuItemId, name: i.itemName, total: 0, sizes: {}, orderIds: [], itemIds: [] }
+        summary.push(group)
+      }
+      group.total += i.quantity
+      const size = i.sizeName || ''
+      group.sizes[size] = (group.sizes[size] || 0) + i.quantity
+      if (!group.orderIds.includes(o.id)) group.orderIds.push(o.id) // mỗi đơn chỉ đếm 1 lần
+      group.itemIds.push(i.id)
     })
-    return [...map.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'vi'))
-  }, [orders])
+  })
+  // Loại món cần pha nhiều nhất lên đầu, bằng nhau thì xếp theo tên
+  summary.sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total
+    return a.name.localeCompare(b.name)
+  })
 
   const totalCups = summary.reduce((s, x) => s + x.total, 0)
   const workingCount = orders.filter((o) => o.items.some(isItemWaiting)).length
@@ -94,7 +105,7 @@ export default function BaristaBoard() {
     try {
       const res = await baristaApi.checkItems(g.itemIds)
       setOrders(res.data)
-      toast(`Đã pha xong ${g.total} ${g.name} ở ${g.orderIds.size} đơn`)
+      toast(`Đã pha xong ${g.total} ${g.name} ở ${g.orderIds.length} đơn`)
       if (selected === g.menuItemId) setSelected(null)
     } catch (e) {
       toast(errorMessage(e), 'error')
@@ -141,7 +152,7 @@ export default function BaristaBoard() {
     if (col.key === 'pending') {
       return (
         <OrderTicket key={o.id} order={o} items={items} tone={col.tone} onOpen={() => setDetailId(o.id)}
-                     highlighted={sel && sel.orderIds.has(o.id)} matchItem={(i) => i.menuItemId === selected}
+                     highlighted={sel && sel.orderIds.includes(o.id)} matchItem={(i) => i.menuItemId === selected}
                      renderLeft={(i) => (
                        <input type="checkbox" className="form-check-input kds-check" checked={false}
                               disabled={busyItemId === i.id} onChange={() => toggleItem(o, i, true)}
@@ -204,7 +215,7 @@ export default function BaristaBoard() {
                         onClick={() => setSelected(selected === x.menuItemId ? null : x.menuItemId)}>
                   <span className="flex-grow-1 text-start" style={{ minWidth: 0 }}>
                     <span className="fw-semibold d-block text-truncate">{x.name}</span>
-                    <span className="cell-sub">{sizeText(x.sizes)}, {x.orderIds.size} đơn</span>
+                    <span className="cell-sub">{sizeText(x.sizes)}, {x.orderIds.length} đơn</span>
                   </span>
                   <span className="kds-sum-qty">{x.total}</span>
                 </button>
@@ -220,7 +231,7 @@ export default function BaristaBoard() {
         <div style={{ minWidth: 0 }}>
           {sel && (
             <div className="kds-banner">
-              <span>Đang xem <strong>{sel.name}</strong>: cần {sel.total}, nằm ở {sel.orderIds.size} đơn</span>
+              <span>Đang xem <strong>{sel.name}</strong>: cần {sel.total}, nằm ở {sel.orderIds.length} đơn</span>
               <button type="button" className="btn btn-light-soft btn-sm" onClick={() => setSelected(null)}>
                 <i className="bi bi-x-lg me-1" />Bỏ chọn
               </button>

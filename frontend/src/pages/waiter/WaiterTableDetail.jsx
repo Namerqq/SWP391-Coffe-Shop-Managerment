@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import staffApi from '../../api/staffApi'
 import waiterApi from '../../api/waiterApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
-import usePolling from '../../utils/usePolling'
 import ConfirmModal from '../../components/ConfirmModal'
 import StatusPill from '../../components/order/StatusPill'
 import { formatMoney, formatTime, isWaiting, itemOptionsText } from '../../utils/orderFormat'
@@ -29,7 +28,7 @@ export default function WaiterTableDetail() {
   const [cancelling, setCancelling] = useState(null)
   const [changingTable, setChangingTable] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = async () => {
     try {
       const res = await staffApi.getTableSession(tableId)
       setSession(res.data)
@@ -43,8 +42,15 @@ export default function WaiterTableDetail() {
         setError(errorMessage(e, 'Không tải được đơn của bàn.'))
       }
     }
+  }
+
+  // Tải đơn của bàn ngay khi mở trang, sau đó cứ 5 giây tải lại 1 lần.
+  // Đổi sang bàn khác (tableId đổi) thì dừng vòng cũ và chạy lại cho bàn mới.
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 5000)
+    return () => clearInterval(timer)
   }, [tableId])
-  usePolling(load, 5000)
 
   useEffect(() => {
     staffApi.getMenu().then((res) => setMenu(res.data)).catch(() => {})

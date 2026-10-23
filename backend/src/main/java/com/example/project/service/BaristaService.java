@@ -33,6 +33,9 @@ public class BaristaService {
     private static final List<String> BOARD_STATUSES =
             List.of(Order.PENDING, Order.CONFIRMED, Order.PREPARING, Order.READY);
     private static final String OUT_OF_STOCK = "Hết nguyên liệu";
+    /** Tag gắn vào đầu ghi chú món bị hủy vì hết nguyên liệu, phục vụ đọc tag này để hiện thông báo. */
+    public static final String OUT_OF_STOCK_TAG = "[HẾT NGUYÊN LIỆU]";
+    private static final int NOTE_MAX = 300; // = độ dài cột order_items.note
 
     private final OrderRepository orderRepository;
     private final OrderLockRepository lockRepository;
@@ -137,6 +140,7 @@ public class BaristaService {
             throw ApiException.badRequest("Đơn " + num(o) + " đã thanh toán, hủy món cần hoàn tiền. Vui lòng báo thu ngân.");
         }
         line.setItemStatus(OrderItem.CANCELLED);
+        line.setNote(outOfStockNote(line.getNote()));//gan tag de phuc vu nhan thong bao
         o.recalcTotal();//tinh lai tien trong order sau khi huy mon
         o.syncStatusFromItems();//dong bo tu dong hoa trang thai don hang(nen de auto)
         if (o.isCancelled()) o.setCancelReason(OUT_OF_STOCK);
@@ -182,5 +186,19 @@ public class BaristaService {
 
     private static String num(Order o) {
         return OrderSupportService.displayNumber(o.getOrderNumber());
+    }
+
+    /** Ghi chú món = "[HẾT NGUYÊN LIỆU] - ghi chú cũ", vẫn giữ ghi chú của khách, tối đa NOTE_MAX ký tự. */
+    private static String outOfStockNote(String oldNote) {
+        String note;
+        if (oldNote == null || oldNote.isBlank()) {
+            note = OUT_OF_STOCK_TAG;
+        } else {
+            note = OUT_OF_STOCK_TAG + " - " + oldNote.trim();
+        }
+        if (note.length() > NOTE_MAX) {
+            note = note.substring(0, NOTE_MAX);
+        }
+        return note;
     }
 }

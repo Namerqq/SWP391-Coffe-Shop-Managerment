@@ -1,8 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import staffApi from '../../api/staffApi'
 import { errorMessage } from '../../api/axiosClient'
-import usePolling from '../../utils/usePolling'
 import TableCard, { TABLE_FILTERS } from '../../components/order/TableCard'
 import '../../styles/danmt.css'
 
@@ -14,7 +13,7 @@ export default function WaiterTables() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const load = useCallback(async () => {
+  const load = async () => {
     try {
       const res = await staffApi.getTables()
       setTables(res.data)
@@ -24,8 +23,14 @@ export default function WaiterTables() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Tải sơ đồ bàn ngay khi mở trang, sau đó cứ 5 giây tải lại 1 lần; rời trang thì dừng.
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 5000)
+    return () => clearInterval(timer)
   }, [])
-  usePolling(load, 5000)
 
   const occupied = tables.filter((t) => t.sessionId).length
   const active = TABLE_FILTERS.find((f) => f.key === filter) || TABLE_FILTERS[0]
