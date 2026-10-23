@@ -5,7 +5,7 @@ import { errorMessage } from '../../api/axiosClient'
 import TableCard, { TABLE_FILTERS } from '../../components/order/TableCard'
 import '../../styles/danmt.css'
 
-// Waiter Dashboard & Table List — SRS 1.4.1. Bấm bàn có khách để xem / sửa đơn.
+// Waiter Dashboard & Table List — SRS 1.4.1. Bấm bàn để xem / sửa đơn hoặc hỗ trợ khách đặt món (kể cả bàn trống).
 export default function WaiterTables() {
   const navigate = useNavigate()
   const [tables, setTables] = useState([])
@@ -57,7 +57,7 @@ export default function WaiterTables() {
 
       <div className="table-grid">
         {visible.map((t) => (
-          <TableCard key={t.tableId} table={t} onClick={() => navigate(`/waiter/tables/${t.tableId}`)} />
+          <TableCard key={t.tableId} table={t} vacantClickable onClick={() => navigate(`/waiter/tables/${t.tableId}`)} />
         ))}
       </div>
 

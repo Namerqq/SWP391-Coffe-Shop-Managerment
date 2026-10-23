@@ -83,11 +83,21 @@ export default function WaiterTableDetail() {
     </Link>
   )
 
+  // Nút mở màn hình Hỗ trợ đặt món cho bàn này (UC-W01)
+  const assistButton = (
+    <Link to={`/waiter/tables/${tableId}/order`} className="btn btn-primary btn-sm">
+      <i className="bi bi-plus-lg me-1" /> Hỗ trợ đặt món
+    </Link>
+  )
+
   if (vacantMsg) {
     return (
       <>
         {back}
-        <div className="cf-card empty-state"><i className="bi bi-cup" />{vacantMsg}</div>
+        <div className="cf-card empty-state">
+          <i className="bi bi-cup" />{vacantMsg}
+          <div className="mt-3">{assistButton}</div>
+        </div>
       </>
     )
   }
@@ -140,6 +150,7 @@ export default function WaiterTableDetail() {
           </div>
           <p className="page-subtitle mt-1 mb-0">Lượt khách {session.sessionCode}, vào lúc {formatTime(session.openedAt)}</p>
         </div>
+        {assistButton}
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
