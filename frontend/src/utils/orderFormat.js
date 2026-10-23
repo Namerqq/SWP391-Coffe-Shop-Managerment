@@ -22,12 +22,16 @@ export function formatMoney(n) {
   return `${Number(n || 0).toLocaleString('vi-VN')}đ`
 }
 
-/** "Size M, 50% đường, 30% đá, + Trân châu" — chỉ hiện lựa chọn khác mặc định. */
-export function itemOptionsText(item) {
+/** Mô tả lựa chọn; giỏ hàng có thể yêu cầu hiện cả mức mặc định. */
+export function itemOptionsText(item, { showDefaults = false } = {}) {
   const parts = []
   if (item.sizeName) parts.push(`Size ${item.sizeName}`)
-  if (item.sugarLevel && item.sugarLevel !== DEFAULT_LEVEL) parts.push(`${item.sugarLevel} đường`)
-  if (item.iceLevel && item.iceLevel !== DEFAULT_LEVEL) parts.push(`${item.iceLevel} đá`)
+  if (item.sugarLevel && (showDefaults || item.sugarLevel !== DEFAULT_LEVEL)) {
+    parts.push(item.sugarLevel === DEFAULT_LEVEL ? 'Đường bình thường (100%)' : `${item.sugarLevel} đường`)
+  }
+  if (item.iceLevel && (showDefaults || item.iceLevel !== DEFAULT_LEVEL)) {
+    parts.push(item.iceLevel === DEFAULT_LEVEL ? 'Đá bình thường (100%)' : `${item.iceLevel} đá`)
+  }
   if (item.toppings?.length) parts.push(`+ ${item.toppings.map((t) => t.name).join(', ')}`)
   return parts.join(', ')
 }
