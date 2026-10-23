@@ -56,7 +56,7 @@ export default function GuestCart() {
           <div className="gx-line" key={l.key}>
             <div className="gx-line-main">
               <button type="button" className="gx-line-name" onClick={() => editLine(l)} title="Sửa lựa chọn">{l.itemName}</button>
-              {itemOptionsText(l) && <div className="gx-muted">{itemOptionsText(l)}</div>}
+              {itemOptionsText(l, { showDefaults: true }) && <div className="gx-muted">{itemOptionsText(l, { showDefaults: true })}</div>}
               {l.note && <div className="gx-note">{l.note}</div>}
               <div className="gx-line-actions">
                 <div className="gx-qty sm" aria-label={`Số lượng ${l.itemName}`}>
