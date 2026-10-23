@@ -33,9 +33,7 @@ export default function OrderTicket({ order, items, tone, highlighted, matchItem
                 </div>
                 {itemOptionsText(i) && <div className="cell-sub">{itemOptionsText(i)}</div>}
                 {i.note && (
-                  <div className="order-note">
-                    <i className="bi bi-chat-left-text me-1" />{i.note}
-                  </div>
+                  <div className="order-note">{i.note}</div>
                 )}
               </div>
               {renderRight?.(i)}
