@@ -90,3 +90,23 @@
 .ready-card { padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; border-top: 4px solid var(--cf-success); }
 .ready-card.late { border-top-color: var(--cf-warning); }
 .ready-dest { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; }
+
+/* ---------- Chuông thông báo của phục vụ (cạnh avatar) ---------- */
+.waiter-bell { position: relative; }
+.waiter-bell .btn-icon { width: 38px; height: 38px; border-radius: 50%; font-size: 1.05rem; }
+.waiter-bell-count {
+  position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px; background: var(--cf-danger); color: #fff;
+  font-size: 0.7rem; font-weight: 700; line-height: 18px; text-align: center;
+}
+.waiter-bell-backdrop { position: fixed; inset: 0; z-index: 30; }
+.waiter-bell-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 31;
+  width: 320px; max-width: calc(100vw - 32px); max-height: 60vh; overflow-y: auto;
+  background: var(--cf-surface); border: 1px solid var(--cf-border); border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12); text-align: left;
+}
+.waiter-bell-head { padding: 0.75rem 1rem; font-weight: 600; border-bottom: 1px solid var(--cf-border); }
+.waiter-bell-item { display: flex; align-items: flex-start; padding: 0.7rem 1rem; font-size: 0.85rem; border-bottom: 1px solid var(--cf-border); }
+.waiter-bell-item:last-child { border-bottom: 0; }
+.waiter-bell-item.is-new { background: #fdf0f0; }

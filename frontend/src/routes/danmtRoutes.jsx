@@ -7,6 +7,8 @@ import WaiterTables from '../pages/waiter/WaiterTables'
 import WaiterTableDetail from '../pages/waiter/WaiterTableDetail'
 import WaiterBoard from '../pages/waiter/WaiterBoard'
 import ReadyOrders from '../pages/serving/ReadyOrders'
+import ManagerLayout from '../layouts/ManagerLayout'
+import IncidentReportList from '../pages/incident/IncidentReportList'
 
 // DanMT: route các màn Pha chế, Phục vụ (bảng Chờ pha & mang ra), Mang đi chờ giao (Thu ngân).
 export const danmtRoutes = (
@@ -24,6 +26,11 @@ export const danmtRoutes = (
 
     <Route path="/cashier/pickup-ready" element={<ProtectedRoute roles={['CASHIER']}><StaffLayout /></ProtectedRoute>}>
       <Route index element={<ReadyOrders type="PICKUP" />} />
+    </Route>
+
+    {/* Quản lý xem biên bản sự cố đổ / vỡ món của phục vụ */}
+    <Route path="/manager/incidents" element={<ProtectedRoute roles={['MANAGER']}><ManagerLayout /></ProtectedRoute>}>
+      <Route index element={<IncidentReportList />} />
     </Route>
   </>
 )
