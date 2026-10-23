@@ -46,6 +46,14 @@ export default function GuestOrders() {
   }, [table, expire])
   usePolling(load, 5000)
 
+  // Đổi sang phiên mới (lượt trước đã xong) -> xoá ngay danh sách đơn cũ trên màn hình và tải lại, không chờ 5 giây.
+  const token = table ? table.token : null
+  useEffect(() => {
+    setOrders([])
+    if (token) load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
+
   const confirmCancel = async (reason) => {
     await guestTrackingApi.cancel(cancelling.id, reason)
     toast(`Đã hủy đơn ${cancelling.displayNumber}`)

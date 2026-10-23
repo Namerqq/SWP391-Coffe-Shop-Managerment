@@ -23,8 +23,19 @@ export default function GuestCart() {
   const send = async () => {
     setSending(true)
     setError('')
+    const items = cart.map(toItemRequest)
+    const body = { items, note: note.trim() || null, requestKey: requestKey() }
     try {
-      const res = await guestOrderApi.placeOrder({ items: cart.map(toItemRequest), note: note.trim() || null, requestKey: requestKey() })
+      let res
+      try {
+        res = await guestOrderApi.placeOrder(body)
+      } catch (e) {
+        if (e.response?.status !== 410) throw e
+        // Lượt trước vừa kết thúc đúng lúc bấm gửi: mở phiên mới cho bàn (giữ giỏ đang chọn) rồi gửi lại 1 lần.
+        const renewed = await expire(e, { keepCart: true })
+        if (!renewed) return
+        res = await guestOrderApi.placeOrder({ ...body, requestKey: requestKey() })
+      }
       clearCart()
       setNote('')
       toast(`Đã gửi đơn ${res.data.displayNumber}. Quán đang chuẩn bị cho bạn.`)
