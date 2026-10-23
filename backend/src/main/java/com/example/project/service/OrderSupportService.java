@@ -19,6 +19,7 @@ import com.example.project.repository.QrPaymentRequestRepository;
 import com.example.project.repository.TableSessionRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -44,16 +45,28 @@ public class OrderSupportService {
     private final TableSessionRepository sessionRepository;
     private final ObjectMapper objectMapper;
     private final QrPaymentRequestRepository qrRepository;
+    private final GuestSessionStore guestSessions;
 
+    @Autowired
     public OrderSupportService(MenuItemRepository menuItemRepository, OrderRepository orderRepository,
                                PaymentRepository paymentRepository, TableSessionRepository sessionRepository,
-                               ObjectMapper objectMapper, QrPaymentRequestRepository qrRepository) {
+                               ObjectMapper objectMapper, QrPaymentRequestRepository qrRepository,
+                               GuestSessionStore guestSessions) {
         this.menuItemRepository = menuItemRepository;
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
         this.sessionRepository = sessionRepository;
         this.objectMapper = objectMapper;
         this.qrRepository = qrRepository;
+        this.guestSessions = guestSessions;
+    }
+
+    /** Giữ hàm tạo cũ cho các unit test đang gọi trực tiếp (không cần phiên khách thật). */
+    public OrderSupportService(MenuItemRepository menuItemRepository, OrderRepository orderRepository,
+                               PaymentRepository paymentRepository, TableSessionRepository sessionRepository,
+                               ObjectMapper objectMapper, QrPaymentRequestRepository qrRepository) {
+        this(menuItemRepository, orderRepository, paymentRepository, sessionRepository, objectMapper, qrRepository,
+                new GuestSessionStore());
     }
 
     /** Tạo 1 dòng món từ yêu cầu: kiểm tra món còn bán, lấy giá hiện tại làm "ảnh chụp" giá. */
@@ -200,6 +213,7 @@ public class OrderSupportService {
     /**
      * Lượt khách xong khi mọi đơn chưa hủy đều ĐÃ PHỤC VỤ và ĐÃ THANH TOÁN -> đóng lượt (CLOSED),
      * trả bàn về trống (GB-04). Gọi sau khi thu tiền, sau khi mang món ra và sau khi hủy đơn.
+     * Đồng thời kết thúc phiên gọi món trên điện thoại khách của lượt này: khách sau không xem được đơn cũ.
      * Trả về true nếu vừa đóng.
      */
     public boolean closeSessionIfSettled(TableSession session) {
@@ -211,6 +225,7 @@ public class OrderSupportService {
         session.setStatus(TableSession.CLOSED);
         session.setClosedAt(LocalDateTime.now());
         session.getTable().setStatus(CafeTable.AVAILABLE);
+        guestSessions.endTableSession(session.getId()); // chạy sau khi commit thành công
         return true;
     }
 

@@ -3,10 +3,13 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import guestTableApi from '../api/guestTableApi'
 import publicApi from '../api/publicApi'
 import { errorMessage } from '../api/axiosClient'
+import usePolling from '../utils/usePolling'
 import { BrandLogo } from './HomeLayout'
 import { DEFAULT_HOME } from '../pages/home/homeDefaults'
 import GuestItemModal from '../pages/guest/GuestItemModal'
-import { loadCart, newRequestKey, sameOptions, saveCart, setGuestToken } from '../utils/guestSession'
+import {
+  clearAllCarts, loadCart, newRequestKey, sameOptions, saveCart, setGuestToken, SESSION_ENDED_CODE,
+} from '../utils/guestSession'
 import { isSizeItem, standaloneCategories, unitTotal } from '../utils/orderOptions'
 import '../styles/guest.css'
 
@@ -38,6 +41,7 @@ export default function GuestLayout() {
   const [table, setTable] = useState(null)
   const [tableChecked, setTableChecked] = useState(false)
   const [tableError, setTableError] = useState('')
+  const [sessionEnded, setSessionEnded] = useState(false) // lượt đã phục vụ + thanh toán xong
   const [menu, setMenu] = useState(null)
   const [menuError, setMenuError] = useState('')
   const [cart, setCart] = useState([])
@@ -69,6 +73,7 @@ export default function GuestLayout() {
         let response
         if (qrCode) {
           setTableError('')
+          setSessionEnded(false)
           response = await guestTableApi.openTable(qrCode)
         } else {
           response = await guestTableApi.getContext()
@@ -84,6 +89,8 @@ export default function GuestLayout() {
         if (cancelled) return
         if (qrCode) {
           setTableError(errorMessage(error, 'Không xác nhận được bàn.'))
+        } else if (error.response?.status === 410) {
+          expire(error) // lượt khách đã xong: xóa phiên + giỏ, hiện lời cảm ơn
         } else {
           setTable(null)
           setCart([])
@@ -95,6 +102,18 @@ export default function GuestLayout() {
     checkTable()
     return () => { cancelled = true }
   }, [qrCode, location.pathname, navigate, table])
+
+  // Đang có phiên thì hỏi lại server mỗi 5 giây: lượt khách xong (đã phục vụ + thanh toán) thì xóa ngay
+  // ở mọi trang (Thực đơn, Giỏ hàng, Đơn của tôi), không chờ khách bấm gì.
+  usePolling(async () => {
+    if (!table) return
+    try {
+      const response = await guestTableApi.getContext()
+      if (response.status === 204) expire(null) // phiên hết hạn / backend khởi động lại
+    } catch (error) {
+      if (error.response?.status === 410) expire(error)
+    }
+  }, 5000)
 
   // Loại dòng size bán riêng trong giỏ cũ và lưu giỏ hợp lệ theo bàn.
   useEffect(() => {
@@ -116,13 +135,20 @@ export default function GuestLayout() {
     return () => { document.title = previousTitle }
   }, [brand])
 
-  /** Khi phiên hết hạn, xoá token và giỏ trên giao diện rồi yêu cầu quét lại QR. */
-  function expire(message) {
+  /**
+   * Phiên không dùng được nữa (nhận lỗi 410 từ server, hoặc null khi phiên hết hạn): xoá token và giỏ trên giao diện.
+   * Lượt khách đã xong (mã GUEST_SESSION_ENDED): xoá luôn giỏ đã lưu trên máy và hiện lời cảm ơn,
+   * để khách sau dùng máy này không thấy gì của lượt trước.
+   */
+  function expire(error) {
+    const ended = error?.response?.data?.code === SESSION_ENDED_CODE
     setGuestToken(null)
+    if (ended) clearAllCarts()
     setTable(null)
     setCart([])
     orderRequestKey.current = null
-    setTableError(message || 'Phiên gọi món đã hết hạn. Vui lòng quét lại mã QR trên bàn.')
+    setSessionEnded(ended)
+    setTableError(ended ? '' : (error ? errorMessage(error) : 'Phiên gọi món đã hết hạn. Vui lòng quét lại mã QR trên bàn.'))
   }
 
   /** Tăng/giảm số lượng trong khoảng 1–50, không sửa trực tiếp state cũ. */
@@ -242,6 +268,15 @@ export default function GuestLayout() {
           </nav>
         </header>
         <main className="gx-main">
+          {sessionEnded && (
+            <div className="gx-notice" role="status">
+              <i className="bi bi-emoji-smile" />
+              <div>
+                <strong>Cảm ơn quý khách!</strong>
+                <span>Quét lại mã QR trên bàn để gọi món mới.</span>
+              </div>
+            </div>
+          )}
           {tableError && (
             <div className="gx-alert" role="alert">
               <i className="bi bi-exclamation-circle" />{tableError}
