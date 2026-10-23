@@ -6,6 +6,7 @@ import BaristaInventory from '../pages/barista/BaristaInventory'
 import WaiterTables from '../pages/waiter/WaiterTables'
 import WaiterTableDetail from '../pages/waiter/WaiterTableDetail'
 import WaiterBoard from '../pages/waiter/WaiterBoard'
+import WaiterAssistOrder from '../pages/waiter/WaiterAssistOrder'
 import ReadyOrders from '../pages/serving/ReadyOrders'
 import ManagerLayout from '../layouts/ManagerLayout'
 import IncidentReportList from '../pages/incident/IncidentReportList'
@@ -21,6 +22,7 @@ export const danmtRoutes = (
     <Route path="/waiter" element={<ProtectedRoute roles={['WAITER']}><StaffLayout /></ProtectedRoute>}>
       <Route index element={<WaiterTables />} />
       <Route path="tables/:tableId" element={<WaiterTableDetail />} />
+      <Route path="tables/:tableId/order" element={<WaiterAssistOrder />} />
       <Route path="ready" element={<WaiterBoard />} />
     </Route>
 
