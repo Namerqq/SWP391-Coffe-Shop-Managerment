@@ -11,7 +11,9 @@ import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
 import com.example.project.entity.Payment;
 import com.example.project.entity.TableSession;
+import com.example.project.entity.IncidentReport;
 import com.example.project.exception.ApiException;
+import com.example.project.repository.IncidentReportRepository;
 import com.example.project.repository.MenuItemRepository;
 import com.example.project.repository.OrderRepository;
 import com.example.project.repository.PaymentRepository;
@@ -46,6 +48,11 @@ public class OrderSupportService {
     private final ObjectMapper objectMapper;
     private final QrPaymentRequestRepository qrRepository;
     private final GuestSessionStore guestSessions;
+
+    // Biên bản sự cố: dùng để đánh dấu món đang được làm lại sau khi phục vụ làm đổ / vỡ.
+    // Tiêm qua field để không đổi các hàm tạo đang được unit test gọi trực tiếp (khi đó = null).
+    @Autowired
+    private IncidentReportRepository incidentRepository;
 
     @Autowired
     public OrderSupportService(MenuItemRepository menuItemRepository, OrderRepository orderRepository,
@@ -247,7 +254,14 @@ public class OrderSupportService {
         return new OrderItemView(i.getId(), i.getMenuItem().getId(), i.getMenuItem().getName(), i.getQuantity(),
                 nz(i.getUnitPrice()), i.getSizeName(), nz(i.getSizePrice()), readToppings(i.getToppingDetails()),
                 nz(i.getToppingPrice()), i.getSugarLevel(), i.getIceLevel(), i.getNote(), i.getItemStatus(),
-                nz(i.getSubtotal()));
+                nz(i.getSubtotal()), isRemake(i));
+    }
+
+    /** Món đang được pha chế làm lại vì phục vụ làm đổ / vỡ (chỉ xét món còn chờ pha / chờ mang ra). */
+    private boolean isRemake(OrderItem i) {
+        if (incidentRepository == null) return false;
+        if (!i.isWaitingForPreparation() && !OrderItem.READY.equals(i.getItemStatus())) return false;
+        return incidentRepository.existsByOrderItem_IdAndAction(i.getId(), IncidentReport.REMAKE);
     }
 
     public List<ToppingView> readToppings(String json) {

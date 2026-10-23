@@ -11,6 +11,7 @@ import com.example.project.entity.TableSession;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.CafeTableRepository;
+import com.example.project.repository.IncidentReportRepository;
 import com.example.project.repository.OrderItemRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
@@ -37,11 +38,12 @@ public class WaiterService {
     private final TableSessionRepository sessionRepository;
     private final TableBoardService tableBoardService;
     private final OrderItemRepository itemRepository;
+    private final IncidentReportRepository incidentRepository;
 
     public WaiterService(OrderRepository orderRepository, OrderLockRepository lockRepository,
                          OrderSupportService support, CafeTableRepository tableRepository,
                          TableSessionRepository sessionRepository, TableBoardService tableBoardService,
-                         OrderItemRepository itemRepository) {
+                         OrderItemRepository itemRepository, IncidentReportRepository incidentRepository) {
         this.orderRepository = orderRepository;
         this.lockRepository = lockRepository;
         this.support = support;
@@ -49,6 +51,7 @@ public class WaiterService {
         this.sessionRepository = sessionRepository;
         this.tableBoardService = tableBoardService;
         this.itemRepository = itemRepository;
+        this.incidentRepository = incidentRepository;
     }
 
     /**
@@ -109,6 +112,11 @@ public class WaiterService {
         long remaining = o.getItems().stream().filter(i -> !OrderItem.CANCELLED.equals(i.getItemStatus())).count();
         if (remaining <= 1) {
             throw ApiException.badRequest("Đơn chỉ còn 1 món. Nếu khách không dùng nữa, hãy hủy cả đơn.");
+        }
+        // Món đã có biên bản sự cố thì giữ lại để quản lý còn xem được biên bản
+        if (incidentRepository.existsByOrderItem_Id(line.getId())) {
+            throw ApiException.badRequest("Món " + line.getMenuItem().getName()
+                    + " đã có biên bản sự cố nên không bỏ được. Nếu khách không dùng nữa, hãy hủy đơn.");
         }
         o.getItems().remove(line);
         o.recalcTotal();

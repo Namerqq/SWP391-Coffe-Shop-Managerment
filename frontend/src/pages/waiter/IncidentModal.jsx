@@ -37,11 +37,11 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
       })
       toast(
         action === 'REMAKE'
-          ? `Đã báo sự cố: Món ${item.itemName} đã được gửi lại Barista để pha bù gấp!`
-          : `Đã hủy món ${item.itemName} do sự cố. Hóa đơn của khách đã được trừ tiền.`,
+          ? `Đã báo sự cố: ${item.itemName} đã được gửi lại pha chế để làm lại. Biên bản đã gửi quản lý.`
+          : `Đã hủy ${item.itemName}, không tính tiền món này. Biên bản đã gửi quản lý.`,
         'success'
       )
-      onSuccess?.(res.data, action)
+      if (onSuccess) onSuccess(res.data, action)
       onClose()
     } catch (err) {
       toast(errorMessage(err, 'Không thể gửi báo cáo sự cố.'), 'error')
@@ -91,7 +91,7 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
             />
             <label className="form-check-label fw-medium text-primary" htmlFor="actionRemake">
               <i className="bi bi-arrow-repeat me-1" />
-              Khách đợi: Pha lại cốc mới (Gửi về Barista làm gấp)
+              Khách muốn làm lại (gửi lại pha chế làm gấp)
             </label>
             <div className="form-text ms-1">
               Khách chỉ thanh toán 1 ly ban đầu, cốc làm lại <strong>tuyệt đối không tính thêm tiền</strong>.
@@ -110,12 +110,17 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
             />
             <label className="form-check-label fw-medium text-danger" htmlFor="actionCancel">
               <i className="bi bi-x-circle me-1" />
-              Khách không đợi: Hủy món do sự cố
+              Khách không muốn làm lại (hủy món)
             </label>
             <div className="form-text ms-1">
               Hệ thống sẽ <strong>tự động trừ tiền món này</strong> khỏi hóa đơn của khách.
             </div>
           </div>
+        </div>
+
+        <div className="form-text mb-3">
+          <i className="bi bi-shield-lock me-1" />
+          Biên bản chỉ gửi cho quản lý xem xét mức phạt, khách không nhìn thấy thông tin sự cố.
         </div>
 
         {/* Lý do sự cố */}

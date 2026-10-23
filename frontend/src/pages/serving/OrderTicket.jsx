@@ -17,8 +17,7 @@ export default function OrderTicket({ order, items, tone, highlighted, matchItem
       </header>
       <ul className="kds-items">
         {items.map((i) => {
-          const isRemake = i.note?.includes('[SỰ CỐ: PHA LẠI')
-          const isCancelledIncident = i.note?.includes('[SỰ CỐ: HỦY MÓN')
+          const isRemake = i.remake // món đang làm lại vì phục vụ làm đổ / vỡ (backend gửi cờ, không gửi chi tiết)
           return (
             <li key={i.id} className={`${matchItem?.(i) ? 'match' : ''} ${isRemake ? 'border-start border-danger border-3 ps-2' : ''}`}>
               {renderLeft?.(i)}
@@ -28,18 +27,13 @@ export default function OrderTicket({ order, items, tone, highlighted, matchItem
                   <span>{i.itemName}</span>
                   {isRemake && (
                     <span className="badge text-bg-danger" style={{ fontSize: '0.72rem' }}>
-                      🔥 Pha bù (Làm vỡ)
-                    </span>
-                  )}
-                  {isCancelledIncident && (
-                    <span className="badge text-bg-secondary" style={{ fontSize: '0.72rem' }}>
-                      Đã hủy (Sự cố)
+                      Pha bù (Làm vỡ)
                     </span>
                   )}
                 </div>
                 {itemOptionsText(i) && <div className="cell-sub">{itemOptionsText(i)}</div>}
                 {i.note && (
-                  <div className={`order-note ${isRemake ? 'text-danger fw-semibold' : ''}`}>
+                  <div className="order-note">
                     <i className="bi bi-chat-left-text me-1" />{i.note}
                   </div>
                 )}
