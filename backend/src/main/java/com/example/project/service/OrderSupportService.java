@@ -216,6 +216,7 @@ public class OrderSupportService {
         session.setClosedAt(LocalDateTime.now());
         session.getTable().setStatus(CafeTable.AVAILABLE);
     }
+//fix conflic
 
     /**
      * Lượt khách xong khi mọi đơn chưa hủy đều ĐÃ PHỤC VỤ và ĐÃ THANH TOÁN -> đóng lượt (CLOSED),
