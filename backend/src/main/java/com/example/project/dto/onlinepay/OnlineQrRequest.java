@@ -2,7 +2,6 @@ package com.example.project.dto.onlinepay;
 
 import com.example.project.dto.order.OrderItemRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
@@ -11,9 +10,9 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * Khách đặt online chọn trả bằng QR: gửi giỏ hàng + thông tin giao hàng + lựa chọn tích / dùng điểm.
+ * Khách đặt online chọn trả bằng QR: gửi giỏ hàng + thông tin giao hàng.
  * Đơn CHƯA được tạo ở bước này (giống mang đi): khách trả xong hệ thống mới tạo đơn ONLINE.
- * joinLoyalty chỉ có tác dụng khi SĐT chưa là thành viên (thành viên cũ luôn được tích điểm).
+ * Khách online không tích điểm và không dùng điểm (chỉ khách tại quầy mới có).
  */
 public record OnlineQrRequest(
         @NotBlank(message = "Vui lòng nhập họ và tên")
@@ -33,10 +32,5 @@ public record OnlineQrRequest(
 
         @NotEmpty(message = "Giỏ hàng đang trống")
         @Size(max = 30, message = "Mỗi đơn hàng tối đa 30 dòng món")
-        List<@Valid OrderItemRequest> items,
-
-        Boolean joinLoyalty,
-
-        @Min(value = 0, message = "Số điểm dùng không hợp lệ")
-        Integer pointsToRedeem
+        List<@Valid OrderItemRequest> items
 ) {}

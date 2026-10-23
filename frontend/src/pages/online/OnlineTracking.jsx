@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import onlineOrderApi from '../../api/onlineOrderApi'
 import { errorMessage } from '../../api/axiosClient'
 import { elapsedLabel, formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import usePolling from '../../utils/usePolling'
-
+import {
+  getCurrentOrderCode, isValidOrderCode, markCodePopupShown, normalizeOrderCode, wasCodePopupShown,
+} from '../../utils/onlineOrderCode'
+import OrderCodeDialog from './OrderCodeDialog'
 
 const DELIVERY_STEPS = ['Đã nhận đơn', 'Xác nhận đơn hàng', 'Đang giao', 'Đã giao']
 
@@ -38,88 +41,74 @@ function getStatusBadge(order, currentStep) {
   }
 }
 
+/**
+ * Theo dõi đơn online. Khách chỉ thấy đơn đang đặt trên máy này (đơn vừa đặt gần nhất);
+ * muốn xem đơn khác phải nhập đúng mã đơn (dạng 261023-0008). Không còn tra / liệt kê theo số điện thoại.
+ * Đường dẫn: /online-order/orders (đơn đang đặt) hoặc /online-order/orders?code=261023-0008 (đơn khác).
+ */
 export default function OnlineTracking() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialOrderId = searchParams.get('orderId') || localStorage.getItem('online_last_order_id')
+  const currentCode = getCurrentOrderCode()
+  const urlCode = normalizeOrderCode(searchParams.get('code'))
+  const activeCode = urlCode || currentCode
 
-  const [activeOrderId, setActiveOrderId] = useState(initialOrderId)
-  const [phone, setPhone] = useState(() => localStorage.getItem('online_last_phone') || '')
-  const [orderList, setOrderList] = useState([])
+  const [codeInput, setCodeInput] = useState('')
+  const [inputError, setInputError] = useState('')
   const [order, setOrder] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(Boolean(activeCode))
   const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
+  const [codePopup, setCodePopup] = useState(null)
 
-  // Tải danh sách các đơn theo số điện thoại
-  const loadOrderHistory = async (phoneNum, autoSelect = false) => {
-    if (!phoneNum || !phoneNum.trim()) return
-    try {
-      const res = await onlineOrderApi.getOrdersByPhone(phoneNum.trim())
-      const list = res.data || []
-      setOrderList(list)
-      if (list.length > 0 && (autoSelect || !activeOrderId)) {
-        selectOrder(list[0].orderId)
-      } else if (list.length === 0 && autoSelect) {
-        alert('Không tìm thấy đơn hàng nào với số điện thoại: ' + phoneNum.trim())
-      }
-    } catch {
-      // bỏ qua lỗi nếu không tìm thấy
-    }
-  }
-
+  // Vừa đặt đơn COD xong (trang Đặt hàng chuyển sang kèm mã) -> popup báo mã đơn, 1 lần cho mỗi đơn.
   useEffect(() => {
-    const savedPhone = localStorage.getItem('online_last_phone')
-    if (savedPhone) {
-      loadOrderHistory(savedPhone, false)
+    const code = location.state?.newOrderCode
+    if (!code) return
+    if (!wasCodePopupShown(code)) {
+      markCodePopupShown(code)
+      setCodePopup(code)
     }
-  }, [])
+    navigate(location.pathname + location.search, { replace: true, state: null }) // tải lại trang không hiện lại
+  }, [location.state, location.pathname, location.search, navigate])
 
-  // Tải thông tin đơn hàng đang chọn từ API
-  const fetchOrder = async () => {
-    if (!activeOrderId) {
-      setLoading(false)
-      return
-    }
-
+  const fetchOrder = useCallback(async (showSpinner = false) => {
+    if (!activeCode) return
+    if (showSpinner) setLoading(true)
     try {
-      const res = await onlineOrderApi.getOrderById(activeOrderId)
+      const res = await onlineOrderApi.getOrderByCode(activeCode)
       setOrder(res.data)
       setError('')
-      // Tự động đồng bộ số điện thoại nếu chưa có
-      if (res.data?.customerPhone && !phone) {
-        setPhone(res.data.customerPhone)
-        localStorage.setItem('online_last_phone', res.data.customerPhone)
-        loadOrderHistory(res.data.customerPhone, false)
-      }
     } catch (err) {
-      if (!order) setError(errorMessage(err, 'Không tìm thấy thông tin đơn hàng.'))
+      // Lỗi lúc tự làm mới 30 giây thì giữ nguyên đơn đang hiện; chỉ báo lỗi khi mở / đổi mã đơn.
+      if (showSpinner) {
+        setOrder(null)
+        setError(errorMessage(err, 'Không tìm thấy đơn hàng với mã ' + activeCode + '.'))
+      }
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeCode])
 
-  // Tự động làm mới trạng thái mỗi 30 giây
+  // Đổi mã đang xem -> tải lại ngay; sau đó tự làm mới trạng thái mỗi 30 giây.
+  useEffect(() => {
+    setOrder(null)
+    setError('')
+    fetchOrder(true)
+  }, [fetchOrder])
   usePolling(fetchOrder, 30000)
 
-  useEffect(() => {
-    if (activeOrderId) {
-      setLoading(true)
-      fetchOrder()
-    }
-  }, [activeOrderId])
-
-  const selectOrder = (id) => {
-    setActiveOrderId(id)
-    setSearchParams({ orderId: id })
-    localStorage.setItem('online_last_order_id', String(id))
-  }
-
-  const handlePhoneSearch = (e) => {
+  const lookup = (e) => {
     e.preventDefault()
-    if (phone.trim()) {
-      localStorage.setItem('online_last_phone', phone.trim())
-      loadOrderHistory(phone.trim(), true)
+    const code = normalizeOrderCode(codeInput)
+    if (!isValidOrderCode(code)) {
+      setInputError('Mã đơn có dạng 261023-0008 (xem trong popup hoặc trang thanh toán khi đặt hàng).')
+      return
     }
+    setInputError('')
+    setCodeInput('')
+    setSearchParams({ code })
   }
 
   // Xử lý khách bấm nút "Hủy đơn hàng"
@@ -127,9 +116,8 @@ export default function OnlineTracking() {
     if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return
     setCancelling(true)
     try {
-      const res = await onlineOrderApi.cancelOrder(order.orderId, 'Khách hàng tự hủy trên website')
+      const res = await onlineOrderApi.cancelOrder(order.orderNumber, 'Khách hàng tự hủy trên website')
       setOrder(res.data)
-      if (phone) loadOrderHistory(phone)
       alert('Đã hủy đơn hàng thành công.')
     } catch (err) {
       alert(errorMessage(err, 'Không thể hủy đơn hàng vào lúc này.'))
@@ -138,101 +126,79 @@ export default function OnlineTracking() {
     }
   }
 
+  const lookupForm = (
+    <form onSubmit={lookup} noValidate className="gx-card mb-3 p-3">
+      <label htmlFor="ot-code" className="form-label fw-bold mb-1">Xem đơn khác</label>
+      <div className="d-flex gap-2">
+        <input
+          id="ot-code"
+          type="text"
+          className="form-control"
+          placeholder="Nhập mã đơn, ví dụ 261023-0008"
+          value={codeInput}
+          onChange={(e) => setCodeInput(e.target.value)}
+          maxLength={20}
+          autoComplete="off"
+        />
+        <button type="submit" className="btn btn-primary text-nowrap">Xem đơn</button>
+      </div>
+      {inputError && <div className="text-danger small mt-1">{inputError}</div>}
+      {urlCode && currentCode && urlCode !== currentCode && (
+        <button type="button" className="btn btn-link btn-sm px-0 mt-1" onClick={() => setSearchParams({})}>
+          ← Về đơn đang đặt ({currentCode})
+        </button>
+      )}
+    </form>
+  )
+
+  const popup = <OrderCodeDialog code={codePopup} onClose={() => setCodePopup(null)} />
+
   // 1. Đang tải
   if (loading) {
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-primary" role="status" />
         <div className="gx-muted mt-2">Đang tải thông tin đơn hàng...</div>
+        {popup}
       </div>
     )
   }
 
-  // 2. Chưa có đơn hàng nào
-  if (!activeOrderId && !order) {
+  // 2. Chưa có đơn đang đặt, hoặc mã nhập không tìm thấy
+  if (!order) {
     return (
       <>
         <h1 className="gx-title">Đơn hàng của bạn</h1>
-        <div className="gx-card mb-3 p-3">
-          <form onSubmit={handlePhoneSearch} className="d-flex gap-2">
-            <input
-              type="tel"
-              className="form-control"
-              placeholder="Nhập số điện thoại để tra cứu đơn..."
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              maxLength={10}
-            />
-            <button type="submit" className="btn btn-primary text-nowrap">
-              Tra cứu
-            </button>
-          </form>
-        </div>
+        {lookupForm}
         <div className="gx-card text-center p-4">
-          <h5>Chưa có đơn hàng nào</h5>
+          <h5>{activeCode ? 'Không xem được đơn này' : 'Chưa có đơn hàng nào'}</h5>
           <p className="gx-muted">
-            {error || 'Bạn chưa đặt đơn hàng nào gần đây hoặc chưa nhập đúng số điện thoại.'}
+            {error || 'Máy này chưa đặt đơn nào. Nếu bạn đã đặt trên máy khác, hãy nhập mã đơn ở trên.'}
           </p>
           <div className="mt-3">
-            <Link to="/online-order" className="btn btn-primary">
-              Xem thực đơn và đặt món
-            </Link>
+            <Link to="/online-order" className="btn btn-primary">Xem thực đơn và đặt món</Link>
           </div>
         </div>
+        {popup}
       </>
     )
   }
 
   const currentStep = getStepIndex(order)
   const isCancelled = currentStep === -1
-  const canCancel = currentStep === 0 
+  const canCancel = currentStep === 0
   const badge = getStatusBadge(order, currentStep)
 
   return (
     <>
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-        <h1 className="gx-title mb-0">Đơn hàng của bạn</h1>
-        <form onSubmit={handlePhoneSearch} className="d-flex gap-1" style={{ maxWidth: 280 }}>
-          <input
-            type="tel"
-            className="form-control form-control-sm"
-            placeholder="Tra cứu theo SĐT..."
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            maxLength={10}
-          />
-          <button type="submit" className="btn btn-outline-primary btn-sm text-nowrap">
-            Tìm
-          </button>
-        </form>
-      </div>
-
-      {/* Danh sách các đơn đã đặt */}
-      {orderList.length > 0 && (
-        <div className="d-flex gap-2 overflow-auto pb-2 mb-3 align-items-center" style={{ whiteSpace: 'nowrap' }}>
-          <span className="small text-muted me-1">Đơn của bạn:</span>
-          {orderList.map((item) => {
-            const isSelected = item.orderId === order?.orderId
-            return (
-              <button
-                key={item.orderId}
-                type="button"
-                className={`btn btn-sm ${isSelected ? 'btn-primary shadow-sm' : 'btn-outline-secondary'}`}
-                style={{ borderRadius: 20, fontSize: '0.8rem', padding: '4px 12px' }}
-                onClick={() => selectOrder(item.orderId)}
-              >
-                #{item.orderNumber || item.orderId} ({item.status})
-              </button>
-            )
-          })}
-        </div>
-      )}
+      <h1 className="gx-title mb-2">Đơn hàng của bạn</h1>
+      {lookupForm}
 
       <article className="gx-card gx-order mb-3">
         {/* Header: Mã đơn + Thời gian đặt + Badge trạng thái */}
         <header>
           <div>
-            <span className="gx-order-no">#{order.orderNumber || `ONL-${order.orderId}`}</span>
+            <span className="gx-order-no">#{order.orderNumber}</span>
             <span className="gx-muted"> · {elapsedLabel(order.createdAt)} trước</span>
           </div>
           <span className={`${badge.className} px-2 py-1`}>{badge.label}</span>
@@ -291,9 +257,15 @@ export default function OnlineTracking() {
           <span className="gx-price fs-5">{formatMoney(order.totalAmount)}</span>
         </footer>
 
-        {/* Nút Hủy đơn hàng: Chỉ hiện khi ở Bước 1 ("Đã nhận đơn") */}
-        {canCancel && (
-          <div className="text-end mt-2 pt-2 border-top">
+        <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top gap-2">
+          {/* Hóa đơn chỉ có khi đơn đã thanh toán */}
+          {order.paymentStatus === 'PAID' ? (
+            <Link to={`/online-receipts?code=${encodeURIComponent(order.orderNumber)}`} className="btn btn-light-soft btn-sm">
+              Xem hóa đơn
+            </Link>
+          ) : <span />}
+          {/* Nút Hủy đơn hàng: Chỉ hiện khi ở Bước 1 ("Đã nhận đơn") */}
+          {canCancel && (
             <button
               type="button"
               className="btn btn-outline-danger btn-sm"
@@ -302,8 +274,8 @@ export default function OnlineTracking() {
             >
               {cancelling ? 'Đang hủy...' : 'Hủy đơn hàng'}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </article>
 
       {/* Nút quay lại xem thực đơn */}
@@ -312,6 +284,7 @@ export default function OnlineTracking() {
           ← Quay lại xem thực đơn
         </Link>
       </div>
+      {popup}
     </>
   )
 }

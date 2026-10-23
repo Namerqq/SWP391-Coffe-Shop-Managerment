@@ -3,14 +3,13 @@ package com.example.project.repository;
 import com.example.project.entity.Order;
 import org.springframework.data.repository.Repository;
 
-import java.util.List;
+import java.util.Optional;
 
 /**
  * Chỉ đọc: hóa đơn điện tử của khách đặt online (ThangNN Iter2). Tách riêng để không sửa OrderRepository dùng chung.
  */
 public interface OnlineReceiptRepository extends Repository<Order, Long> {
 
-    /** 20 đơn gần nhất theo SĐT nhận hàng, đúng nguồn (ONLINE) và đã thanh toán (PAID), mới trả trước. */
-    List<Order> findTop20BySourceAndCustomerPhoneAndPaymentStatusOrderByPaidAtDesc(
-            String source, String customerPhone, String paymentStatus);
+    /** Đơn theo mã đơn (order_number dạng yyMMdd-0001), đúng nguồn (ONLINE). */
+    Optional<Order> findFirstBySourceAndOrderNumberOrderByIdDesc(String source, String orderNumber);
 }
