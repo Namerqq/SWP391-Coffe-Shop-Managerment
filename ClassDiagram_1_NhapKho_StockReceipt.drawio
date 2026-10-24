@@ -1,0 +1,84 @@
+<mxfile host="Electron" agent="SWP391-Single-Diagram">
+  <diagram id="diag_stock_receipt" name="1. Nhập Kho (Stock Receipt)">
+    <mxGraphModel dx="3512" dy="2332" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="c_receipt" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«controller»&lt;/b&gt;&lt;br&gt;&lt;b&gt;ManagerStockReceiptController&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- service : StockReceiptService&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ createDraft(req : StockReceiptRequest) : StockReceiptView&lt;br&gt;+ updateDraft(id : Long, req) : StockReceiptView&lt;br&gt;+ confirmReceipt(id : Long) : StockReceiptView&lt;br&gt;+ cancelReceipt(id : Long) : StockReceiptView&lt;br&gt;+ list(status, kw, pageable) : Page&amp;lt;StockReceiptView&amp;gt;&lt;br&gt;+ getById(id : Long) : StockReceiptView&lt;/p&gt;" vertex="1">
+          <mxGeometry height="337.5" width="550" x="-90" y="-103.75" as="geometry" />
+        </mxCell>
+        <mxCell id="dto_receipt_req" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«dto»&lt;/b&gt;&lt;br&gt;&lt;b&gt;StockReceiptRequest&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ receiptType : String&lt;br&gt;+ supplierName : String&lt;br&gt;+ note : String&lt;br&gt;+ items : List&amp;lt;StockReceiptItemRequest&amp;gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ getItems() : List&lt;/p&gt;" vertex="1">
+          <mxGeometry height="230" width="390" x="-520" y="820" as="geometry" />
+        </mxCell>
+        <mxCell id="dto_receipt_view" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«dto»&lt;/b&gt;&lt;br&gt;&lt;b&gt;StockReceiptView&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ id : Long&lt;br&gt;+ receiptCode : String&lt;br&gt;+ status : String&lt;br&gt;+ totalAmount : BigDecimal&lt;br&gt;+ items : List&amp;lt;StockReceiptItemView&amp;gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ totalAmount() : BigDecimal&lt;/p&gt;" vertex="1">
+          <mxGeometry height="292" width="380" x="-290" y="378" as="geometry" />
+        </mxCell>
+        <mxCell id="s_receipt" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«service»&lt;/b&gt;&lt;br&gt;&lt;b&gt;StockReceiptService&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- receiptRepo : StockReceiptRepository&lt;br&gt;- itemRepo : StockReceiptItemRepository&lt;br&gt;- invRepo : InventoryItemRepository&lt;br&gt;- txRepo : StockTransactionRepository&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ createDraft(req, user) : StockReceiptView&lt;br&gt;+ updateDraft(id, req, user) : StockReceiptView&lt;br&gt;+ confirmReceipt(id, user) : StockReceiptView&lt;br&gt;+ cancelReceipt(id, user) : StockReceiptView&lt;br&gt;+ list(status, kw, pageable) : Page&lt;br&gt;+ getById(id : Long) : StockReceiptView&lt;/p&gt;" vertex="1">
+          <mxGeometry height="370" width="610" x="610" y="-120" as="geometry" />
+        </mxCell>
+        <mxCell id="r_receipt" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«repository»&lt;/b&gt;&lt;br&gt;&lt;b&gt;StockReceiptRepository&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ findWithDetailsById(id : Long) : Optional&amp;lt;StockReceipt&amp;gt;&lt;br&gt;+ findByStatus(status, pageable) : Page&amp;lt;StockReceipt&amp;gt;&lt;br&gt;+ searchReceipts(kw, pageable) : Page&amp;lt;StockReceipt&amp;gt;&lt;/p&gt;" vertex="1">
+          <mxGeometry height="260" width="390" x="180" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="r_receipt_item" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«repository»&lt;/b&gt;&lt;br&gt;&lt;b&gt;StockReceiptItemRepository&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ findByReceiptId(id : Long) : List&amp;lt;StockReceiptItem&amp;gt;&lt;/p&gt;" vertex="1">
+          <mxGeometry height="160" width="320" x="1325" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="r_inv" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«repository»&lt;/b&gt;&lt;br&gt;&lt;b&gt;InventoryItemRepository&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ findById(id : Long) : Optional&amp;lt;InventoryItem&amp;gt;&lt;br&gt;+ save(item : InventoryItem) : InventoryItem&lt;/p&gt;" vertex="1">
+          <mxGeometry height="190" width="315" x="755" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="e_receipt" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#b1ddf0;strokeColor=#10739e;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«entity»&lt;/b&gt;&lt;br&gt;&lt;b&gt;StockReceipt&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- id : Long&lt;br&gt;- receiptCode : String (PN-...)&lt;br&gt;- receiptType : String&lt;br&gt;- status : Status (DRAFT/RECEIVED/CANCELLED)&lt;br&gt;- supplierName : String&lt;br&gt;- totalAmount : BigDecimal&lt;br&gt;- items : List&amp;lt;StockReceiptItem&amp;gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ calculateTotal() : BigDecimal&lt;br&gt;+ confirm() : void&lt;br&gt;+ cancel() : void&lt;/p&gt;" vertex="1">
+          <mxGeometry height="370" width="520" x="110" y="890" as="geometry" />
+        </mxCell>
+        <mxCell id="e_receipt_item" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#b1ddf0;strokeColor=#10739e;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«entity»&lt;/b&gt;&lt;br&gt;&lt;b&gt;StockReceiptItem&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- id : Long&lt;br&gt;- receipt : StockReceipt&lt;br&gt;- inventoryItem : InventoryItem&lt;br&gt;- quantity : BigDecimal&lt;br&gt;- unitPrice : BigDecimal&lt;br&gt;- lineTotal : BigDecimal&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ calculateLineTotal() : BigDecimal&lt;br&gt;+ getInventoryItem() : InventoryItem&lt;/p&gt;" vertex="1">
+          <mxGeometry height="330" width="370" x="1300" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="e_inv_item" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#b1ddf0;strokeColor=#10739e;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«entity»&lt;/b&gt;&lt;br&gt;&lt;b&gt;InventoryItem&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- id : Long&lt;br&gt;- itemName : String&lt;br&gt;- currentQuantity : BigDecimal&lt;br&gt;- minQuantity : BigDecimal&lt;br&gt;- costPerUnit : BigDecimal&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ addStock(qty : BigDecimal) : void&lt;br&gt;+ isLowStock() : boolean&lt;/p&gt;" vertex="1">
+          <mxGeometry height="310" width="345" x="742.5" y="730" as="geometry" />
+        </mxCell>
+        <mxCell id="e1_c_s" edge="1" parent="1" source="c_receipt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endSize=8;strokeColor=#000000;strokeWidth=1.2;fontSize=20;" target="s_receipt" value="calls">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1_c_dto1" edge="1" parent="1" source="c_receipt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endSize=8;strokeColor=#4d4d4d;strokeWidth=1.2;fontSize=20;" target="dto_receipt_req" value="consumes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1_c_dto2" edge="1" parent="1" source="c_receipt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endSize=8;strokeColor=#4d4d4d;strokeWidth=1.2;fontSize=20;" target="dto_receipt_view" value="returns">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1_s_r1" edge="1" parent="1" source="s_receipt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endSize=8;strokeColor=#000000;strokeWidth=1.2;fontSize=20;" target="r_receipt" value="injects">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="350" />
+              <mxPoint x="375" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1_s_r2" edge="1" parent="1" source="s_receipt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endSize=8;strokeColor=#000000;strokeWidth=1.2;fontSize=20;" target="r_receipt_item" value="injects">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1_s_r3" edge="1" parent="1" source="s_receipt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endSize=8;strokeColor=#000000;strokeWidth=1.2;fontSize=20;" target="r_inv" value="injects">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1_r_e1" edge="1" parent="1" source="r_receipt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endSize=8;strokeColor=#4d4d4d;strokeWidth=1.2;fontSize=20;" target="e_receipt" value="manages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1_r_e2" edge="1" parent="1" source="r_receipt_item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endSize=8;strokeColor=#4d4d4d;strokeWidth=1.2;fontSize=20;" target="e_receipt_item" value="manages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1_r_e3" edge="1" parent="1" source="r_inv" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endSize=8;strokeColor=#4d4d4d;strokeWidth=1.2;fontSize=20;" target="e_inv_item" value="manages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1_comp" edge="1" parent="1" source="e_receipt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamond;startFill=1;startSize=14;endArrow=none;strokeColor=#000000;strokeWidth=1.4;fontSize=20;" target="e_receipt_item" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1555" y="1150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1_agg" edge="1" parent="1" source="e_receipt_item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamond;startFill=0;startSize=14;endArrow=none;strokeColor=#000000;strokeWidth=1.4;fontSize=20;" target="e_inv_item" value="references">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

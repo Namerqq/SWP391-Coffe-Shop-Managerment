@@ -146,8 +146,8 @@ public class QrPaymentRequest {
     }
 
     public Long getId() { return id; }
-    public long getOrderCode() { return orderCode; }
-    public void setOrderCode(long orderCode) { this.orderCode = orderCode; }
+    public long getOrderCode() { return orderCode != null ? orderCode : 0L; }
+    public void setOrderCode(Long orderCode) { this.orderCode = orderCode; }
     public String getPaymentLinkId() { return paymentLinkId; }
     public void setPaymentLinkId(String paymentLinkId) { this.paymentLinkId = paymentLinkId; }
     public String getTargetType() { return targetType; }
@@ -161,10 +161,10 @@ public class QrPaymentRequest {
     public void setCustomer(Customer customer) { this.customer = customer; }
     public int getPointsToRedeem() { return pointsToRedeem == null ? 0 : pointsToRedeem; }
     public void setPointsToRedeem(int pointsToRedeem) { this.pointsToRedeem = pointsToRedeem; }
-    public long getSubtotal() { return subtotal; }
-    public void setSubtotal(long subtotal) { this.subtotal = subtotal; }
-    public long getAmount() { return amount; }
-    public void setAmount(long amount) { this.amount = amount; }
+    public long getSubtotal() { return subtotal == null ? 0L : subtotal; }
+    public void setSubtotal(Long subtotal) { this.subtotal = subtotal; }
+    public long getAmount() { return amount == null ? 0L : amount; }
+    public void setAmount(Long amount) { this.amount = amount; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     public String getQrCode() { return qrCode; }
