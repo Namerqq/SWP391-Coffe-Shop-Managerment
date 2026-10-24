@@ -10,11 +10,19 @@ import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.InventoryItemRepository;
+import com.example.project.repository.StockReceiptRepository;
 import com.example.project.repository.StockTransactionRepository;
+import com.example.project.repository.UserRepository;
+import com.example.project.entity.StockReceipt;
+import com.example.project.entity.StockReceiptItem;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -32,10 +40,14 @@ public class InventoryService {
 
     private final InventoryItemRepository itemRepo;
     private final StockTransactionRepository txRepo;
+    private final UserRepository userRepo;
 
-    public InventoryService(InventoryItemRepository itemRepo, StockTransactionRepository txRepo) {
+    public InventoryService(InventoryItemRepository itemRepo,
+                            StockTransactionRepository txRepo,
+                            UserRepository userRepo) {
         this.itemRepo = itemRepo;
         this.txRepo = txRepo;
+        this.userRepo = userRepo;
     }
 
     // ========== Danh sách ==========
@@ -200,12 +212,58 @@ public class InventoryService {
         tx.setCreatedBy(currentUser);
         tx.setTransactionType(StockTransaction.WASTE);
         tx.setQuantity(req.quantity());
-        tx.setReason("Hao hụt / Hư hỏng tại quầy pha chế");
-        tx.setNote(req.note());
+
+        long unitCost = item.getUnitCost() != null ? item.getUnitCost() : 0L;
+        long totalLoss = req.quantity().multiply(BigDecimal.valueOf(unitCost)).longValue();
+
+        boolean isSubjective = "SUBJECTIVE".equalsIgnoreCase(req.causeType());
+        if (isSubjective) {
+            String staffName = "Chưa chỉ định";
+            if (req.responsibleUserId() != null) {
+                staffName = userRepo.findById(req.responsibleUserId())
+                        .map(User::getFullName)
+                        .orElse("ID: " + req.responsibleUserId());
+            }
+            int pct = req.compensationPercentage() != null ? Math.max(0, Math.min(100, req.compensationPercentage())) : 0;
+            long penalty = Math.round(totalLoss * (pct / 100.0));
+            String formattedNote = String.format("[BIÊN BẢN SỰ CỐ - LỖI CHỦ QUAN] Trách nhiệm: %s | Phạt: %d%% (%,d đ / Thiệt hại: %,d đ)",
+                    staffName, pct, penalty, totalLoss);
+            if (req.note() != null && !req.note().isBlank()) {
+                formattedNote += " | Diễn giải: " + req.note().trim();
+            }
+            if (req.evidenceImageUrl() != null && !req.evidenceImageUrl().isBlank()) {
+                formattedNote += " | Ảnh: " + req.evidenceImageUrl().trim();
+            }
+            tx.setReason("Sự cố hư hỏng (Lỗi chủ quan - " + staffName + ")");
+            tx.setNote(formattedNote);
+        } else {
+            String formattedNote = "[BIÊN BẢN SỰ CỐ - KHÁCH QUAN] Quán chịu chi phí (Thiệt hại: " + String.format("%,d đ", totalLoss) + ")";
+            if (req.note() != null && !req.note().isBlank()) {
+                formattedNote += " | Diễn giải: " + req.note().trim();
+            }
+            if (req.evidenceImageUrl() != null && !req.evidenceImageUrl().isBlank()) {
+                formattedNote += " | Ảnh: " + req.evidenceImageUrl().trim();
+            }
+            tx.setReason("Sự cố hư hỏng (Khách quan / Quán chịu)");
+            tx.setNote(formattedNote);
+        }
         txRepo.save(tx);
 
         item.setCurrentQuantity(item.getCurrentQuantity().subtract(req.quantity()));
         return InventoryItemView.from(item);
+    }
+
+    /** Lấy danh sách nhân viên đang hoạt động để Barista chọn người chịu trách nhiệm biên bản. */
+    public List<StaffSelectView> listActiveStaff() {
+        return userRepo.findAllByStatusOrderByFullNameAsc(User.ACTIVE)
+                .stream()
+                .map(u -> new StaffSelectView(
+                        u.getId(),
+                        u.getUsername(),
+                        u.getFullName(),
+                        u.getRole() != null ? u.getRole().getName() : "STAFF"
+                ))
+                .toList();
     }
 
     // ========== Lịch sử giao dịch ==========

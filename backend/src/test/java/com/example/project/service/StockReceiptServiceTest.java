@@ -1,5 +1,7 @@
 package com.example.project.service;
 
+import com.example.project.dto.inventory.BatchShortageItemRequest;
+import com.example.project.dto.inventory.BatchShortageReportRequest;
 import com.example.project.dto.inventory.ShortageReportRequest;
 import com.example.project.dto.inventory.StockReceiptItemRequest;
 import com.example.project.dto.inventory.StockReceiptRequest;
@@ -177,5 +179,50 @@ class StockReceiptServiceTest {
         assertEquals(StockReceipt.CANCELLED, view.status());
         assertTrue(view.note().contains("Không còn nhu cầu"));
         verify(receiptRepo, times(1)).save(receipt);
+    }
+
+    @Test
+    @DisplayName("Tạo đề xuất bổ sung hàng loạt từ Barista thành công")
+    void createBatchShortageReport_success() {
+        InventoryItem item1 = new InventoryItem();
+        org.springframework.test.util.ReflectionTestUtils.setField(item1, "id", 1L);
+        item1.setItemName("Cà phê Robusta");
+        item1.setUnit("kg");
+        item1.setCurrentQuantity(new BigDecimal("2.000"));
+        item1.setUnitCost(200000L);
+
+        InventoryItem item2 = new InventoryItem();
+        org.springframework.test.util.ReflectionTestUtils.setField(item2, "id", 2L);
+        item2.setItemName("Sữa đặc Ngôi Sao");
+        item2.setUnit("hộp");
+        item2.setCurrentQuantity(new BigDecimal("1.000"));
+        item2.setUnitCost(25000L);
+
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(item1));
+        when(itemRepo.findById(2L)).thenReturn(Optional.of(item2));
+        when(receiptRepo.existsByReceiptCode(any())).thenReturn(false);
+        when(receiptRepo.save(any(StockReceipt.class))).thenAnswer(inv -> {
+            StockReceipt r = inv.getArgument(0);
+            org.springframework.test.util.ReflectionTestUtils.setField(r, "id", 99L);
+            return r;
+        });
+
+        BatchShortageReportRequest req = new BatchShortageReportRequest(
+                "URGENT",
+                "Quầy bar sắp hết nguyên liệu pha chế ca tối",
+                List.of(
+                        new BatchShortageItemRequest(1L, new BigDecimal("10.000"), "URGENT"),
+                        new BatchShortageItemRequest(2L, new BigDecimal("24.000"), "NORMAL")
+                )
+        );
+
+        StockReceiptView view = stockReceiptService.createBatchShortageReport(req, sampleUser);
+
+        assertNotNull(view);
+        assertEquals(StockReceipt.DRAFT, view.status());
+        assertTrue(view.receiptCode().startsWith("YC-"));
+        assertTrue(view.note().contains("[KHẨN CẤP]"));
+        assertEquals(2, view.items().size());
+        verify(receiptRepo, times(1)).save(any(StockReceipt.class));
     }
 }

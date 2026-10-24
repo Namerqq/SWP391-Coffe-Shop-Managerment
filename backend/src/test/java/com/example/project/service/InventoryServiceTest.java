@@ -4,6 +4,7 @@ import com.example.project.entity.InventoryItem;
 import com.example.project.entity.User;
 import com.example.project.repository.InventoryItemRepository;
 import com.example.project.repository.StockTransactionRepository;
+import com.example.project.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class InventoryServiceTest {
 
     @Mock
     private StockTransactionRepository txRepo;
+
+    @Mock
+    private UserRepository userRepo;
 
     @InjectMocks
     private InventoryService inventoryService;
@@ -337,12 +341,49 @@ class InventoryServiceTest {
 
         WasteReportRequest req = new WasteReportRequest(new BigDecimal("0.500"), "Bị rơi đổ");
         InventoryItemView view = inventoryService.waste(1L, req, sampleManager);
+        assertNotNull(view);
 
         assertEquals(new BigDecimal("9.500"), item.getCurrentQuantity());
         verify(txRepo, times(1)).save(argThat(tx ->
                 StockTransaction.WASTE.equals(tx.getTransactionType()) &&
                 new BigDecimal("0.500").equals(tx.getQuantity()) &&
-                "Bị rơi đổ".equals(tx.getNote())
+                tx.getNote().contains("Bị rơi đổ")
+        ));
+    }
+
+    @Test
+    @DisplayName("TC11B: Báo sự cố hao hụt lỗi chủ quan kèm quy trách nhiệm nhân viên và % bồi thường")
+    void waste_subjectiveWithAccountability_success() {
+        InventoryItem item = new InventoryItem();
+        item.setItemName("Fresh milk");
+        item.setCurrentQuantity(new BigDecimal("8.000"));
+        item.setUnitCost(35000L);
+        when(itemRepo.findById(2L)).thenReturn(Optional.of(item));
+
+        User staff = new User();
+        org.springframework.test.util.ReflectionTestUtils.setField(staff, "id", 4L);
+        staff.setFullName("Trần Văn Barista");
+        when(userRepo.findById(4L)).thenReturn(Optional.of(staff));
+
+        WasteReportRequest req = new WasteReportRequest(
+                new BigDecimal("2.000"),
+                "Làm rơi vỡ bình sữa khi đánh bọt",
+                "SUBJECTIVE",
+                4L,
+                50,
+                "https://example.com/evidence.jpg"
+        );
+
+        InventoryItemView view = inventoryService.waste(2L, req, sampleManager);
+        assertNotNull(view);
+        assertEquals(new BigDecimal("6.000"), item.getCurrentQuantity()); // 8 - 2 = 6
+
+        verify(txRepo, times(1)).save(argThat(tx ->
+                StockTransaction.WASTE.equals(tx.getTransactionType()) &&
+                new BigDecimal("2.000").equals(tx.getQuantity()) &&
+                tx.getNote().contains("[BIÊN BẢN SỰ CỐ - LỖI CHỦ QUAN]") &&
+                tx.getNote().contains("Trần Văn Barista") &&
+                tx.getNote().contains("Phạt: 50%")
         ));
     }
 
