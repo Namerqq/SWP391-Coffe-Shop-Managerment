@@ -47,6 +47,9 @@ class InventoryServiceTest {
     @Mock
     private UserRepository userRepo;
 
+    @Mock
+    private com.example.project.repository.StockReceiptRepository receiptRepo;
+
     @InjectMocks
     private InventoryService inventoryService;
 
@@ -461,5 +464,45 @@ class InventoryServiceTest {
 
         assertTrue(ex.getMessage().contains("Không đủ nguyên liệu"));
         verify(txRepo, never()).save(any(StockTransaction.class));
+    }
+
+    @Test
+    @DisplayName("Tra cứu lịch sử nhập kho theo ngày đơn lẻ (Single Day View) thành công")
+    void getSingleDayReceiptHistory_success() {
+        org.springframework.test.util.ReflectionTestUtils.setField(sampleItem, "id", 1L);
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(sampleItem));
+
+        com.example.project.entity.StockReceipt receipt = new com.example.project.entity.StockReceipt();
+        org.springframework.test.util.ReflectionTestUtils.setField(receipt, "id", 101L);
+        receipt.setReceiptCode("PN-20261025-001");
+        receipt.setSupplierName("NCC Cầu Đất Farm");
+        receipt.setStatus("RECEIVED");
+        receipt.setReceiptDate(java.time.LocalDate.of(2026, 10, 25));
+        receipt.setConfirmedAt(java.time.LocalDateTime.of(2026, 10, 25, 14, 30));
+        receipt.setCreatedBy(sampleManager);
+
+        com.example.project.entity.StockReceiptItem ri = new com.example.project.entity.StockReceiptItem();
+        ri.setReceipt(receipt);
+        ri.setInventoryItem(sampleItem);
+        ri.setQuantity(new BigDecimal("10.000"));
+        ri.setUnitCost(215000L);
+        ri.setSubtotal(2150000L);
+
+        when(receiptRepo.findReceivedItemsByIngredientAndDate(eq(1L), any(), any(), eq(java.time.LocalDate.of(2026, 10, 25))))
+                .thenReturn(List.of(ri));
+        when(txRepo.findByInventoryItem_IdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of());
+
+        var view = inventoryService.getSingleDayReceiptHistory(1L, java.time.LocalDate.of(2026, 10, 25));
+
+        assertNotNull(view);
+        assertEquals(1L, view.ingredientId());
+        assertEquals(1, view.summary().totalReceipts());
+        assertEquals(new BigDecimal("10.000"), view.summary().totalQuantity());
+        assertEquals(2150000L, view.summary().totalCost());
+        assertEquals(1, view.items().size());
+        assertEquals("PN-20261025-001", view.items().get(0).receiptCode());
+        assertEquals("14:30", view.items().get(0).receiptTime());
+        assertEquals("NCC Cầu Đất Farm", view.items().get(0).supplierName());
     }
 }
