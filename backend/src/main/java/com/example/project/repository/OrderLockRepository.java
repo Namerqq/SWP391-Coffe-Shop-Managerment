@@ -17,6 +17,10 @@ public interface OrderLockRepository extends Repository<Order, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Order> findWithLockById(Long id);
 
+    /** Đơn online theo mã đơn, kèm khóa dòng: khách tự hủy cùng lúc thu ngân xác nhận / hủy thì người sau chờ. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Order> findFirstWithLockByOrderNumberAndSourceOrderByIdDesc(String orderNumber, String source);
+
     /** Mọi đơn của 1 lượt khách, kèm khóa dòng: 2 thu ngân bấm thanh toán cùng lúc thì người sau thấy đơn đã thu. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Order> findWithLockByTableSession_IdOrderByCreatedAtAsc(Long tableSessionId);

@@ -1,6 +1,11 @@
 // Lưu trên máy khách: mã phiên gọi món (cấp khi quét QR) và giỏ hàng theo từng bàn.
 const TOKEN_KEY = 'gc_guest_token'
-const cartKey = (tableId) => `gc_guest_cart_${tableId}`
+const QR_KEY = 'gc_guest_qr' // mã QR của bàn đã quét, để tự mở phiên mới khi lượt trước xong
+const CART_PREFIX = 'gc_guest_cart_'
+const cartKey = (tableId) => `${CART_PREFIX}${tableId}`
+
+/** Mã lỗi backend trả về (410) khi lượt khách đã phục vụ + thanh toán xong. */
+export const SESSION_ENDED_CODE = 'GUEST_SESSION_ENDED'
 
 const read = (key, fallback) => {
   try {
@@ -21,6 +26,17 @@ const write = (key, value) => {
 
 export const getGuestToken = () => read(TOKEN_KEY, null)
 export const setGuestToken = (token) => write(TOKEN_KEY, token)
+export const getGuestQr = () => read(QR_KEY, null)
+export const setGuestQr = (qrCode) => write(QR_KEY, qrCode)
+
+// Các phiên (token) đã kết thúc mà máy này đã xử lý + đã báo "Cảm ơn quý khách" -> không báo lại lần 2.
+const ENDED_SEEN_KEY = 'gc_guest_ended_seen'
+export const wasEndedHandled = (token) => !!token && read(ENDED_SEEN_KEY, []).includes(token)
+export const markEndedHandled = (token) => {
+  if (!token) return
+  const seen = read(ENDED_SEEN_KEY, []).filter((t) => t !== token)
+  write(ENDED_SEEN_KEY, [...seen, token].slice(-20)) // chỉ giữ 20 phiên gần nhất
+}
 export const guestHeaders = () => {
   const token = getGuestToken()
   return token ? { 'X-Guest-Token': token } : {}
@@ -28,6 +44,17 @@ export const guestHeaders = () => {
 
 export const loadCart = (tableId) => (tableId ? read(cartKey(tableId), []) : [])
 export const saveCart = (tableId, cart) => tableId && write(cartKey(tableId), cart.length ? cart : null)
+
+/** Xóa mọi giỏ hàng khách đã lưu trên máy (dùng khi lượt khách đã xong để khách sau không thấy). */
+export const clearAllCarts = () => {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(CART_PREFIX))
+      .forEach((key) => localStorage.removeItem(key))
+  } catch {
+    // trình duyệt chặn lưu trữ: không có gì để xóa
+  }
+}
 
 /** Mã yêu cầu chống gửi trùng đơn (giữ nguyên khi gửi lại sau lỗi mạng). */
 export const newRequestKey = () =>

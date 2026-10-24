@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import staffApi from '../../api/staffApi'
 import waiterApi from '../../api/waiterApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
-import usePolling from '../../utils/usePolling'
 import ConfirmModal from '../../components/ConfirmModal'
 import StatusPill from '../../components/order/StatusPill'
 import { formatMoney, formatTime, isWaiting, itemOptionsText } from '../../utils/orderFormat'
@@ -29,7 +28,7 @@ export default function WaiterTableDetail() {
   const [cancelling, setCancelling] = useState(null)
   const [changingTable, setChangingTable] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = async () => {
     try {
       const res = await staffApi.getTableSession(tableId)
       setSession(res.data)
@@ -43,8 +42,15 @@ export default function WaiterTableDetail() {
         setError(errorMessage(e, 'Không tải được đơn của bàn.'))
       }
     }
+  }
+
+  // Tải đơn của bàn ngay khi mở trang, sau đó cứ 5 giây tải lại 1 lần.
+  // Đổi sang bàn khác (tableId đổi) thì dừng vòng cũ và chạy lại cho bàn mới.
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 5000)
+    return () => clearInterval(timer)
   }, [tableId])
-  usePolling(load, 5000)
 
   useEffect(() => {
     staffApi.getMenu().then((res) => setMenu(res.data)).catch(() => {})
@@ -77,11 +83,21 @@ export default function WaiterTableDetail() {
     </Link>
   )
 
+  // Nút mở màn hình Hỗ trợ đặt món cho bàn này (UC-W01)
+  const assistButton = (
+    <Link to={`/waiter/tables/${tableId}/order`} className="btn btn-primary btn-sm">
+      <i className="bi bi-plus-lg me-1" /> Hỗ trợ đặt món
+    </Link>
+  )
+
   if (vacantMsg) {
     return (
       <>
         {back}
-        <div className="cf-card empty-state"><i className="bi bi-cup" />{vacantMsg}</div>
+        <div className="cf-card empty-state">
+          <i className="bi bi-cup" />{vacantMsg}
+          <div className="mt-3">{assistButton}</div>
+        </div>
       </>
     )
   }
@@ -134,6 +150,7 @@ export default function WaiterTableDetail() {
           </div>
           <p className="page-subtitle mt-1 mb-0">Lượt khách {session.sessionCode}, vào lúc {formatTime(session.openedAt)}</p>
         </div>
+        {assistButton}
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
@@ -181,7 +198,7 @@ export default function WaiterTableDetail() {
                           {(i.status === 'PENDING' || i.status === 'PREPARING') && (
                             <span className="status-pill tone-pending" style={{ fontSize: '0.72rem' }}>Đang pha</span>
                           )}
-                          {i.note?.includes('[SỰ CỐ: PHA LẠI') && (
+                          {i.remake && (
                             <span className="badge text-bg-danger" style={{ fontSize: '0.7rem' }}>Pha bù</span>
                           )}
                         </div>

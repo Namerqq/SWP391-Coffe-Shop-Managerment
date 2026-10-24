@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import onlinePaymentApi from '../../api/onlinePaymentApi'
 import { errorMessage } from '../../api/axiosClient'
@@ -6,32 +6,21 @@ import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import { toItemRequest, unitTotal } from '../../utils/orderOptions'
 
 /**
- * ThangNN Iter2 — màn "Online Payment Method & Loyalty" (BF-03-2, UC-CU05 / UC-CU10). Đường dẫn: /online-pay.
+ * ThangNN Iter2 — màn "Online Payment Method" (BF-03-2, UC-CU05 / UC-CU10). Đường dẫn: /online-pay.
  * Trang Thông tin đặt hàng (ThangDT) chuyển sang đây khi khách chọn trả QR, kèm state:
  *   { customerName, customerPhone, deliveryAddress, note, items }   (items = các dòng trong giỏ online)
- * Khách xem tổng tiền, tích / dùng điểm theo SĐT nhận hàng rồi tạo mã QR.
+ * Khách xem lại đơn, tổng tiền rồi tạo mã QR. Khách online không tích điểm và không dùng điểm.
  * Đơn CHƯA được tạo ở đây: khách trả xong hệ thống mới tạo đơn.
  */
 export default function OnlinePayment() {
   const navigate = useNavigate()
   const order = useLocation().state
   const items = useMemo(() => order?.items || [], [order])
-  const [member, setMember] = useState(null)
-  const [lookupError, setLookupError] = useState('')
-  const [join, setJoin] = useState(false)
-  const [points, setPoints] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const subtotal = useMemo(() => items.reduce((s, l) => s + unitTotal(l) * l.quantity, 0), [items])
+  const total = useMemo(() => items.reduce((s, l) => s + unitTotal(l) * l.quantity, 0), [items])
   const itemCount = items.reduce((s, l) => s + l.quantity, 0)
-
-  useEffect(() => {
-    if (!order?.customerPhone) return
-    onlinePaymentApi.lookupLoyalty(order.customerPhone)
-      .then((res) => setMember(res.data))
-      .catch((err) => setLookupError(errorMessage(err, 'Chưa kiểm tra được điểm thành viên.')))
-  }, [order?.customerPhone])
 
   if (!order || items.length === 0) {
     return (
@@ -43,17 +32,6 @@ export default function OnlinePayment() {
     )
   }
 
-  const isMember = Boolean(member?.member)
-  const pointValue = member?.pointValueVnd || 1000
-  const vndPerPoint = member?.vndPerPoint || 10000
-  // Số tiền trong mã QR phải lớn hơn 0đ nên điểm dùng không được trừ hết tiền đơn.
-  const maxPoints = isMember ? Math.max(0, Math.min(member.points, Math.floor((subtotal - 1) / pointValue))) : 0
-  const used = Math.min(maxPoints, Math.max(0, parseInt(points, 10) || 0))
-  const discount = used * pointValue
-  const total = subtotal - discount
-  const willEarn = isMember || join ? Math.floor(total / vndPerPoint) : 0
-  const ready = Boolean(member || lookupError)
-
   const submit = async () => {
     setError('')
     setSubmitting(true)
@@ -64,8 +42,6 @@ export default function OnlinePayment() {
         deliveryAddress: order.deliveryAddress,
         note: order.note || null,
         items: items.map(toItemRequest),
-        joinLoyalty: !isMember && join,
-        pointsToRedeem: used,
       })
       navigate(`/online-pay/qr?id=${encodeURIComponent(res.data.paymentLinkId)}`, { replace: true })
     } catch (err) {
@@ -97,43 +73,8 @@ export default function OnlinePayment() {
         </div>
       </section>
 
-      <section className="gx-card mb-3 p-3" aria-labelledby="op-loyalty">
-        <h2 id="op-loyalty" className="op-heading">Tích điểm thành viên</h2>
-        {!ready && <p className="gx-muted mb-0">Đang kiểm tra số {order.customerPhone}…</p>}
-        {lookupError && <p className="gx-muted mb-0">{lookupError} Bạn vẫn thanh toán được, đơn này không tích điểm.</p>}
-        {isMember && (
-          <>
-            <p className="mb-2">
-              Số {member.phoneNumber}{member.fullName ? ` (${member.fullName})` : ''} đang có <strong>{member.points} điểm</strong>.
-              Đơn này được cộng điểm tự động.
-            </p>
-            {maxPoints > 0 ? (
-              <label className="op-points">
-                <span>Dùng điểm, tối đa {maxPoints} (1 điểm = {formatMoney(pointValue)})</span>
-                <input type="text" inputMode="numeric" className="form-control" placeholder="0" value={points}
-                       onChange={(e) => setPoints(e.target.value.replace(/\D/g, '').slice(0, 6))} />
-              </label>
-            ) : (
-              <p className="gx-muted mb-0">Chưa đủ điểm để giảm cho đơn này.</p>
-            )}
-          </>
-        )}
-        {member && !isMember && (
-          <div className="form-check">
-            <input id="op-join" type="checkbox" className="form-check-input" checked={join}
-                   onChange={(e) => setJoin(e.target.checked)} />
-            <label htmlFor="op-join" className="form-check-label">
-              Đăng ký thành viên bằng số {member.phoneNumber} để tích điểm cho đơn này
-            </label>
-          </div>
-        )}
-      </section>
-
       <div className="gx-summary">
-        <div><span>Tạm tính</span><span>{formatMoney(subtotal)}</span></div>
-        {discount > 0 && <div><span>Giảm bằng {used} điểm</span><span>−{formatMoney(discount)}</span></div>}
         <div><span>Cần thanh toán</span><strong>{formatMoney(total)}</strong></div>
-        {willEarn > 0 && <p>Sau khi thanh toán, số {order.customerPhone} được cộng {willEarn} điểm.</p>}
         <p>Thanh toán bằng chuyển khoản QR. Đơn được tạo và gửi pha chế ngay khi quán nhận được tiền.</p>
       </div>
 
@@ -146,7 +87,7 @@ export default function OnlinePayment() {
 
       <div className="gx-actions">
         <Link to="/online-order/checkout" className="btn btn-light-soft">Quay lại</Link>
-        <button type="button" className="btn btn-primary flex-grow-1 py-2" disabled={submitting || !ready} onClick={submit}>
+        <button type="button" className="btn btn-primary flex-grow-1 py-2" disabled={submitting} onClick={submit}>
           {submitting ? 'Đang tạo mã QR…' : `Tạo mã QR thanh toán ${formatMoney(total)}`}
         </button>
       </div>

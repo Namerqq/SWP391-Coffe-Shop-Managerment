@@ -23,14 +23,25 @@ export default function GuestCart() {
   const send = async () => {
     setSending(true)
     setError('')
+    const items = cart.map(toItemRequest)
+    const body = { items, note: note.trim() || null, requestKey: requestKey() }
     try {
-      const res = await guestOrderApi.placeOrder({ items: cart.map(toItemRequest), note: note.trim() || null, requestKey: requestKey() })
+      let res
+      try {
+        res = await guestOrderApi.placeOrder(body)
+      } catch (e) {
+        if (e.response?.status !== 410) throw e
+        // Lượt trước vừa kết thúc đúng lúc bấm gửi: mở phiên mới cho bàn (giữ giỏ đang chọn) rồi gửi lại 1 lần.
+        const renewed = await expire(e, { keepCart: true })
+        if (!renewed) return
+        res = await guestOrderApi.placeOrder({ ...body, requestKey: requestKey() })
+      }
       clearCart()
       setNote('')
       toast(`Đã gửi đơn ${res.data.displayNumber}. Quán đang chuẩn bị cho bạn.`)
       navigate('/orders')
     } catch (e) {
-      if (e.response?.status === 410) expire(errorMessage(e))
+      if (e.response?.status === 410) expire(e)
       else setError(errorMessage(e, 'Gửi đơn chưa được, vui lòng thử lại.'))
     } finally {
       setSending(false)
@@ -56,7 +67,7 @@ export default function GuestCart() {
           <div className="gx-line" key={l.key}>
             <div className="gx-line-main">
               <button type="button" className="gx-line-name" onClick={() => editLine(l)} title="Sửa lựa chọn">{l.itemName}</button>
-              {itemOptionsText(l) && <div className="gx-muted">{itemOptionsText(l)}</div>}
+              {itemOptionsText(l, { showDefaults: true }) && <div className="gx-muted">{itemOptionsText(l, { showDefaults: true })}</div>}
               {l.note && <div className="gx-note">{l.note}</div>}
               <div className="gx-line-actions">
                 <div className="gx-qty sm" aria-label={`Số lượng ${l.itemName}`}>

@@ -5,6 +5,7 @@ import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import { toItemRequest, unitTotal } from '../../utils/orderOptions'
 import onlineOrderApi from '../../api/onlineOrderApi'
 import { errorMessage } from '../../api/axiosClient'
+import { setCurrentOrderCode } from '../../utils/onlineOrderCode'
 
 const PHONE_REGEX = /^0\d{9}$/
 
@@ -31,7 +32,7 @@ export default function OnlineCheckout() {
     if (!form.address.trim()) return setError('Vui lòng nhập địa chỉ giao hàng.')
     setError('')
     if (paymentMethod === 'PAYOS_QR') {
-      // ThangNN Iter2: trả QR -> sang trang thanh toán + tích điểm. Đơn chỉ được tạo sau khi khách trả xong.
+      // ThangNN Iter2: trả QR -> sang trang thanh toán. Đơn chỉ được tạo sau khi khách trả xong.
       navigate('/online-pay', {
         state: {
           customerName: form.name.trim(),
@@ -43,7 +44,6 @@ export default function OnlineCheckout() {
       })
       return
     }
-    navigate('/online-order/orders')
     setSubmitting(true)
 
     try {
@@ -59,14 +59,12 @@ export default function OnlineCheckout() {
 
       const res = await onlineOrderApi.placeOrder(payload)
 
+      // Ghi nhớ mã đơn vừa đặt trên máy này rồi mới chuyển trang: trang Theo dõi mở đúng đơn này
+      // và hiện popup báo mã đơn cho khách (khách cần mã để xem lại đơn / hóa đơn).
+      const code = res?.data?.orderNumber
+      if (code) setCurrentOrderCode(code)
+      navigate('/online-order/orders', { state: code ? { newOrderCode: code } : undefined })
       if (clearCart) clearCart()
-
-      localStorage.setItem('online_last_phone', form.phone.trim())
-      if (res?.data?.orderId) {
-        localStorage.setItem('online_last_order_id', res.data.orderId)
-      }
-
-      navigate('/online-order/orders')
     } catch (err) {
       setError(errorMessage(err, 'Đặt hàng chưa thành công, vui lòng thử lại.'))
     } finally {

@@ -5,6 +5,8 @@ import onlinePaymentApi from '../../api/onlinePaymentApi'
 import { errorMessage } from '../../api/axiosClient'
 import usePolling from '../../utils/usePolling'
 import { formatMoney } from '../../utils/orderFormat'
+import { markCodePopupShown, setCurrentOrderCode, wasCodePopupShown } from '../../utils/onlineOrderCode'
+import OrderCodeDialog from './OrderCodeDialog'
 
 const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
@@ -20,6 +22,7 @@ export default function OnlineQrPayment() {
   const [error, setError] = useState('')
   const [left, setLeft] = useState(0)
   const cartCleared = useRef(false)
+  const [codePopup, setCodePopup] = useState(null) // mã đơn đang hiện trong popup
 
   const load = useCallback(async () => {
     if (!id || (qr && qr.status !== 'PENDING')) return // mã đã xong thì thôi không hỏi nữa
@@ -41,7 +44,8 @@ export default function OnlineQrPayment() {
     return () => clearInterval(t)
   }, [qr?.status])
 
-  // Trả xong: xóa giỏ hàng online (giỏ của trang đặt hàng lưu trong localStorage).
+  // Trả xong: xóa giỏ hàng online (giỏ của trang đặt hàng lưu trong localStorage),
+  // ghi nhớ đơn vừa đặt trên máy này và hiện popup mã đơn (1 lần cho mỗi đơn).
   useEffect(() => {
     if (qr?.status === 'PAID' && !cartCleared.current) {
       cartCleared.current = true
@@ -51,7 +55,15 @@ export default function OnlineQrPayment() {
         // trình duyệt chặn localStorage: bỏ qua
       }
     }
-  }, [qr?.status])
+    const code = qr?.status === 'PAID' ? qr.orderNumber : null
+    if (code) {
+      setCurrentOrderCode(code)
+      if (!wasCodePopupShown(code)) {
+        markCodePopupShown(code)
+        setCodePopup(code)
+      }
+    }
+  }, [qr?.status, qr?.orderNumber])
 
   if (!id || (!qr && error)) {
     return (
@@ -69,11 +81,16 @@ export default function OnlineQrPayment() {
       <section className="op-result" role="status">
         <i className="bi bi-check-circle-fill" aria-hidden="true" />
         <h1 className="gx-title justify-content-center">Đã thanh toán {formatMoney(qr.amount)}</h1>
-        <p>Đơn {qr.orderNumber} đã được tạo và gửi pha chế. Quán sẽ giao tới địa chỉ bạn đã nhập.</p>
+        <p>
+          Mã đơn của bạn: <strong>{qr.orderNumber}</strong>. Đơn đã được gửi pha chế, quán sẽ giao tới địa chỉ bạn đã nhập.
+          Hãy lưu mã đơn để xem lại đơn và hóa đơn.
+        </p>
         <div className="gx-actions justify-content-center">
-          <Link className="btn btn-light-soft" to={`/online-receipts?phone=${encodeURIComponent(qr.customerPhone)}`}>Xem hóa đơn</Link>
+          <Link className="btn btn-light-soft" to="/online-receipts">Xem hóa đơn</Link>
+          <Link className="btn btn-light-soft" to="/online-order/orders">Theo dõi đơn</Link>
           <Link className="btn btn-primary" to="/online-order">Về thực đơn</Link>
         </div>
+        <OrderCodeDialog code={codePopup} paid onClose={() => setCodePopup(null)} />
       </section>
     )
   }
@@ -116,7 +133,6 @@ export default function OnlineQrPayment() {
         <dl className="op-facts">
           <div><dt>Nội dung chuyển khoản</dt><dd>{qr.description}</dd></div>
           <div><dt>Mã hết hạn sau</dt><dd aria-live="polite">{left > 0 ? mmss(left) : 'đang kiểm tra lần cuối'}</dd></div>
-          {qr.discount > 0 && <div><dt>Đã giảm bằng {qr.pointsToRedeem} điểm</dt><dd>−{formatMoney(qr.discount)}</dd></div>}
         </dl>
         <p className="gx-muted">
           Mở app ngân hàng, quét mã và giữ nguyên số tiền, nội dung chuyển khoản. Trang này tự cập nhật khi quán nhận được tiền.

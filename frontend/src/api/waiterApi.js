@@ -8,6 +8,8 @@ const waiterApi = {
   cancelOrder: (orderId, reason) => axiosClient.patch(`/waiter/orders/${orderId}/cancel`, { reason }),
   changeTable: (currentTableId, targetTableId) =>
     axiosClient.put(`/waiter/tables/${currentTableId}/change-table`, { targetTableId }),
+  // Chuông thông báo: món bị pha chế hủy vì hết nguyên liệu
+  getNotifications: () => axiosClient.get('/waiter/notifications'),
 }
 
 export default waiterApi
