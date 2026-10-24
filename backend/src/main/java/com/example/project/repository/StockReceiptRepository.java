@@ -29,4 +29,21 @@ public interface StockReceiptRepository extends JpaRepository<StockReceipt, Long
            "ORDER BY r.createdAt DESC")
     @EntityGraph(attributePaths = {"createdBy"})
     List<StockReceipt> search(@Param("status") String status, @Param("keyword") String keyword);
+
+    @Query("SELECT i FROM StockReceiptItem i " +
+           "JOIN FETCH i.receipt r " +
+           "JOIN FETCH r.createdBy u " +
+           "JOIN FETCH i.inventoryItem inv " +
+           "WHERE inv.id = :itemId " +
+           "AND r.status = 'RECEIVED' " +
+           "AND (" +
+           "  (r.confirmedAt IS NOT NULL AND r.confirmedAt >= :startOfDay AND r.confirmedAt < :endOfDay) " +
+           "  OR (r.confirmedAt IS NULL AND r.receiptDate = :targetDate)" +
+           ") " +
+           "ORDER BY COALESCE(r.confirmedAt, r.createdAt) DESC")
+    List<com.example.project.entity.StockReceiptItem> findReceivedItemsByIngredientAndDate(
+            @Param("itemId") Long itemId,
+            @Param("startOfDay") java.time.LocalDateTime startOfDay,
+            @Param("endOfDay") java.time.LocalDateTime endOfDay,
+            @Param("targetDate") java.time.LocalDate targetDate);
 }

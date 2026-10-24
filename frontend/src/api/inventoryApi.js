@@ -12,6 +12,8 @@ const inventoryApi = {
   stockIn:  (id, data)   => axiosClient.post(`/manager/inventory/${id}/stock-in`, data),
   stockOut: (id, data)   => axiosClient.post(`/manager/inventory/${id}/stock-out`, data),
   history:  (id)         => axiosClient.get(`/manager/inventory/${id}/history`),
+  receiptHistory: (ingredientId, date) =>
+    axiosClient.get('/manager/inventory/receipt-history', { params: { ingredientId, date } }),
 
   // Barista endpoints (read-only)
   baristaList:     () => axiosClient.get('/barista/inventory'),
