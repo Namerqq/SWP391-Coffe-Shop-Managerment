@@ -116,6 +116,44 @@ public class StockReceiptService {
         return StockReceiptView.from(receipt);
     }
 
+    /**
+     * UC-B05-Batch: Barista báo thiếu nguyên liệu hàng loạt (hoặc Quét mua hàng tự động)
+     * -> tạo 1 phiếu đề xuất dạng DRAFT chứa tất cả các nguyên liệu được chọn.
+     */
+    @Transactional
+    public StockReceiptView createBatchShortageReport(BatchShortageReportRequest req, User barista) {
+        if (req.items() == null || req.items().isEmpty()) {
+            throw ApiException.badRequest("Danh sách nguyên liệu yêu cầu không được để trống.");
+        }
+
+        StockReceipt receipt = new StockReceipt();
+        receipt.setCreatedBy(barista);
+        receipt.setReceiptCode(generateCode("YC"));
+        String creatorName = barista != null ? barista.getFullName() : "N/A";
+        receipt.setSupplierName("Yêu cầu bổ sung quầy bar (" + creatorName + ")");
+        receipt.setReceiptDate(LocalDate.now());
+        receipt.setStatus(StockReceipt.DRAFT);
+
+        String priorityTag = "URGENT".equalsIgnoreCase(req.priority()) ? "[KHẨN CẤP] " : "[BÌNH THƯỜNG] ";
+        String note = priorityTag + (req.note() != null && !req.note().isBlank() ? req.note().trim() : "Đề xuất bổ sung hàng loạt từ quầy pha chế.");
+        receipt.setNote(note);
+
+        for (BatchShortageItemRequest itemReq : req.items()) {
+            InventoryItem inv = itemRepo.findById(itemReq.inventoryItemId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nguyên liệu id = " + itemReq.inventoryItemId()));
+
+            StockReceiptItem item = new StockReceiptItem();
+            item.setInventoryItem(inv);
+            item.setQuantity(itemReq.requestedQuantity());
+            item.setUnitCost(inv.getUnitCost());
+            receipt.addItem(item);
+        }
+
+        receipt.recalcTotal();
+        receiptRepo.save(receipt);
+        return StockReceiptView.from(receipt);
+    }
+
     @Transactional
     public StockReceiptView updateDraft(Long id, StockReceiptRequest req) {
         StockReceipt receipt = receiptRepo.findWithDetailsById(id)
