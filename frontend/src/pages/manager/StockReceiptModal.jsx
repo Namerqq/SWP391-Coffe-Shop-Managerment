@@ -248,14 +248,6 @@ export default function StockReceiptModal({ show, receiptId, onClose, onSuccess 
             </div>
           )}
 
-          <div className="alert alert-info py-2 px-3 small d-flex align-items-center mb-3">
-            <i className="bi bi-info-circle-fill fs-5 me-2 text-info" />
-            <div>
-              <strong>Phương pháp tính giá vốn: Bình quân gia quyền</strong>.
-              Đơn giá nhập có thể linh hoạt theo từng phiếu. Khi xác nhận nhập kho, hệ thống sẽ tự động cập nhật lại đơn giá bình quân gia quyền theo số lượng tồn kho.
-            </div>
-          </div>
-
           <div className="row g-3 mb-3">
             <div className="col-md-7">
               <label className="form-label fw-medium">Nhà cung cấp / Nguồn cung</label>
@@ -315,7 +307,7 @@ export default function StockReceiptModal({ show, receiptId, onClose, onSuccess 
                   <tr>
                     <th style={{ minWidth: 200 }}>Nguyên liệu</th>
                     <th style={{ width: 130 }} className="text-end">Số lượng</th>
-                    <th style={{ width: 170 }} className="text-end">Đơn giá nhập (đ)</th>
+                    <th style={{ width: 150 }} className="text-end">Đơn giá (đ)</th>
                     <th style={{ width: 160 }} className="text-end">Thành tiền</th>
                     {!isReadOnly && <th style={{ width: 50 }} className="text-center">Xóa</th>}
                   </tr>
@@ -325,19 +317,6 @@ export default function StockReceiptModal({ show, receiptId, onClose, onSuccess 
                     const selectedInv = availableItems.find(
                       (a) => String(a.id) === String(row.inventoryItemId)
                     )
-                    const curQty = Number(selectedInv?.currentQuantity || 0)
-                    const curCost = Number(selectedInv?.unitCost || 0)
-                    const inQty = parseFloat(row.quantity) || 0
-                    const inCost = parseInt(row.unitCost, 10) || 0
-                    let previewAvgCost = null
-                    if (inQty > 0 && inCost > 0) {
-                      if (curQty > 0 && curCost > 0) {
-                        previewAvgCost = Math.round((curQty * curCost + inQty * inCost) / (curQty + inQty))
-                      } else {
-                        previewAvgCost = inCost
-                      }
-                    }
-
                     return (
                       <tr key={index}>
                         <td>
@@ -362,8 +341,8 @@ export default function StockReceiptModal({ show, receiptId, onClose, onSuccess 
                             </select>
                           )}
                           {selectedInv && (
-                            <div className="small text-muted mt-1">
-                              Đơn vị: <strong>{selectedInv.unit}</strong> | Tồn hiện tại: <strong>{Number(selectedInv.currentQuantity).toLocaleString('vi-VN')}</strong>
+                            <div className="small text-muted">
+                              Đơn vị: {selectedInv.unit} | Tồn hiện tại: {Number(selectedInv.currentQuantity).toLocaleString('vi-VN')}
                             </div>
                           )}
                         </td>
@@ -390,32 +369,21 @@ export default function StockReceiptModal({ show, receiptId, onClose, onSuccess 
                         <td>
                           {isReadOnly ? (
                             <div className="text-end">
-                              <span className="fw-semibold">{Number(row.unitCost).toLocaleString('vi-VN')} đ</span>
+                              {Number(row.unitCost).toLocaleString('vi-VN')} đ
                             </div>
                           ) : (
-                            <>
-                              <input
-                                type="number"
-                                step="1000"
-                                min="0"
-                                className="form-control form-control-sm text-end"
-                                value={row.unitCost}
-                                onChange={(e) =>
-                                  handleItemChange(index, 'unitCost', e.target.value)
-                                }
-                                disabled={submitting}
-                                required
-                              />
-                              <div className="text-end small mt-1">
-                                <span className="text-muted">Giá kho cũ: {Number(curCost).toLocaleString('vi-VN')} đ</span>
-                                {previewAvgCost !== null && (
-                                  <div className="text-primary fw-medium" title="Đơn giá bình quân gia quyền sau khi xác nhận nhập kho">
-                                    <i className="bi bi-calculator me-1" />
-                                    BQ mới: ~{Number(previewAvgCost).toLocaleString('vi-VN')} đ
-                                  </div>
-                                )}
-                              </div>
-                            </>
+                            <input
+                              type="number"
+                              step="1000"
+                              min="0"
+                              className="form-control form-control-sm text-end"
+                              value={row.unitCost}
+                              onChange={(e) =>
+                                handleItemChange(index, 'unitCost', e.target.value)
+                              }
+                              disabled={submitting}
+                              required
+                            />
                           )}
                         </td>
                         <td className="text-end fw-bold text-primary">

@@ -65,7 +65,7 @@ export default function StockReceiptList() {
     setActionBusy(true)
     try {
       await stockReceiptApi.confirm(confirmingReceipt.id)
-      toast(`Đã xác nhận nhập kho thành công cho phiếu ${confirmingReceipt.receiptCode}! Số lượng và đơn giá bình quân gia quyền đã được cập nhật vào kho.`)
+      toast(`Đã xác nhận nhập kho thành công cho phiếu ${confirmingReceipt.receiptCode}! Tồn kho đã được cộng dồn.`)
       loadData()
     } catch (err) {
       toast(errorMessage(err), 'error')
@@ -300,7 +300,7 @@ export default function StockReceiptList() {
         title="Xác nhận nhập kho"
         message={
           confirmingReceipt
-            ? `Bạn có chắc chắn muốn xác nhận nhập kho cho phiếu ${confirmingReceipt.receiptCode}? Hệ thống sẽ cộng dồn số lượng vào tồn kho và tự động tính lại đơn giá bình quân gia quyền cho các nguyên liệu.`
+            ? `Bạn có chắc chắn muốn xác nhận nhập kho cho phiếu ${confirmingReceipt.receiptCode}? Số lượng nguyên liệu sẽ được cộng trực tiếp vào tồn kho.`
             : ''
         }
         confirmText={actionBusy ? 'Đang xử lý...' : 'Xác nhận nhập'}

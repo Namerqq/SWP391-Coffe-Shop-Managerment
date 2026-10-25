@@ -14,8 +14,6 @@ import com.example.project.repository.StockTransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -147,35 +145,7 @@ public class StockReceiptService {
     }
 
     /**
-     * Tính đơn giá bình quân gia quyền (Weighted Average Cost / Moving Average Cost)
-     * khi nhập thêm số lượng và đơn giá mới vào kho.
-     *
-     * Công thức:
-     *   Giá mới = (Số lượng cũ * Giá cũ + Số lượng nhập * Giá nhập) / (Số lượng cũ + Số lượng nhập)
-     */
-    public static long calculateWeightedAverageCost(BigDecimal oldQty, Long oldCost, BigDecimal inQty, Long inCost) {
-        if (inCost == null || inCost <= 0) {
-            return oldCost != null ? oldCost : 0L;
-        }
-        long currentOldCost = (oldCost != null && oldCost > 0) ? oldCost : inCost;
-        BigDecimal safeOldQty = (oldQty != null && oldQty.compareTo(BigDecimal.ZERO) > 0) ? oldQty : BigDecimal.ZERO;
-        BigDecimal safeInQty = (inQty != null && inQty.compareTo(BigDecimal.ZERO) > 0) ? inQty : BigDecimal.ZERO;
-
-        BigDecimal totalQty = safeOldQty.add(safeInQty);
-        if (totalQty.compareTo(BigDecimal.ZERO) <= 0 || safeOldQty.compareTo(BigDecimal.ZERO) == 0) {
-            return inCost;
-        }
-
-        BigDecimal oldTotalVal = safeOldQty.multiply(BigDecimal.valueOf(currentOldCost));
-        BigDecimal inTotalVal = safeInQty.multiply(BigDecimal.valueOf(inCost));
-        BigDecimal combinedTotal = oldTotalVal.add(inTotalVal);
-
-        return combinedTotal.divide(totalQty, 0, RoundingMode.HALF_UP).longValue();
-    }
-
-    /**
-     * UC-IV02: Xác nhận nhập kho -> chuyển sang RECEIVED, tăng số lượng tồn,
-     * tính lại đơn giá bình quân gia quyền và ghi lịch sử STOCK_IN.
+     * UC-IV02: Xác nhận nhập kho -> chuyển sang RECEIVED, tăng số lượng tồn và ghi lịch sử STOCK_IN.
      */
     @Transactional
     public StockReceiptView confirmReceipt(Long id, User currentUser) {
@@ -191,29 +161,22 @@ public class StockReceiptService {
 
         for (StockReceiptItem item : receipt.getItems()) {
             InventoryItem inv = item.getInventoryItem();
-            BigDecimal oldQuantity = inv.getCurrentQuantity() != null ? inv.getCurrentQuantity() : BigDecimal.ZERO;
-            Long oldCost = inv.getUnitCost();
-
-            // Tính đơn giá bình quân gia quyền mới nếu đơn giá nhập hợp lệ
-            long newAverageCost = calculateWeightedAverageCost(oldQuantity, oldCost, item.getQuantity(), item.getUnitCost());
-            inv.setUnitCost(newAverageCost);
 
             // Tăng số lượng tồn kho
-            inv.setCurrentQuantity(oldQuantity.add(item.getQuantity()));
+            inv.setCurrentQuantity(inv.getCurrentQuantity().add(item.getQuantity()));
+            if (item.getUnitCost() != null && item.getUnitCost() > 0) {
+                inv.setUnitCost(item.getUnitCost());
+            }
             itemRepo.save(inv);
 
-            // Ghi nhận lịch sử biến động kho (Thẻ kho) kèm chi tiết giá nhập và giá BQ
+            // Ghi nhận lịch sử biến động kho
             StockTransaction tx = new StockTransaction();
             tx.setInventoryItem(inv);
             tx.setCreatedBy(currentUser != null ? currentUser : receipt.getCreatedBy());
             tx.setTransactionType(StockTransaction.STOCK_IN);
             tx.setQuantity(item.getQuantity());
             tx.setReason("Nhập kho theo phiếu " + receipt.getReceiptCode());
-            String note = "Nhà cung cấp: " + receipt.getSupplierName();
-            if (item.getUnitCost() != null && item.getUnitCost() > 0) {
-                note += String.format(" | Đơn giá nhập: %,d đ | Giá vốn BQ mới: %,d đ", item.getUnitCost(), newAverageCost);
-            }
-            tx.setNote(note);
+            tx.setNote("Nhà cung cấp: " + receipt.getSupplierName());
             txRepo.save(tx);
         }
 
