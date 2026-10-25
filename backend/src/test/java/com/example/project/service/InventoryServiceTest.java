@@ -21,6 +21,10 @@ import com.example.project.dto.inventory.InventoryItemRequest;
 import com.example.project.dto.inventory.InventoryItemView;
 import com.example.project.dto.inventory.StockInRequest;
 import com.example.project.dto.inventory.StockOutRequest;
+import com.example.project.dto.inventory.WasteReportRequest;
+import com.example.project.entity.MenuItem;
+import com.example.project.entity.Order;
+import com.example.project.entity.OrderItem;
 import com.example.project.entity.StockTransaction;
 import java.util.List;
 import java.util.Map;
@@ -320,6 +324,101 @@ class InventoryServiceTest {
 
         assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
         assertTrue(ex.getMessage().contains("không được vượt quá số lượng tồn hiện tại"));
+        verify(txRepo, never()).save(any(StockTransaction.class));
+    }
+
+    @Test
+    @DisplayName("TC11: Báo hao hụt / hư hỏng tại quầy (WASTE - UC-B06) thành công")
+    void waste_success() {
+        InventoryItem item = new InventoryItem();
+        item.setItemName("Coffee beans");
+        item.setCurrentQuantity(new BigDecimal("10.000"));
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(item));
+
+        WasteReportRequest req = new WasteReportRequest(new BigDecimal("0.500"), "Bị rơi đổ");
+        InventoryItemView view = inventoryService.waste(1L, req, sampleManager);
+
+        assertEquals(new BigDecimal("9.500"), item.getCurrentQuantity());
+        verify(txRepo, times(1)).save(argThat(tx ->
+                StockTransaction.WASTE.equals(tx.getTransactionType()) &&
+                new BigDecimal("0.500").equals(tx.getQuantity()) &&
+                "Bị rơi đổ".equals(tx.getNote())
+        ));
+    }
+
+    @Test
+    @DisplayName("TC12: Tự động trừ nguyên liệu khi Barista nhận đơn theo công thức thành công")
+    void deductForOrder_success() {
+        InventoryItem coffee = new InventoryItem();
+        org.springframework.test.util.ReflectionTestUtils.setField(coffee, "id", 1L);
+        coffee.setItemName("Coffee beans");
+        coffee.setUnit("kg");
+        coffee.setCurrentQuantity(new BigDecimal("5.000"));
+
+        InventoryItem milk = new InventoryItem();
+        org.springframework.test.util.ReflectionTestUtils.setField(milk, "id", 2L);
+        milk.setItemName("Fresh milk");
+        milk.setUnit("litre");
+        milk.setCurrentQuantity(new BigDecimal("10.000"));
+
+        when(itemRepo.findAllByStatusOrderByItemNameAsc(InventoryItem.ACTIVE))
+                .thenReturn(List.of(coffee, milk));
+
+        MenuItem americano = new MenuItem();
+        americano.setName("Americano");
+        americano.setRecipeIngredients("0.020 kg Coffee beans");
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setMenuItem(americano);
+        orderItem.setQuantity(2);
+        orderItem.setItemStatus(OrderItem.PENDING);
+
+        Order order = new Order();
+        order.setOrderNumber("ORD-001");
+        order.addItem(orderItem);
+
+        inventoryService.deductForOrder(order, sampleManager);
+
+        // 2 ly * 0.020 = 0.040 kg -> 5.000 - 0.040 = 4.960 kg
+        assertEquals(new BigDecimal("4.960"), coffee.getCurrentQuantity());
+        verify(itemRepo, times(1)).save(coffee);
+        verify(txRepo, times(1)).save(argThat(tx ->
+                StockTransaction.STOCK_OUT.equals(tx.getTransactionType()) &&
+                new BigDecimal("0.040").equals(tx.getQuantity())
+        ));
+    }
+
+    @Test
+    @DisplayName("TC13: Tự động trừ nguyên liệu ném lỗi BadRequest khi không đủ tồn kho")
+    void deductForOrder_insufficientStock_throwsBadRequest() {
+        InventoryItem coffee = new InventoryItem();
+        org.springframework.test.util.ReflectionTestUtils.setField(coffee, "id", 1L);
+        coffee.setItemName("Coffee beans");
+        coffee.setUnit("kg");
+        coffee.setCurrentQuantity(new BigDecimal("0.010")); // Chỉ còn 0.01 kg
+
+        when(itemRepo.findAllByStatusOrderByItemNameAsc(InventoryItem.ACTIVE))
+                .thenReturn(List.of(coffee));
+
+        MenuItem americano = new MenuItem();
+        americano.setName("Americano");
+        americano.setRecipeIngredients("0.020 kg Coffee beans"); // Cần 0.02 kg
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setMenuItem(americano);
+        orderItem.setQuantity(1);
+        orderItem.setItemStatus(OrderItem.PENDING);
+
+        Order order = new Order();
+        order.setOrderNumber("ORD-002");
+        order.addItem(orderItem);
+
+        com.example.project.exception.ApiException ex = assertThrows(
+                com.example.project.exception.ApiException.class,
+                () -> inventoryService.deductForOrder(order, sampleManager)
+        );
+
+        assertTrue(ex.getMessage().contains("Không đủ nguyên liệu"));
         verify(txRepo, never()).save(any(StockTransaction.class));
     }
 }
