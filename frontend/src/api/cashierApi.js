@@ -9,6 +9,8 @@ const cashierApi = {
   paySession: (sessionId, data) => axiosClient.post(`/cashier/sessions/${sessionId}/pay`, data),
   takeaway: (data) => axiosClient.post('/cashier/takeaway', data),
   getReceipt: (paymentId) => axiosClient.get(`/cashier/payments/${paymentId}/receipt`),
+  // UC-C15 Lịch sử đơn: mọi đơn trong ngày (yyyy-mm-dd, bỏ trống = hôm nay) + tiền đã thu trong ngày
+  getHistory: (date) => axiosClient.get('/cashier/history', { params: date ? { date } : {} }),
 
   // QR payOS tự xác nhận. data giống paySession / takeaway nhưng không có method.
   createSessionQr: (sessionId, data) => axiosClient.post(`/cashier/qr-payments/sessions/${sessionId}`, data),
