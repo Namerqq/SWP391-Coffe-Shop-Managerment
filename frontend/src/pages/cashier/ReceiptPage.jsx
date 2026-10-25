@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
 import { formatDateTime } from '../../utils/format'
@@ -12,8 +12,12 @@ const methodLabel = (r) => (r.paymentMethod === 'BANK_TRANSFER' && r.qrAutoConfi
   ? 'Chuyển khoản QR' : METHOD[r.paymentMethod] || r.paymentMethod)
 
 // Receipt Preview — SRS screen #8, UC-C09 View and Issue receipt.
+// Mở từ màn Lịch sử đơn (UC-C15, state.from = 'history'): xem / in lại hóa đơn cũ, có nút quay lại lịch sử.
 export default function ReceiptPage() {
   const { paymentId } = useParams()
+  const location = useLocation()
+  const fromHistory = location.state?.from === 'history'
+  const historyBack = location.state?.back || '/cashier/history'
   const [r, setR] = useState(null)
   const [error, setError] = useState('')
 
@@ -28,30 +32,42 @@ export default function ReceiptPage() {
       <div className="cf-card empty-state">
         <i className="bi bi-receipt" />
         <p>{error}</p>
-        <Link to="/cashier" className="btn btn-light-soft">Về trang Thanh toán</Link>
+        {fromHistory
+          ? <Link to={historyBack} className="btn btn-light-soft">Quay lại lịch sử đơn</Link>
+          : <Link to="/cashier" className="btn btn-light-soft">Về trang Thanh toán</Link>}
       </div>
     )
   }
   if (!r) return <div className="empty-state"><span className="spinner-border spinner-border-sm" /> Đang tải...</div>
 
   const lines = r.orders.flatMap((o) => o.items.filter((i) => i.status !== 'CANCELLED'))
-  const pickupNo = r.takeaway && r.orders[0] ? r.orders[0].displayNumber : null
+  // Đơn giao hàng online cũng không có bàn (takeaway = true) nhưng không có số thứ tự nhận đồ.
+  const delivery = r.takeaway && r.orders[0]?.fulfillmentType === 'DELIVERY'
+  const pickupNo = r.takeaway && !delivery && r.orders[0] ? r.orders[0].displayNumber : null
 
   return (
     <>
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4 no-print">
         <div>
-          <h1 className="page-title">Thanh toán thành công</h1>
+          <h1 className="page-title">{fromHistory ? `Hóa đơn ${r.paymentCode}` : 'Thanh toán thành công'}</h1>
           <p className="page-subtitle">
-            Hóa đơn {r.paymentCode}, {formatMoney(r.total)} bằng {methodLabel(r)}{r.qrAutoConfirmed && ', hệ thống tự xác nhận'}.
-            {r.tableStillOpen && ` ${r.place} còn đơn chưa phục vụ hoặc chưa thanh toán nên bàn chưa trả về trống.`}
+            {fromHistory
+              ? `${r.place}, thu lúc ${formatDateTime(r.paidAt)}, ${formatMoney(r.total)} bằng ${methodLabel(r)}${r.cashierName ? `, thu ngân ${r.cashierName}` : ''}.`
+              : <>Hóa đơn {r.paymentCode}, {formatMoney(r.total)} bằng {methodLabel(r)}{r.qrAutoConfirmed && ', hệ thống tự xác nhận'}.</>}
+            {!fromHistory && r.tableStillOpen && ` ${r.place} còn đơn chưa phục vụ hoặc chưa thanh toán nên bàn chưa trả về trống.`}
           </p>
         </div>
         <div className="d-flex flex-wrap gap-2">
           <button type="button" className="btn btn-primary" onClick={() => window.print()}><i className="bi bi-printer me-1" />In hóa đơn</button>
-          {r.takeaway && <Link to="/cashier/takeaway" className="btn btn-light-soft">Bán đơn mới</Link>}
-          {r.tableStillOpen && r.tableId && <Link to={`/cashier/bill/${r.tableId}`} className="btn btn-light-soft">Quay lại {r.place}</Link>}
-          <Link to="/cashier" className="btn btn-light-soft">Về trang Thanh toán</Link>
+          {fromHistory ? (
+            <Link to={historyBack} className="btn btn-light-soft"><i className="bi bi-arrow-left me-1" />Quay lại lịch sử đơn</Link>
+          ) : (
+            <>
+              {r.takeaway && !delivery && <Link to="/cashier/takeaway" className="btn btn-light-soft">Bán đơn mới</Link>}
+              {r.tableStillOpen && r.tableId && <Link to={`/cashier/bill/${r.tableId}`} className="btn btn-light-soft">Quay lại {r.place}</Link>}
+              <Link to="/cashier" className="btn btn-light-soft">Về trang Thanh toán</Link>
+            </>
+          )}
         </div>
       </div>
 
@@ -73,7 +89,8 @@ export default function ReceiptPage() {
 
         <div className="receipt-row"><span>Số hóa đơn</span><span>{r.paymentCode}</span></div>
         <div className="receipt-row"><span>Thời gian</span><span>{formatDateTime(r.paidAt)}</span></div>
-        <div className="receipt-row"><span>{r.takeaway ? 'Hình thức' : 'Bàn'}</span><span>{r.takeaway ? 'Mang đi' : r.place}</span></div>
+        <div className="receipt-row"><span>{r.takeaway ? 'Hình thức' : 'Bàn'}</span><span>{r.takeaway ? (delivery ? 'Giao hàng' : 'Mang đi') : r.place}</span></div>
+        {delivery && r.orders[0] && <div className="receipt-row"><span>Đơn</span><span>{r.orders[0].orderNumber}</span></div>}
         {!r.takeaway && r.orders.length > 0 && (
           <div className="receipt-row"><span>Đơn</span><span>{r.orders.map((o) => o.displayNumber).join(', ')}</span></div>
         )}
