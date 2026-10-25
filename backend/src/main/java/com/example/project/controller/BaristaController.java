@@ -22,7 +22,7 @@ import java.util.List;
 
 /**
  * Màn hình Pha chế: bảng đơn cần pha, chi tiết đơn, đổi trạng thái,
- * nhận đơn tự trừ kho, công thức, xem kho, báo thiếu nguyên liệu, báo hao hụt.
+ * tích món tự trừ kho, công thức, xem kho, báo thiếu nguyên liệu, báo hao hụt.
  */
 @RestController
 @RequestMapping("/api/barista")
@@ -81,15 +81,6 @@ public class BaristaController {
     @GetMapping("/orders/{id}")
     public OrderView detail(@PathVariable Long id) {
         return service.detail(id);
-    }
-
-    /**
-     * Tự động trừ nguyên liệu khi Barista bấm "Nhận đơn" (Order moves to PREPARING).
-     */
-    @PatchMapping("/orders/{orderId}/accept")
-    public OrderView acceptOrder(@PathVariable Long orderId, HttpServletRequest http) {
-        User me = (User) http.getAttribute(AuthInterceptor.CURRENT_USER);
-        return service.acceptOrder(orderId, me);
     }
 
     /**

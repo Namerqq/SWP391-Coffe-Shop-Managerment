@@ -16,13 +16,17 @@ export const TABLE_FILTERS = [
   { key: 'VACANT', label: 'Bàn trống', test: (t) => !t.sessionId },
 ]
 
-/** 1 ô bàn (dùng chung Phục vụ + Thu ngân). Bàn trống không bấm được. */
-export default function TableCard({ table: t, onClick }) {
+/**
+ * 1 ô bàn (dùng chung Phục vụ + Thu ngân). Bàn trống không bấm được,
+ * trừ khi truyền vacantClickable (Phục vụ mở bàn trống để hỗ trợ khách đặt món).
+ */
+export default function TableCard({ table: t, onClick, vacantClickable = false }) {
   const state = tableState(t)
   const vacant = state === 'vacant'
+  const clickable = !vacant || vacantClickable
   return (
     <button type="button" className={`table-card state-${state === 'served' ? 'busy' : state}`}
-            disabled={vacant} onClick={vacant ? undefined : onClick}>
+            disabled={!clickable} onClick={clickable ? onClick : undefined}>
       <div className="d-flex justify-content-between align-items-start gap-2 w-100">
         <span className="table-no">{t.tableNumber}</span>
         {vacant

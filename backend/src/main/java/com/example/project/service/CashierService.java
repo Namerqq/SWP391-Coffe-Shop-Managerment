@@ -191,7 +191,9 @@ public class CashierService {
         if (s != null) {
             place = s.getTable().getTableNumber();
         } else {
-            place = single == null ? "Mang đi" : "Mang đi " + OrderSupportService.displayNumber(single.getOrderNumber());
+            // Đơn giao hàng online cũng là 1 đơn không có bàn: ghi "Giao hàng" thay vì "Mang đi".
+            String kind = single != null && Order.DELIVERY.equals(single.getFulfillmentType()) ? "Giao hàng" : "Mang đi";
+            place = single == null ? kind : kind + " " + OrderSupportService.displayNumber(single.getOrderNumber());
         }
         long subtotal = orders.stream().mapToLong(Order::activeTotal).sum();
 

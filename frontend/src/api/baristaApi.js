@@ -1,10 +1,9 @@
 import axiosClient from './axiosClient'
 
-// Pha chế (UC-B01..B06): pha theo từng món, nhận đơn tự động trừ kho, báo thiếu, báo hao hụt.
+// Pha chế (UC-B01..B06): pha theo từng món (tích món đầu tiên thì tự động trừ kho), báo thiếu, báo hao hụt.
 const baristaApi = {
   getBoard: () => axiosClient.get('/barista/orders'),
   getOrder: (id) => axiosClient.get(`/barista/orders/${id}`),
-  acceptOrder: (orderId) => axiosClient.patch(`/barista/orders/${orderId}/accept`),
   checkItem: (orderId, itemId, done) => axiosClient.patch(`/barista/orders/${orderId}/items/${itemId}`, { done }),
   checkItems: (itemIds) => axiosClient.patch('/barista/items/done', { itemIds }), // trả về bảng pha chế mới
   cancelItem: (orderId, itemId) => axiosClient.patch(`/barista/orders/${orderId}/items/${itemId}/cancel`),

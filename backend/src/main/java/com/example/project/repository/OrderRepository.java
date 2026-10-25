@@ -36,4 +36,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     /** Tìm kiếm lịch sử đơn hàng online theo số điện thoại khách hàng. */
     List<Order> findByCustomerPhoneAndSourceOrderByCreatedAtDesc(String customerPhone, String source);
+
+    /** Tra đơn online theo mã đơn khách nhập (order_number dạng yyMMdd-0001). */
+    java.util.Optional<Order> findFirstByOrderNumberAndSourceOrderByIdDesc(String orderNumber, String source);
 }

@@ -1,10 +1,8 @@
 package com.example.project.controller;
 
-import com.example.project.dto.onlinepay.OnlineLoyaltyView;
 import com.example.project.dto.onlinepay.OnlineQrRequest;
 import com.example.project.dto.onlinepay.OnlineQrView;
 import com.example.project.dto.onlinepay.OnlineReceiptView;
-import com.example.project.service.OnlineLoyaltyService;
 import com.example.project.service.OnlineReceiptService;
 import com.example.project.service.QrPaymentService;
 import jakarta.validation.Valid;
@@ -12,38 +10,27 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 /**
- * Khách đặt online thanh toán QR và tích điểm (ThangNN Iter2: Online Payment Method & Loyalty, Online QR Payment).
+ * Khách đặt online thanh toán QR và xem hóa đơn (ThangNN Iter2: Online Payment Method, Online QR Payment).
  * Nằm trong /api/public/** nên không cần đăng nhập. Đơn trả QR CHƯA được tạo lúc tạo mã: khách trả xong
  * hệ thống mới tạo đơn ONLINE (QrPaymentService.settleOnline). Đơn COD vẫn đi qua /api/public/online/orders.
+ * Khách online không tích điểm và không dùng điểm.
  */
 @RestController
 @RequestMapping("/api/public/online")
 public class OnlinePaymentController {
 
     private final QrPaymentService qrPaymentService;
-    private final OnlineLoyaltyService loyaltyService;
     private final OnlineReceiptService receiptService;
 
-    public OnlinePaymentController(QrPaymentService qrPaymentService, OnlineLoyaltyService loyaltyService,
-                                   OnlineReceiptService receiptService) {
+    public OnlinePaymentController(QrPaymentService qrPaymentService, OnlineReceiptService receiptService) {
         this.qrPaymentService = qrPaymentService;
-        this.loyaltyService = loyaltyService;
         this.receiptService = receiptService;
-    }
-
-    /** Tra điểm theo SĐT nhận hàng. Chưa là thành viên -> member = false. GET /api/public/online/loyalty?phone=0901234567 */
-    @GetMapping("/loyalty")
-    public OnlineLoyaltyView loyalty(@RequestParam String phone) {
-        return loyaltyService.lookup(phone);
     }
 
     /**
      * Tạo mã QR cho giỏ hàng online. Body: { "customerName": "An", "customerPhone": "0901234567",
-     * "deliveryAddress": "...", "note": "...", "items": [ ...giống OrderItemRequest... ],
-     * "joinLoyalty": true, "pointsToRedeem": 10 }
+     * "deliveryAddress": "...", "note": "...", "items": [ ...giống OrderItemRequest... ] }
      */
     @PostMapping("/qr-payments")
     public ResponseEntity<OnlineQrView> createQr(@Valid @RequestBody OnlineQrRequest req) {
@@ -57,9 +44,9 @@ public class OnlinePaymentController {
         return qrPaymentService.viewOnline(paymentLinkId);
     }
 
-    /** Hóa đơn điện tử: 20 đơn ONLINE đã thanh toán gần nhất của SĐT nhận hàng. GET /api/public/online/receipts?phone=... */
-    @GetMapping("/receipts")
-    public List<OnlineReceiptView> receipts(@RequestParam String phone) {
-        return receiptService.byPhone(phone);
+    /** Hóa đơn điện tử của 1 đơn online đã thanh toán, tra bằng mã đơn. GET /api/public/online/receipts/261023-0008 */
+    @GetMapping("/receipts/{code}")
+    public OnlineReceiptView receipt(@PathVariable String code) {
+        return receiptService.byCode(code);
     }
 }

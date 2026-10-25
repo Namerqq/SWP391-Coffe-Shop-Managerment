@@ -26,9 +26,11 @@ public class GuestTrackingService {
         this.support = support;
     }
 
-    /** Các đơn khách đã gửi trong phiên này, mới nhất trước. */
+    /** Các đơn chưa thanh toán khách đã gửi trong phiên này, mới nhất trước. */
     public List<OrderView> myOrders(String token) {
-        return tableOrders.views(guests.require(token).orderIds());
+        return tableOrders.views(guests.require(token).orderIds()).stream()
+                .filter(order -> !Order.PAID.equals(order.paymentStatus()))
+                .toList();
     }
 
     /** Khách chỉ hủy được đơn của mình khi đơn còn Chờ pha. Hủy hết đơn thì bàn tự trả về trống. */

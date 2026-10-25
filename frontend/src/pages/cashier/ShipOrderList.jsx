@@ -72,6 +72,8 @@ export default function ShipOrderList() {
         type: 'danger',
         message: errorMessage(err, 'Không thể xác nhận đơn hàng.'),
       })
+      // Thu ngân khác đã xử lý đơn này trước (409): tải lại để thẻ đơn hiện đúng trạng thái, ẩn nút thao tác.
+      if (err.response?.status === 409) await loadOrders()
     } finally {
       setProcessingId(null)
     }
@@ -98,6 +100,8 @@ export default function ShipOrderList() {
         type: 'danger',
         message: errorMessage(err, 'Không thể hủy đơn hàng.'),
       })
+      // Thu ngân khác đã xử lý đơn này trước (409): tải lại để thẻ đơn hiện đúng trạng thái, ẩn nút thao tác.
+      if (err.response?.status === 409) await loadOrders()
     } finally {
       setProcessingId(null)
     }

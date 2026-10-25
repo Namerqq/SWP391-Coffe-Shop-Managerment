@@ -7,6 +7,7 @@ import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
 import com.example.project.exception.ApiException;
 import com.example.project.repository.DeliveryRepository;
+import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,13 +29,16 @@ public class OnlineOrderService {
     private final OrderRepository orderRepository;
     private final DeliveryRepository deliveryRepository;
     private final OrderSupportService orderSupport;
+    private final OrderLockRepository lockRepository;
 
     public OnlineOrderService(OrderRepository orderRepository,
                               DeliveryRepository deliveryRepository,
-                              OrderSupportService orderSupport) {
+                              OrderSupportService orderSupport,
+                              OrderLockRepository lockRepository) {
         this.orderRepository = orderRepository;
         this.deliveryRepository = deliveryRepository;
         this.orderSupport = orderSupport;
+        this.lockRepository = lockRepository;
     }
 
     /**
@@ -82,47 +86,34 @@ public class OnlineOrderService {
     }
 
     /**
-     * Lấy chi tiết đơn hàng online theo ID để theo dõi trạng thái (Tracking).
+     * Theo dõi đơn online bằng mã đơn khách nhập (dạng 261023-0008). Khách chỉ xem được đơn mình có mã,
+     * không còn tra theo SĐT hay theo id (để không liệt kê / dò được đơn của người khác).
      */
     @Transactional(readOnly = true)
-    public OnlineOrderView getOrderById(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
-
-        if (!Order.SOURCE_ONLINE.equalsIgnoreCase(order.getSource())) {
-            throw ApiException.notFound("Không tìm thấy đơn hàng online #" + id);
-        }
-
+    public OnlineOrderView getOrderByCode(String code) {
+        Order order = findOnlineByCode(code);
         Delivery delivery = deliveryRepository.findByOrder_Id(order.getId()).orElse(null);
         String paymentMethod = Order.PENDING.equals(order.getStatus()) ? "PAYOS_QR" : "CASH";
         return toView(order, delivery, paymentMethod, null);
     }
 
-    /**
-     * Lấy toàn bộ lịch sử đơn hàng online theo số điện thoại khách hàng.
-     */
-    @Transactional(readOnly = true)
-    public List<OnlineOrderView> getOrdersByPhone(String phone) {
-        if (phone == null || phone.isBlank()) return List.of();
-        List<Order> orders = orderRepository.findByCustomerPhoneAndSourceOrderByCreatedAtDesc(phone.trim(), Order.SOURCE_ONLINE);
-        return orders.stream().map(o -> {
-            Delivery d = deliveryRepository.findByOrder_Id(o.getId()).orElse(null);
-            return toView(o, d, null, null);
-        }).toList();
+    private Order findOnlineByCode(String code) {
+        String c = OrderSupportService.normalizeOrderCode(code);
+        return orderRepository.findFirstByOrderNumberAndSourceOrderByIdDesc(c, Order.SOURCE_ONLINE)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn đặt online có mã " + c + "."));
     }
 
     /**
-     * Khách hàng tự hủy đơn hàng online.
+     * Khách hàng tự hủy đơn hàng online (theo mã đơn).
      * Chỉ cho phép hủy khi đơn còn ở trạng thái chờ (chưa pha chế / chưa giao hàng).
      */
     @Transactional
-    public OnlineOrderView cancelOrder(Long id, String reason) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
-
-        if (!Order.SOURCE_ONLINE.equalsIgnoreCase(order.getSource())) {
-            throw ApiException.notFound("Không tìm thấy đơn hàng online #" + id);
-        }
+    public OnlineOrderView cancelOrder(String code, String reason) {
+        // Đọc đơn kèm khóa dòng (lần đọc đầu tiên trong transaction nên luôn là trạng thái mới nhất):
+        // thu ngân xác nhận / hủy cùng lúc thì ai lấy khóa trước người đó thắng, người sau bị từ chối bên dưới.
+        String c = OrderSupportService.normalizeOrderCode(code);
+        Order order = lockRepository.findFirstWithLockByOrderNumberAndSourceOrderByIdDesc(c, Order.SOURCE_ONLINE)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn đặt online có mã " + c + "."));
 
         if (order.isCancelled()) {
             throw ApiException.badRequest("Đơn hàng này đã được hủy trước đó.");
@@ -197,11 +188,13 @@ public class OnlineOrderService {
 
     /**
      * Thu ngân xác nhận đơn giao hàng -> chuyển sang CONFIRMED để Pha chế nhận làm.
+     * Chỉ đơn đang "Chờ duyệt" mới xác nhận được. 2 thu ngân bấm cùng lúc (xác nhận / hủy) thì chỉ thao tác
+     * của người bấm trước có hiệu lực; người bấm sau nhận lỗi 409 kèm trạng thái hiện tại của đơn.
      */
     @Transactional
     public OnlineOrderView confirmDeliveryOrder(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
+        Order order = lockedDeliveryOrder(id);
+        requireStillPending(order, "xác nhận");
         order.setStatus(Order.CONFIRMED);
         orderRepository.save(order);
 
@@ -212,11 +205,12 @@ public class OnlineOrderService {
 
     /**
      * Thu ngân hủy đơn giao hàng (ví dụ: hết nguyên liệu, không giao được).
+     * Cùng quy tắc với xác nhận: chỉ đơn đang "Chờ duyệt", người bấm trước thắng.
      */
     @Transactional
     public OnlineOrderView cashierCancelDeliveryOrder(Long id, String reason) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
+        Order order = lockedDeliveryOrder(id);
+        requireStillPending(order, "hủy");
 
         order.moveTo(Order.CANCELLED, OrderItem.CANCELLED);
         String finalReason = (reason != null && !reason.isBlank()) ? reason.trim() : "Hết nguyên liệu";
@@ -232,6 +226,34 @@ public class OnlineOrderService {
 
         String pm = order.getPayment() != null ? order.getPayment().getPaymentMethod() : "CASH";
         return toView(order, delivery, pm, null);
+    }
+
+    /** Đọc đơn kèm khóa dòng (SELECT ... FOR UPDATE): thao tác cùng lúc trên 1 đơn phải chờ nhau. */
+    private Order lockedOrder(Long id) {
+        return lockRepository.findWithLockById(id)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng #" + id));
+    }
+
+    private Order lockedDeliveryOrder(Long id) {
+        Order order = lockedOrder(id);
+        if (!Order.DELIVERY.equals(order.getFulfillmentType())) {
+            throw ApiException.notFound("Không tìm thấy đơn giao hàng #" + id);
+        }
+        return order;
+    }
+
+    /**
+     * Đơn phải còn "Chờ duyệt" (đọc lại SAU khi đã lấy khóa). Đã có người xác nhận / hủy trước
+     * (thu ngân khác hoặc chính khách) thì từ chối, không ghi đè trạng thái.
+     */
+    private static void requireStillPending(Order order, String action) {
+        if (Order.PENDING.equals(order.getStatus())) return;
+        String no = OrderSupportService.displayNumber(order.getOrderNumber());
+        String now = order.isCancelled()
+                ? "đã bị hủy" + (order.getCancelReason() != null ? " (lý do: " + order.getCancelReason() + ")" : "")
+                : "đã được xác nhận";
+        throw ApiException.conflict("Không " + action + " được: đơn " + no + " " + now
+                + " trước đó. Danh sách vừa được cập nhật lại.");
     }
 
     public OnlineOrderView toView(Order order, Delivery delivery, String paymentMethod, String qrUrl) {

@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { roleNav } from '../routes/registry'
 import { initials, roleLabel } from '../utils/format'
+import WaiterNotificationBell from '../pages/waiter/WaiterNotificationBell'
 import '../styles/staff.css'
 
 /** Khung chung cho màn hình nhân viên (Pha chế, Phục vụ, Thu ngân...). Menu trái lấy theo vai trò từ src/routes/*Nav.js. */
@@ -54,6 +55,7 @@ export default function StaffLayout() {
               <div className="fw-semibold" style={{ fontSize: '0.9rem' }}>{user.fullName}</div>
               <div className="cf-muted" style={{ fontSize: '0.78rem' }}>{roleLabel(user.roleName)}</div>
             </div>
+            {user.roleName === 'WAITER' && <WaiterNotificationBell userId={user.id} />}
             <span className="avatar">{initials(user.fullName)}</span>
           </div>
         </header>

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import guestTrackingApi from '../../api/guestTrackingApi'
 import { errorMessage } from '../../api/axiosClient'
@@ -20,21 +20,39 @@ export default function GuestOrders() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(null)
+  const requestSequence = useRef(0)
+
+  // Bỏ phản hồi cũ khi rời trang hoặc có lần tải mới hơn.
+  useEffect(() => () => { requestSequence.current += 1 }, [])
 
   const load = useCallback(async () => {
-    if (!table) { setLoading(false); return }
+    const requestId = ++requestSequence.current
+    if (!table) { setOrders([]); setLoading(false); return }
     try {
       const res = await guestTrackingApi.getMyOrders()
+      if (requestId !== requestSequence.current) return
       setOrders(res.data)
+      setCancelling((current) => current
+        ? res.data.find((order) => order.id === current.id
+          && order.paymentStatus !== 'PAID' && isWaiting(order.status)) || null
+        : null)
       setError('')
     } catch (e) {
-      if (e.response?.status === 410) expire(errorMessage(e))
+      if (e.response?.status === 410) expire(e)
       else setError(errorMessage(e, 'Chưa tải được đơn hàng.'))
     } finally {
-      setLoading(false)
+      if (requestId === requestSequence.current) setLoading(false)
     }
   }, [table, expire])
   usePolling(load, 5000)
+
+  // Đổi sang phiên mới (lượt trước đã xong) -> xoá ngay danh sách đơn cũ trên màn hình và tải lại, không chờ 5 giây.
+  const token = table ? table.token : null
+  useEffect(() => {
+    setOrders([])
+    if (token) load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
 
   const confirmCancel = async (reason) => {
     await guestTrackingApi.cancel(cancelling.id, reason)
@@ -62,7 +80,7 @@ export default function GuestOrders() {
       {!loading && !error && orders.length === 0 && (
         <div className="gx-empty">
           <i className="bi bi-receipt gx-empty-icon" />
-          <p>Bạn chưa gọi món nào.</p>
+          <p>Bạn không có đơn nào chưa thanh toán.</p>
           <Link to="/menu" className="btn btn-primary">Xem thực đơn</Link>
         </div>
       )}
@@ -107,7 +125,7 @@ export default function GuestOrders() {
               {cancelled
                 ? <span className="gx-muted">{o.cancelReason || 'Đơn đã hủy'}</span>
                 : <strong>{formatMoney(o.totalAmount)}</strong>}
-              {isWaiting(o.status) && (
+              {isWaiting(o.status) && o.paymentStatus !== 'PAID' && (
                 <button type="button" className="gx-link danger" onClick={() => setCancelling(o)}>Hủy đơn</button>
               )}
             </footer>

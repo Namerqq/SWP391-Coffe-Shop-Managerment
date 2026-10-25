@@ -1,9 +1,8 @@
-import { useCallback, useState } from 'react'
+import { useEffect, useState } from 'react'
 import servingApi from '../../api/servingApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
-import usePolling from '../../utils/usePolling'
-import { ON_BOARD, isItemCancelled, isItemReady, isItemWaiting } from '../../utils/itemStatus'
+import { ON_BOARD, isItemReady, isItemWaiting } from '../../utils/itemStatus'
 import OrderTicket from '../serving/OrderTicket'
 import IncidentModal from './IncidentModal'
 import '../../styles/danmt.css'
@@ -23,7 +22,7 @@ export default function WaiterBoard() {
   const [busyItemId, setBusyItemId] = useState(null)
   const [incidentTarget, setIncidentTarget] = useState(null) // { order, item } khi bấm báo sự cố vỡ ly
 
-  const load = useCallback(async () => {
+  const load = async () => {
     try {
       const res = await servingApi.getBoard()
       setOrders(res.data)
@@ -33,8 +32,14 @@ export default function WaiterBoard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Tải đơn ngay khi mở trang, sau đó cứ 5 giây tải lại 1 lần; rời trang thì dừng.
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 5000)
+    return () => clearInterval(timer)
   }, [])
-  usePolling(load, 5000)
 
   // Đã mang 1 món ra bàn. Mang đủ món thì backend tự chuyển đơn sang "Đã phục vụ".
   const serve = async (order, item) => {
@@ -55,23 +60,11 @@ export default function WaiterBoard() {
     }
   }
 
-  // Món pha chế đã hủy vì hết nguyên liệu: phục vụ cần báo lại cho khách.
-  const cancelledNote = (o) => {
-    const list = o.items.filter(isItemCancelled)
-    if (list.length === 0) return null
-    return (
-      <div className="kds-cancelled-note mx-3 mb-2">
-        <i className="bi bi-exclamation-triangle me-1" />Đã hủy vì hết nguyên liệu, báo khách: {list.map((i) => `${i.quantity}× ${i.itemName}`).join(', ')}
-      </div>
-    )
-  }
-
   const renderCard = (o, items, col) => {
     const waitingLeft = o.items.filter(isItemWaiting).length
     if (col.key === 'pending') {
       return (
         <OrderTicket key={o.id} order={o} items={items} tone={col.tone}>
-          {cancelledNote(o)}
           <div className="kds-waiting text-body-secondary"><i className="bi bi-hourglass-split me-1" />Pha chế đang làm</div>
         </OrderTicket>
       )
@@ -92,7 +85,6 @@ export default function WaiterBoard() {
                        <i className="bi bi-exclamation-triangle-fill" />
                      </button>
                    )}>
-        {waitingLeft === 0 && cancelledNote(o)}
         <div className="kds-waiting">
           <i className="bi bi-geo-alt me-1" />Mang ra {o.tableNumber}
           {waitingLeft > 0 && <span className="cf-muted">, còn {waitingLeft} món đang pha</span>}
