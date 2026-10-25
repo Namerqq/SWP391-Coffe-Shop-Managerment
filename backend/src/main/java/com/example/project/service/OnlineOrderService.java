@@ -161,12 +161,38 @@ public class OnlineOrderService {
      */
     @Transactional(readOnly = true)
     public List<OnlineOrderView> listDeliveryOrders() {
-        List<Order> orders = orderRepository.findByFulfillmentTypeOrderByCreatedAtDesc(Order.DELIVERY);
+        return listDeliveryOrders(null, null, null);
+    }
+
+    /**
+     * Danh sách đơn giao hàng có lọc: thời gian đặt đơn trong [from, to) và / hoặc mã đơn.
+     * Bỏ trống cả 3 = mọi đơn (như trước). code nhập 1 phần cũng được ("0012", "#0012", "261025-00").
+     */
+    @Transactional(readOnly = true)
+    public List<OnlineOrderView> listDeliveryOrders(LocalDateTime from, LocalDateTime to, String code) {
+        if (from != null && to != null && !from.isBefore(to)) {
+            throw ApiException.badRequest("Thời gian bắt đầu phải trước thời gian kết thúc.");
+        }
+        String c = normalizeSearchCode(code);
+        List<Order> orders = from == null && to == null && c == null
+                ? orderRepository.findByFulfillmentTypeOrderByCreatedAtDesc(Order.DELIVERY)
+                : orderRepository.searchByFulfillmentType(Order.DELIVERY, from, to, c);
         return orders.stream().map(o -> {
             Delivery d = deliveryRepository.findByOrder_Id(o.getId()).orElse(null);
             String pm = o.getPayment() != null ? o.getPayment().getPaymentMethod() : (Order.PENDING.equals(o.getStatus()) ? "PAYOS_QR" : "CASH");
             return toView(o, d, pm, null);
         }).toList();
+    }
+
+    /** Mã đơn để tìm: bỏ khoảng trắng và dấu #; rỗng = không lọc. Chỉ nhận số và dấu gạch. */
+    static String normalizeSearchCode(String code) {
+        if (code == null) return null;
+        String c = code.replaceAll("[\\s#]", "");
+        if (c.isEmpty()) return null;
+        if (!c.matches("^[0-9-]{1,20}$")) {
+            throw ApiException.badRequest("Mã đơn chỉ gồm số và dấu gạch, vd 261025-0012 hoặc 0012.");
+        }
+        return c;
     }
 
     /**
