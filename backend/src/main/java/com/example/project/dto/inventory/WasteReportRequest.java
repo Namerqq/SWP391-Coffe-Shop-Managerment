@@ -9,13 +9,5 @@ public record WasteReportRequest(
         @DecimalMin(value = "0.001", message = "Số lượng hao hụt/hỏng phải lớn hơn 0")
         BigDecimal quantity,
 
-        String note,
-        String causeType, // "OBJECTIVE", "SUBJECTIVE"
-        Long responsibleUserId,
-        Integer compensationPercentage,
-        String evidenceImageUrl
-) {
-    public WasteReportRequest(BigDecimal quantity, String note) {
-        this(quantity, note, "OBJECTIVE", null, 0, null);
-    }
-}
+        String note
+) {}
