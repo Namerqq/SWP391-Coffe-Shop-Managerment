@@ -10,6 +10,7 @@ import WaiterAssistOrder from '../pages/waiter/WaiterAssistOrder'
 import ReadyOrders from '../pages/serving/ReadyOrders'
 import ManagerLayout from '../layouts/ManagerLayout'
 import IncidentReportList from '../pages/incident/IncidentReportList'
+import RevenueReport from '../pages/manager/RevenueReport'
 
 // DanMT: route các màn Pha chế, Phục vụ (bảng Chờ pha & mang ra), Mang đi chờ giao (Thu ngân).
 export const danmtRoutes = (
@@ -33,6 +34,11 @@ export const danmtRoutes = (
     {/* Quản lý xem biên bản sự cố đổ / vỡ món của phục vụ */}
     <Route path="/manager/incidents" element={<ProtectedRoute roles={['MANAGER']}><ManagerLayout /></ProtectedRoute>}>
       <Route index element={<IncidentReportList />} />
+    </Route>
+
+    {/* Quản lý xem doanh thu theo ngày / tuần / tháng / năm (UC-RP01) */}
+    <Route path="/manager/revenue" element={<ProtectedRoute roles={['MANAGER']}><ManagerLayout /></ProtectedRoute>}>
+      <Route index element={<RevenueReport />} />
     </Route>
   </>
 )
