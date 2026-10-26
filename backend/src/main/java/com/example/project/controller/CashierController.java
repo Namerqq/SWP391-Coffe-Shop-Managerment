@@ -21,7 +21,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+
+import java.time.LocalDateTime;
+
 import java.time.LocalDate;
+
 import java.util.List;
 import java.util.Map;
 
@@ -98,10 +102,16 @@ public class CashierController {
     /**
      * Danh sách đơn giao hàng online cho thu ngân (Ship Order List).
      * GET /api/cashier/delivery-orders
+     * Lọc (không bắt buộc): ?from=2026-10-20T08:00&to=2026-10-25T23:59&code=0012
+     * from / to = thời gian đặt đơn, code = mã đơn (nhập 1 phần cũng được). Bỏ trống = mọi đơn.
      */
     @GetMapping("/delivery-orders")
-    public List<OnlineOrderView> deliveryOrders() {
-        return onlineOrderService.listDeliveryOrders();
+    public List<OnlineOrderView> deliveryOrders(@RequestParam(required = false)
+                                                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                                                @RequestParam(required = false)
+                                                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+                                                @RequestParam(required = false) String code) {
+        return onlineOrderService.listDeliveryOrders(from, to, code);
     }
 
     /**
