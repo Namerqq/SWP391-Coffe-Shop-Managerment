@@ -1,0 +1,99 @@
+<mxfile host="Electron" agent="SWP391-Single-Diagram">
+  <diagram id="diag_barista_recipe" name="3. Barista &amp; Trừ Kho Định Lượng">
+    <mxGraphModel dx="4004" dy="1778" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1350" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="c_barista" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«controller»&lt;/b&gt;&lt;br&gt;&lt;b&gt;BaristaController&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- receiptService : StockReceiptService&lt;br&gt;- baristaService : BaristaService&lt;br&gt;- inventoryService : InventoryService&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ getBoard() : List&amp;lt;OrderView&amp;gt;&lt;br&gt;+ acceptOrder(orderId : Long) : OrderView&lt;br&gt;+ reportShortage(req : ShortageReportRequest) : StockReceiptView&lt;br&gt;+ reportWaste(id : Long, req : WasteReportRequest) : InventoryItemView&lt;/p&gt;" vertex="1">
+          <mxGeometry height="340" width="500" x="-120" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="dto_barista_req" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«dto»&lt;/b&gt;&lt;br&gt;&lt;b&gt;Shortage &amp;amp; Waste Request&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ inventoryItemId : Long&lt;br&gt;+ quantityNeeded : BigDecimal&lt;br&gt;+ wasteQuantity : BigDecimal&lt;br&gt;+ reason : String&lt;/p&gt;" vertex="1">
+          <mxGeometry height="187.5" width="300" x="-650" y="186.25" as="geometry" />
+        </mxCell>
+        <mxCell id="dto_order_view" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«dto»&lt;/b&gt;&lt;br&gt;&lt;b&gt;OrderView&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ id : Long&lt;br&gt;+ orderNumber : String&lt;br&gt;+ status : String&lt;br&gt;+ items : List&amp;lt;OrderItemView&amp;gt;&lt;/p&gt;" vertex="1">
+          <mxGeometry height="200" width="320" x="-670" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="s_barista" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«service»&lt;/b&gt;&lt;br&gt;&lt;b&gt;BaristaService&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- orderRepo : OrderRepository&lt;br&gt;- inventoryService : InventoryService&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ getBoard() : List&amp;lt;OrderView&amp;gt;&lt;br&gt;+ acceptOrder(orderId : Long, user) : OrderView&lt;br&gt;+ checkItem(itemId : Long, user) : OrderView&lt;/p&gt;" vertex="1">
+          <mxGeometry height="280" width="390" x="-410" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="s_inv_deduct" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«service»&lt;/b&gt;&lt;br&gt;&lt;b&gt;InventoryService&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- itemRepo : InventoryItemRepository&lt;br&gt;- txRepo : StockTransactionRepository&lt;br&gt;- recipeRepo : RecipeRepository&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ deductForOrder(order : Order, user) : void&lt;br&gt;+ waste(id : Long, req, user) : InventoryItemView&lt;br&gt;+ resolveRecipe(menuItemId : Long) : Recipe&lt;/p&gt;" vertex="1">
+          <mxGeometry height="250" width="490" x="425" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="r_order" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«repository»&lt;/b&gt;&lt;br&gt;&lt;b&gt;OrderRepository&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ findById(id : Long) : Optional&amp;lt;Order&amp;gt;&lt;br&gt;+ findByStatusIn(statuses) : List&amp;lt;Order&amp;gt;&lt;/p&gt;" vertex="1">
+          <mxGeometry height="180" width="330" x="-380" y="1070" as="geometry" />
+        </mxCell>
+        <mxCell id="r_recipe" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«repository»&lt;/b&gt;&lt;br&gt;&lt;b&gt;RecipeRepository&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ findByMenuItemId(id : Long) : Optional&amp;lt;Recipe&amp;gt;&lt;/p&gt;" vertex="1">
+          <mxGeometry height="140" width="300" x="520" y="1020" as="geometry" />
+        </mxCell>
+        <mxCell id="e_order" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#b1ddf0;strokeColor=#10739e;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«entity»&lt;/b&gt;&lt;br&gt;&lt;b&gt;Order&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- id : Long&lt;br&gt;- orderNumber : String&lt;br&gt;- status : String&lt;br&gt;- items : List&amp;lt;OrderItem&amp;gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ getItems() : List&amp;lt;OrderItem&amp;gt;&lt;br&gt;+ moveTo(status) : void&lt;/p&gt;" vertex="1">
+          <mxGeometry height="270" width="320" x="-860" y="1350" as="geometry" />
+        </mxCell>
+        <mxCell id="e_order_item" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#b1ddf0;strokeColor=#10739e;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«entity»&lt;/b&gt;&lt;br&gt;&lt;b&gt;OrderItem&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- id : Long&lt;br&gt;- order : Order&lt;br&gt;- menuItem : MenuItem&lt;br&gt;- quantity : int&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ getMenuItem() : MenuItem&lt;br&gt;+ getQuantity() : int&lt;/p&gt;" vertex="1">
+          <mxGeometry height="250" width="300" x="-310" y="1360" as="geometry" />
+        </mxCell>
+        <mxCell id="e_menu_item" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#b1ddf0;strokeColor=#10739e;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«entity»&lt;/b&gt;&lt;br&gt;&lt;b&gt;MenuItem&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- id : Long&lt;br&gt;- name : String&lt;br&gt;- price : BigDecimal&lt;br&gt;- recipe : Recipe&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ getRecipe() : Recipe&lt;/p&gt;" vertex="1">
+          <mxGeometry height="220" width="240" x="80" y="1375" as="geometry" />
+        </mxCell>
+        <mxCell id="e_recipe" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#b1ddf0;strokeColor=#10739e;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«entity»&lt;/b&gt;&lt;br&gt;&lt;b&gt;Recipe&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- id : Long&lt;br&gt;- menuItem : MenuItem&lt;br&gt;- ingredients : List&amp;lt;RecipeIngredient&amp;gt;&lt;br&gt;- description : String&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ getIngredients() : List&amp;lt;RecipeIngredient&amp;gt;&lt;/p&gt;" vertex="1">
+          <mxGeometry height="250" width="375" x="430" y="1360" as="geometry" />
+        </mxCell>
+        <mxCell id="e_recipe_ing" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#b1ddf0;strokeColor=#10739e;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«entity»&lt;/b&gt;&lt;br&gt;&lt;b&gt;RecipeIngredient&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- id : Long&lt;br&gt;- recipe : Recipe&lt;br&gt;- inventoryItem : InventoryItem&lt;br&gt;- quantity : BigDecimal (g/ml)&lt;br&gt;- unit : String&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ getInventoryItem() : InventoryItem&lt;br&gt;+ getQuantity() : BigDecimal&lt;/p&gt;" vertex="1">
+          <mxGeometry height="280" width="370" x="970" y="1345" as="geometry" />
+        </mxCell>
+        <mxCell id="e_inv_target" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fillColor=#b1ddf0;strokeColor=#10739e;fontColor=#000000;fontFamily=Helvetica;fontSize=20;spacingLeft=6;spacingRight=6;spacingTop=6;spacingBottom=6;shadow=1;" value="&lt;p style=&quot;text-align: center; margin: 0; padding: 2px 0;&quot;&gt;&lt;b&gt;«entity»&lt;/b&gt;&lt;br&gt;&lt;b&gt;InventoryItem&lt;/b&gt;&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;- id : Long&lt;br&gt;- itemName : String&lt;br&gt;- currentQuantity : BigDecimal&lt;/p&gt;&lt;hr style=&quot;border: none; border-top: 1px solid #777; margin: 3px 0;&quot;&gt;&lt;p style=&quot;margin: 0px; padding-left: 2px; line-height: 1.35;&quot;&gt;+ deductQuantity(qty : BigDecimal) : void&lt;br&gt;+ isLowStock() : boolean&lt;/p&gt;" vertex="1">
+          <mxGeometry height="240" width="400" x="955" y="920" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_c_s1" edge="1" parent="1" source="c_barista" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endSize=8;strokeColor=#000000;strokeWidth=1.2;fontSize=20;" target="s_barista" value="calls">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_c_s2" edge="1" parent="1" source="c_barista" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endSize=8;strokeColor=#000000;strokeWidth=1.2;fontSize=20;" target="s_inv_deduct" value="calls">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_c_dto1" edge="1" parent="1" source="c_barista" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endSize=8;strokeColor=#4d4d4d;strokeWidth=1.2;fontSize=20;" target="dto_barista_req" value="consumes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_c_dto2" edge="1" parent="1" source="c_barista" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endSize=8;strokeColor=#4d4d4d;strokeWidth=1.2;fontSize=20;" target="dto_order_view" value="returns">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-210" y="440" />
+              <mxPoint x="-210" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3_s_s" edge="1" parent="1" source="s_barista" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endSize=8;strokeColor=#000000;strokeWidth=1.2;fontSize=20;" target="s_inv_deduct" value="deductForOrder(order)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_s_r1" edge="1" parent="1" source="s_barista" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endSize=8;strokeColor=#000000;strokeWidth=1.2;fontSize=20;" target="r_order" value="injects">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_s_r2" edge="1" parent="1" source="s_inv_deduct" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endSize=8;strokeColor=#000000;strokeWidth=1.2;fontSize=20;" target="r_recipe" value="injects">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_r_e1" edge="1" parent="1" source="r_order" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endSize=8;strokeColor=#4d4d4d;strokeWidth=1.2;fontSize=20;" target="e_order" value="manages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_r_e2" edge="1" parent="1" source="r_recipe" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;endArrow=open;endSize=8;strokeColor=#4d4d4d;strokeWidth=1.2;fontSize=20;" target="e_recipe" value="manages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_comp1" edge="1" parent="1" source="e_order" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamond;startFill=1;startSize=14;endArrow=none;strokeColor=#000000;strokeWidth=1.4;fontSize=20;" target="e_order_item" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_comp2" edge="1" parent="1" source="e_menu_item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamond;startFill=1;startSize=14;endArrow=none;strokeColor=#000000;strokeWidth=1.4;fontSize=20;" target="e_recipe" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_comp3" edge="1" parent="1" source="e_recipe" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamond;startFill=1;startSize=14;endArrow=none;strokeColor=#000000;strokeWidth=1.4;fontSize=20;" target="e_recipe_ing" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3_agg1" edge="1" parent="1" source="e_recipe_ing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamond;startFill=0;startSize=14;endArrow=none;strokeColor=#000000;strokeWidth=1.4;fontSize=20;" target="e_inv_target" value="consumes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pJCgfNRsO9xjwjuY6mFD-2" edge="1" parent="1" source="e_order_item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=diamond;startFill=1;startSize=14;endArrow=none;strokeColor=#000000;strokeWidth=1.4;fontSize=20;" target="e_menu_item" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="60" y="1510" as="sourcePoint" />
+            <mxPoint x="240" y="1510" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

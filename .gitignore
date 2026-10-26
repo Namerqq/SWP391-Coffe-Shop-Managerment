@@ -16,9 +16,11 @@ backend/src/main/resources/application-local.properties
 # OS
 .DS_Store
 Thumbs.db
-# Local run configuration
+nbproject/
+frontend/nbproject/
 backend/application-default.properties
 frontend/.env.local
-/frontend/nbproject/
-nbproject/
-
+# Temporary & drawio backup
+scratch/
+*.bkp
+.$*
