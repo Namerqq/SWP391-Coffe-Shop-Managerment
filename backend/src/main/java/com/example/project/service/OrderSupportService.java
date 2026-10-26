@@ -130,16 +130,51 @@ public class OrderSupportService {
         return m;
     }
 
-    /** Mã đơn dạng yyMMdd-0001 (đánh số lại mỗi ngày). */
-    public String nextOrderNumber() {
-        String prefix = LocalDate.now().format(DAY) + "-";
-        return prefix + String.format("%04d", orderRepository.countByOrderNumberStartingWith(prefix) + 1);
+    /** Ngày và số thứ tự mã đơn đã cấp gần nhất (trong bộ nhớ, để 2 đơn tạo cùng lúc không trùng mã). */
+    private String lastOrderDay;
+    private long lastOrderSeq;
+
+    /**
+     * Mã đơn dạng yyMMdd-0001 (đánh số lại mỗi ngày).
+     * Đếm cả đơn đã hủy nên mã của đơn hủy không bao giờ được cấp lại. synchronized + nhớ số đã cấp:
+     * 2 đơn tạo cùng lúc (đơn trước chưa kịp lưu vào DB) vẫn nhận 2 số khác nhau.
+     */
+    public synchronized String nextOrderNumber() {
+        String day = LocalDate.now().format(DAY);
+        long seq = orderRepository.countByOrderNumberStartingWith(day + "-") + 1;
+        if (day.equals(lastOrderDay) && seq <= lastOrderSeq) {
+            seq = lastOrderSeq + 1;
+        }
+        lastOrderDay = day;
+        lastOrderSeq = seq;
+        return day + "-" + String.format("%04d", seq);
     }
 
     /** Mã thanh toán dạng PMyyMMdd-0001. */
     public String nextPaymentCode() {
         String prefix = "PM" + LocalDate.now().format(DAY) + "-";
         return prefix + String.format("%04d", paymentRepository.countByPaymentCodeStartingWith(prefix) + 1);
+    }
+
+    /** Bỏ khoảng trắng, dấu chấm, gạch; số Việt Nam 10-11 số bắt đầu bằng 0 (giống màn Thu ngân). */
+    public static String normalizePhone(String phone) {
+        String p = phone == null ? "" : phone.replaceAll("[\\s.\\-]", "");
+        if (!p.matches("^0\\d{9,10}$")) {
+            throw ApiException.badRequest("Số điện thoại gồm 10-11 chữ số và bắt đầu bằng 0.");
+        }
+        return p;
+    }
+
+    /**
+     * Mã đơn khách nhập để tra đơn online: chấp nhận "261023-0008", "#261023-0008", có khoảng trắng.
+     * Trả về đúng dạng lưu trong orders.order_number (yyMMdd-0001).
+     */
+    public static String normalizeOrderCode(String code) {
+        String c = code == null ? "" : code.replaceAll("[\\s#]", "");
+        if (!c.matches("^\\d{6}-\\d{4,}$")) {
+            throw ApiException.badRequest("Mã đơn không đúng. Mã đơn có dạng 261023-0008.");
+        }
+        return c;
     }
 
     /** Số ngắn để gọi đơn: "261002-0007" -> "#0007". */

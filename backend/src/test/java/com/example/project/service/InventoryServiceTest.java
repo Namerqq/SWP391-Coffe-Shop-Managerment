@@ -4,6 +4,7 @@ import com.example.project.entity.InventoryItem;
 import com.example.project.entity.User;
 import com.example.project.repository.InventoryItemRepository;
 import com.example.project.repository.StockTransactionRepository;
+import com.example.project.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,10 @@ import com.example.project.dto.inventory.InventoryItemRequest;
 import com.example.project.dto.inventory.InventoryItemView;
 import com.example.project.dto.inventory.StockInRequest;
 import com.example.project.dto.inventory.StockOutRequest;
+import com.example.project.dto.inventory.WasteReportRequest;
+import com.example.project.entity.MenuItem;
+import com.example.project.entity.Order;
+import com.example.project.entity.OrderItem;
 import com.example.project.entity.StockTransaction;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +43,12 @@ class InventoryServiceTest {
 
     @Mock
     private StockTransactionRepository txRepo;
+
+    @Mock
+    private UserRepository userRepo;
+
+    @Mock
+    private com.example.project.repository.StockReceiptRepository receiptRepo;
 
     @InjectMocks
     private InventoryService inventoryService;
@@ -321,5 +332,177 @@ class InventoryServiceTest {
         assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
         assertTrue(ex.getMessage().contains("không được vượt quá số lượng tồn hiện tại"));
         verify(txRepo, never()).save(any(StockTransaction.class));
+    }
+
+    @Test
+    @DisplayName("TC11: Báo hao hụt / hư hỏng tại quầy (WASTE - UC-B06) thành công")
+    void waste_success() {
+        InventoryItem item = new InventoryItem();
+        item.setItemName("Coffee beans");
+        item.setCurrentQuantity(new BigDecimal("10.000"));
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(item));
+
+        WasteReportRequest req = new WasteReportRequest(new BigDecimal("0.500"), "Bị rơi đổ");
+        InventoryItemView view = inventoryService.waste(1L, req, sampleManager);
+        assertNotNull(view);
+
+        assertEquals(new BigDecimal("9.500"), item.getCurrentQuantity());
+        verify(txRepo, times(1)).save(argThat(tx ->
+                StockTransaction.WASTE.equals(tx.getTransactionType()) &&
+                new BigDecimal("0.500").equals(tx.getQuantity()) &&
+                tx.getNote().contains("Bị rơi đổ")
+        ));
+    }
+
+    @Test
+    @DisplayName("TC11B: Báo sự cố hao hụt lỗi chủ quan kèm quy trách nhiệm nhân viên và % bồi thường")
+    void waste_subjectiveWithAccountability_success() {
+        InventoryItem item = new InventoryItem();
+        item.setItemName("Fresh milk");
+        item.setCurrentQuantity(new BigDecimal("8.000"));
+        item.setUnitCost(35000L);
+        when(itemRepo.findById(2L)).thenReturn(Optional.of(item));
+
+        User staff = new User();
+        org.springframework.test.util.ReflectionTestUtils.setField(staff, "id", 4L);
+        staff.setFullName("Trần Văn Barista");
+        when(userRepo.findById(4L)).thenReturn(Optional.of(staff));
+
+        WasteReportRequest req = new WasteReportRequest(
+                new BigDecimal("2.000"),
+                "Làm rơi vỡ bình sữa khi đánh bọt",
+                "SUBJECTIVE",
+                4L,
+                50,
+                "https://example.com/evidence.jpg"
+        );
+
+        InventoryItemView view = inventoryService.waste(2L, req, sampleManager);
+        assertNotNull(view);
+        assertEquals(new BigDecimal("6.000"), item.getCurrentQuantity()); // 8 - 2 = 6
+
+        verify(txRepo, times(1)).save(argThat(tx ->
+                StockTransaction.WASTE.equals(tx.getTransactionType()) &&
+                new BigDecimal("2.000").equals(tx.getQuantity()) &&
+                tx.getNote().contains("[BIÊN BẢN SỰ CỐ - LỖI CHỦ QUAN]") &&
+                tx.getNote().contains("Trần Văn Barista") &&
+                tx.getNote().contains("Phạt: 50%")
+        ));
+    }
+
+    @Test
+    @DisplayName("TC12: Tự động trừ nguyên liệu khi Barista nhận đơn theo công thức thành công")
+    void deductForOrder_success() {
+        InventoryItem coffee = new InventoryItem();
+        org.springframework.test.util.ReflectionTestUtils.setField(coffee, "id", 1L);
+        coffee.setItemName("Coffee beans");
+        coffee.setUnit("kg");
+        coffee.setCurrentQuantity(new BigDecimal("5.000"));
+
+        InventoryItem milk = new InventoryItem();
+        org.springframework.test.util.ReflectionTestUtils.setField(milk, "id", 2L);
+        milk.setItemName("Fresh milk");
+        milk.setUnit("litre");
+        milk.setCurrentQuantity(new BigDecimal("10.000"));
+
+        when(itemRepo.findAllByStatusOrderByItemNameAsc(InventoryItem.ACTIVE))
+                .thenReturn(List.of(coffee, milk));
+
+        MenuItem americano = new MenuItem();
+        americano.setName("Americano");
+        americano.setRecipeIngredients("0.020 kg Coffee beans");
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setMenuItem(americano);
+        orderItem.setQuantity(2);
+        orderItem.setItemStatus(OrderItem.PENDING);
+
+        Order order = new Order();
+        order.setOrderNumber("ORD-001");
+        order.addItem(orderItem);
+
+        inventoryService.deductForOrder(order, sampleManager);
+
+        // 2 ly * 0.020 = 0.040 kg -> 5.000 - 0.040 = 4.960 kg
+        assertEquals(new BigDecimal("4.960"), coffee.getCurrentQuantity());
+        verify(itemRepo, times(1)).save(coffee);
+        verify(txRepo, times(1)).save(argThat(tx ->
+                StockTransaction.STOCK_OUT.equals(tx.getTransactionType()) &&
+                new BigDecimal("0.040").equals(tx.getQuantity())
+        ));
+    }
+
+    @Test
+    @DisplayName("TC13: Tự động trừ nguyên liệu ném lỗi BadRequest khi không đủ tồn kho")
+    void deductForOrder_insufficientStock_throwsBadRequest() {
+        InventoryItem coffee = new InventoryItem();
+        org.springframework.test.util.ReflectionTestUtils.setField(coffee, "id", 1L);
+        coffee.setItemName("Coffee beans");
+        coffee.setUnit("kg");
+        coffee.setCurrentQuantity(new BigDecimal("0.010")); // Chỉ còn 0.01 kg
+
+        when(itemRepo.findAllByStatusOrderByItemNameAsc(InventoryItem.ACTIVE))
+                .thenReturn(List.of(coffee));
+
+        MenuItem americano = new MenuItem();
+        americano.setName("Americano");
+        americano.setRecipeIngredients("0.020 kg Coffee beans"); // Cần 0.02 kg
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setMenuItem(americano);
+        orderItem.setQuantity(1);
+        orderItem.setItemStatus(OrderItem.PENDING);
+
+        Order order = new Order();
+        order.setOrderNumber("ORD-002");
+        order.addItem(orderItem);
+
+        com.example.project.exception.ApiException ex = assertThrows(
+                com.example.project.exception.ApiException.class,
+                () -> inventoryService.deductForOrder(order, sampleManager)
+        );
+
+        assertTrue(ex.getMessage().contains("Không đủ nguyên liệu"));
+        verify(txRepo, never()).save(any(StockTransaction.class));
+    }
+
+    @Test
+    @DisplayName("Tra cứu lịch sử nhập kho theo ngày đơn lẻ (Single Day View) thành công")
+    void getSingleDayReceiptHistory_success() {
+        org.springframework.test.util.ReflectionTestUtils.setField(sampleItem, "id", 1L);
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(sampleItem));
+
+        com.example.project.entity.StockReceipt receipt = new com.example.project.entity.StockReceipt();
+        org.springframework.test.util.ReflectionTestUtils.setField(receipt, "id", 101L);
+        receipt.setReceiptCode("PN-20261025-001");
+        receipt.setSupplierName("NCC Cầu Đất Farm");
+        receipt.setStatus("RECEIVED");
+        receipt.setReceiptDate(java.time.LocalDate.of(2026, 10, 25));
+        receipt.setConfirmedAt(java.time.LocalDateTime.of(2026, 10, 25, 14, 30));
+        receipt.setCreatedBy(sampleManager);
+
+        com.example.project.entity.StockReceiptItem ri = new com.example.project.entity.StockReceiptItem();
+        ri.setReceipt(receipt);
+        ri.setInventoryItem(sampleItem);
+        ri.setQuantity(new BigDecimal("10.000"));
+        ri.setUnitCost(215000L);
+        ri.setSubtotal(2150000L);
+
+        when(receiptRepo.findReceivedItemsByIngredientAndDate(eq(1L), any(), any(), eq(java.time.LocalDate.of(2026, 10, 25))))
+                .thenReturn(List.of(ri));
+        when(txRepo.findByInventoryItem_IdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of());
+
+        var view = inventoryService.getSingleDayReceiptHistory(1L, java.time.LocalDate.of(2026, 10, 25));
+
+        assertNotNull(view);
+        assertEquals(1L, view.ingredientId());
+        assertEquals(1, view.summary().totalReceipts());
+        assertEquals(new BigDecimal("10.000"), view.summary().totalQuantity());
+        assertEquals(2150000L, view.summary().totalCost());
+        assertEquals(1, view.items().size());
+        assertEquals("PN-20261025-001", view.items().get(0).receiptCode());
+        assertEquals("14:30", view.items().get(0).receiptTime());
+        assertEquals("NCC Cầu Đất Farm", view.items().get(0).supplierName());
     }
 }

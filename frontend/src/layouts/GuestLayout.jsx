@@ -144,9 +144,10 @@ export default function GuestLayout() {
 
   /**
    * Phiên không dùng được nữa (nhận lỗi 410 từ server, hoặc null khi phiên hết hạn).
-   * Lượt khách đã xong (mã GUEST_SESSION_ENDED): bàn đã được giải phóng -> xoá đơn cũ và giỏ đã lưu trên máy,
-   * rồi tự mở phiên mới cho đúng bàn vừa quét để khách gọi tiếp, không cần quét lại QR.
-   * Không mở được phiên mới (bàn tạm ngưng, mất mạng...) thì mới yêu cầu quét lại QR.
+   * Lượt khách đã xong (mã GUEST_SESSION_ENDED): bàn đã được giải phóng -> ẩn đơn cũ, tự mở phiên mới cho đúng bàn
+   * vừa quét để khách gọi tiếp, không cần quét lại QR. GIỮ NGUYÊN giỏ đang chọn: lượt trước thường xong đúng lúc khách
+   * đang chọn thêm món (trả tiền trước, món mang ra sau), xóa giỏ lúc đó là mất món khách vừa chọn.
+   * Không mở được phiên mới (bàn tạm ngưng, mất mạng...) thì mới xóa giỏ và yêu cầu quét lại QR.
    *
    * Trả về Promise<boolean>: true = đã có phiên mới dùng được (trang Giỏ hàng dựa vào đó để gửi lại đơn).
    * options.keepCart = true: giữ giỏ đang chọn (khách vừa bấm Gửi đơn đúng lúc lượt trước kết thúc).
@@ -162,10 +163,10 @@ export default function GuestLayout() {
 
     const ended = error?.response?.data?.code === SESSION_ENDED_CODE
     orderRequestKey.current = null
-    if (!options.keepCart) setCart([])
 
     const savedQr = getGuestQr()
     if (!ended || !savedQr) {
+      if (!options.keepCart) setCart([])
       if (ended) clearAllCarts()
       setGuestToken(null)
       setTable(null)
@@ -177,7 +178,6 @@ export default function GuestLayout() {
     // Lượt đã xong: mở phiên mới cho đúng bàn. "Cảm ơn quý khách" chỉ báo 1 lần cho mỗi lượt.
     const firstTime = !wasEndedHandled(sentToken)
     markEndedHandled(sentToken)
-    clearAllCarts()
     renewing.current = (async () => {
       try {
         // Gửi kèm token cũ (đã kết thúc) cũng được: server không dùng lại mà cấp token mới.
@@ -190,6 +190,7 @@ export default function GuestLayout() {
         return true
       } catch {
         // Không mở lại được: yêu cầu quét lại QR.
+        clearAllCarts()
         setGuestToken(null)
         setTable(null)
         setCart([])

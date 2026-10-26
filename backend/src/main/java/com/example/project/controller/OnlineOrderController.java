@@ -34,34 +34,24 @@ public class OnlineOrderController {
     }
 
     /**
-     * Xem chi tiết đơn hàng online để theo dõi trạng thái.
-     * GET /api/public/online/orders/{id}
+     * Xem chi tiết 1 đơn online bằng mã đơn (khách chỉ xem được đơn mình có mã).
+     * GET /api/public/online/orders/code/261023-0008
      */
-    @GetMapping("/orders/{id}")
-    public ResponseEntity<OnlineOrderView> getOrderById(@PathVariable Long id) {
-        OnlineOrderView view = onlineOrderService.getOrderById(id);
-        return ResponseEntity.ok(view);
+    @GetMapping("/orders/code/{code}")
+    public ResponseEntity<OnlineOrderView> getOrderByCode(@PathVariable String code) {
+        return ResponseEntity.ok(onlineOrderService.getOrderByCode(code));
     }
 
     /**
-     * Tra cứu danh sách lịch sử đơn hàng online theo số điện thoại.
-     * GET /api/public/online/orders/by-phone?phone=...
+     * Khách hàng hủy đơn online theo mã đơn (chỉ được hủy khi chưa bắt đầu pha chế hoặc chưa giao hàng).
+     * POST /api/public/online/orders/code/261023-0008/cancel
      */
-    @GetMapping("/orders/by-phone")
-    public ResponseEntity<java.util.List<OnlineOrderView>> getOrdersByPhone(@RequestParam String phone) {
-        return ResponseEntity.ok(onlineOrderService.getOrdersByPhone(phone));
-    }
-
-    /**
-     * Khách hàng hủy đơn online (chỉ được hủy khi chưa bắt đầu pha chế hoặc chưa giao hàng).
-     * POST /api/public/online/orders/{id}/cancel
-     */
-    @PostMapping("/orders/{id}/cancel")
+    @PostMapping("/orders/code/{code}/cancel")
     public ResponseEntity<OnlineOrderView> cancelOrder(
-            @PathVariable Long id,
+            @PathVariable String code,
             @RequestBody(required = false) GuestCancelRequest req) {
         String reason = req != null ? req.reason() : null;
-        OnlineOrderView view = onlineOrderService.cancelOrder(id, reason);
+        OnlineOrderView view = onlineOrderService.cancelOrder(code, reason);
         return ResponseEntity.ok(view);
     }
 }

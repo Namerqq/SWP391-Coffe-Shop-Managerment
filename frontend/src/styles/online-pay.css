@@ -1,7 +1,6 @@
 /* ThangNN Iter2: các màn thanh toán online. Dùng lại khung gx-* của trang khách, chỉ thêm phần riêng. */
 .op-heading { font-size: 1rem; font-weight: 700; margin: 0 0 8px; }
 .op-ship { border-top: 1px dashed var(--cf-border); margin-top: 8px; padding-top: 10px; line-height: 1.55; }
-.op-points { display: grid; gap: 6px; max-width: 300px; font-size: 0.9rem; }
 
 .op-qr { text-align: center; }
 .op-qr-code { display: inline-flex; padding: 12px; background: #fff; border: 1px solid var(--cf-border); border-radius: 12px; }
@@ -29,3 +28,7 @@
   .gx-shell { padding: 0; background: #fff; }
   .op-receipt { break-inside: avoid; }
 }
+
+/* Popup mã đơn */
+.op-code { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; margin-bottom: 10px; border: 1px dashed var(--cf-border); border-radius: 12px; background: var(--cf-surface, #fff); }
+.op-code strong { font-size: 1.5rem; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }

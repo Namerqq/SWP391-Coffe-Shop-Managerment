@@ -5,12 +5,11 @@ const onlineOrderApi = {
   // Gửi đơn đặt hàng online tới backend: { customerName, customerPhone, deliveryAddress, note, paymentMethod, items }
   placeOrder: (data) => axiosClient.post('/public/online/orders', data),
 
-  getOrderById: (id) => axiosClient.get(`/public/online/orders/${id}`),
+  // Xem 1 đơn bằng mã đơn (dạng 261023-0008). Không còn tra theo id hay số điện thoại.
+  getOrderByCode: (code) => axiosClient.get(`/public/online/orders/code/${encodeURIComponent(code)}`),
 
-  getOrdersByPhone: (phone) => axiosClient.get(`/public/online/orders/by-phone?phone=${encodeURIComponent(phone)}`),
-
-  cancelOrder: (id, reason) =>
-    axiosClient.post(`/public/online/orders/${id}/cancel`, reason ? { reason } : {}),
+  cancelOrder: (code, reason) =>
+    axiosClient.post(`/public/online/orders/code/${encodeURIComponent(code)}/cancel`, reason ? { reason } : {}),
 }
 
 export default onlineOrderApi

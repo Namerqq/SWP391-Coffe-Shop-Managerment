@@ -1,6 +1,7 @@
 package com.example.project.controller;
 
 import com.example.project.dto.cashier.CustomerCreateRequest;
+import com.example.project.dto.cashier.OrderHistoryView;
 import com.example.project.dto.cashier.PayRequest;
 import com.example.project.dto.cashier.PaymentResult;
 import com.example.project.dto.cashier.PaymentSettingsView;
@@ -11,12 +12,19 @@ import com.example.project.dto.order.CustomerView;
 import com.example.project.entity.User;
 import com.example.project.security.AuthInterceptor;
 import com.example.project.security.RequireRole;
+import com.example.project.service.CashierHistoryService;
 import com.example.project.service.CashierService;
 import com.example.project.service.OnlineOrderService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+
+import java.time.LocalDateTime;
+
+import java.time.LocalDate;
 
 import java.util.List;
 import java.util.Map;
@@ -32,10 +40,13 @@ public class CashierController {
 
     private final CashierService service;
     private final OnlineOrderService onlineOrderService;
+    private final CashierHistoryService historyService;
 
-    public CashierController(CashierService service, OnlineOrderService onlineOrderService) {
+    public CashierController(CashierService service, OnlineOrderService onlineOrderService,
+                             CashierHistoryService historyService) {
         this.service = service;
         this.onlineOrderService = onlineOrderService;
+        this.historyService = historyService;
     }
 
     /** UC-C10: tìm khách theo số điện thoại. Không có -> 404. */
@@ -79,12 +90,28 @@ public class CashierController {
     }
 
     /**
+     * UC-C15 View Bills History: mọi đơn trong 1 ngày kèm hóa đơn của đơn đã thanh toán, và tiền đã thu trong ngày.
+     * GET /api/cashier/history?date=2026-10-24   (bỏ trống date = hôm nay; ngày tương lai -> 400)
+     */
+    @GetMapping("/history")
+    public OrderHistoryView history(@RequestParam(required = false)
+                                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return historyService.history(date);
+    }
+
+    /**
      * Danh sách đơn giao hàng online cho thu ngân (Ship Order List).
      * GET /api/cashier/delivery-orders
+     * Lọc (không bắt buộc): ?from=2026-10-20T08:00&to=2026-10-25T23:59&code=0012
+     * from / to = thời gian đặt đơn, code = mã đơn (nhập 1 phần cũng được). Bỏ trống = mọi đơn.
      */
     @GetMapping("/delivery-orders")
-    public List<OnlineOrderView> deliveryOrders() {
-        return onlineOrderService.listDeliveryOrders();
+    public List<OnlineOrderView> deliveryOrders(@RequestParam(required = false)
+                                                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                                                @RequestParam(required = false)
+                                                @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+                                                @RequestParam(required = false) String code) {
+        return onlineOrderService.listDeliveryOrders(from, to, code);
     }
 
     /**

@@ -84,15 +84,13 @@ public class QrPaymentService {
     private final SystemSettingService settings;
     private final PayosClient payos;
     private final ObjectMapper objectMapper;
-    private final OnlineLoyaltyService onlineLoyalty;
     private final DeliveryRepository deliveryRepository;
 
     public QrPaymentService(QrPaymentRequestRepository qrRepository, TableSessionRepository sessionRepository,
                             OrderRepository orderRepository, OrderLockRepository lockRepository,
                             CustomerRepository customerRepository, MenuItemRepository menuItemRepository,
                             CashierService cashier, OrderSupportService support, SystemSettingService settings,
-                            PayosClient payos, ObjectMapper objectMapper, OnlineLoyaltyService onlineLoyalty,
-                            DeliveryRepository deliveryRepository) {
+                            PayosClient payos, ObjectMapper objectMapper, DeliveryRepository deliveryRepository) {
         this.qrRepository = qrRepository;
         this.sessionRepository = sessionRepository;
         this.orderRepository = orderRepository;
@@ -104,7 +102,6 @@ public class QrPaymentService {
         this.settings = settings;
         this.payos = payos;
         this.objectMapper = objectMapper;
-        this.onlineLoyalty = onlineLoyalty;
         this.deliveryRepository = deliveryRepository;
     }
 
@@ -193,9 +190,9 @@ public class QrPaymentService {
     // ===== Khách đặt online (ThangNN Iter2, BF-03-2) =====
 
     /**
-     * Khách đặt online chọn trả QR: tính giá ở server, xác định khách thân thiết, trừ điểm, tạo mã payOS.
+     * Khách đặt online chọn trả QR: tính giá ở server, tạo mã payOS đúng bằng tiền giỏ hàng.
+     * Khách online không tích điểm và không dùng điểm: mã không gắn khách thân thiết, không giảm giá.
      * Đơn CHƯA được tạo (giống mang đi): giỏ hàng + thông tin giao hàng lưu kèm mã, khách trả xong mới tạo đơn.
-     * Thành viên mới (nếu có) được tạo trong cùng transaction: payOS lỗi thì không lưu gì cả.
      * Trả về paymentLinkId (chuỗi ngẫu nhiên do payOS cấp) để trang của khách hỏi trạng thái mã.
      */
     @Transactional
@@ -207,7 +204,7 @@ public class QrPaymentService {
         String address = OrderSupportService.blankToNull(req.deliveryAddress());
         if (name == null || address == null) throw ApiException.badRequest("Vui lòng nhập họ tên và địa chỉ giao hàng.");
         if (req.items() == null || req.items().isEmpty()) throw ApiException.badRequest("Giỏ hàng đang trống.");
-        String phone = OnlineLoyaltyService.normalizePhone(req.customerPhone());
+        String phone = OrderSupportService.normalizePhone(req.customerPhone());
 
         List<QrTakeawayCart.Line> lines = new ArrayList<>();
         long subtotal = 0;
@@ -217,18 +214,7 @@ public class QrPaymentService {
             subtotal += built.getSubtotal();
         }
 
-        Customer customer = onlineLoyalty.resolveCustomer(phone, name, Boolean.TRUE.equals(req.joinLoyalty()));
-        int redeem = req.pointsToRedeem() == null ? 0 : req.pointsToRedeem();
-        if (redeem > 0 && customer == null) {
-            throw ApiException.badRequest("Số điện thoại này chưa là thành viên nên chưa có điểm để dùng.");
-        }
-        long discount = cashier.pointsDiscount(subtotal, customer, redeem, null);
-        if (discount > 0 && discount >= subtotal) {
-            throw ApiException.badRequest("Điểm dùng không được trừ hết tiền đơn (số tiền trong mã QR phải lớn hơn 0đ). "
-                    + "Vui lòng dùng ít điểm hơn.");
-        }
-
-        QrPaymentRequest r = newRequest(QrPaymentRequest.ONLINE, subtotal, discount, customer, redeem, null);
+        QrPaymentRequest r = newRequest(QrPaymentRequest.ONLINE, subtotal, 0, null, 0, null);
         r.setCartJson(writeOnlineCart(new QrOnlineCart(name, phone, address,
                 OrderSupportService.blankToNull(req.note()), lines)));
         open(r);
@@ -314,11 +300,10 @@ public class QrPaymentService {
         Order o = p == null ? null : p.getOrder();
         long secondsLeft = r.isPending()
                 ? Math.max(0, Duration.between(LocalDateTime.now(), r.getExpiresAt()).getSeconds()) : 0;
-        return new OnlineQrView(r.getPaymentLinkId(), r.getStatus(),
-                r.getSubtotal(), r.getSubtotal() - r.getAmount(), r.getAmount(), r.getPointsToRedeem(),
+        return new OnlineQrView(r.getPaymentLinkId(), r.getStatus(), r.getAmount(),
                 r.getQrCode(), r.getCheckoutUrl(), r.getDescription(),
                 r.getExpiresAt(), secondsLeft, cart.itemCount(), cart.customerPhone(),
-                o == null ? null : OrderSupportService.displayNumber(o.getOrderNumber()), r.getPaidAt());
+                o == null ? null : o.getOrderNumber(), r.getPaidAt());
     }
 
     /**
@@ -507,8 +492,9 @@ public class QrPaymentService {
     }
 
     /**
-     * Khách đặt online: tạo đơn ONLINE / DELIVERY từ giỏ đã lưu (đúng giá lúc tạo mã), ghi hóa đơn, trừ / cộng điểm,
-     * tạo dòng giao hàng. Đơn vào thẳng CONFIRMED để pha chế làm ngay (D7-A). Hóa đơn không có thu ngân xác nhận
+     * Khách đặt online: tạo đơn ONLINE / DELIVERY từ giỏ đã lưu (đúng giá lúc tạo mã), ghi hóa đơn, tạo dòng giao hàng.
+     * Mã tạo từ khi bỏ tích điểm online không gắn khách thân thiết nên không cộng / trừ điểm; vẫn xử lý điểm cho
+     * mã cũ tạo trước đó (nếu còn đang chờ) để số tiền khách đã trả khớp hóa đơn. Đơn vào thẳng CONFIRMED để pha chế làm ngay (D7-A). Hóa đơn không có thu ngân xác nhận
      * (confirmed_by = NULL) vì do payOS báo về.
      */
     private String settleOnline(QrPaymentRequest r) {
