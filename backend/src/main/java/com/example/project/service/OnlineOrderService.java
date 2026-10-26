@@ -94,7 +94,7 @@ public class OnlineOrderService {
         Order order = findOnlineByCode(code);
         Delivery delivery = deliveryRepository.findByOrder_Id(order.getId()).orElse(null);
         String paymentMethod = Order.PENDING.equals(order.getStatus()) ? "PAYOS_QR" : "CASH";
-        return toView(order, delivery, paymentMethod, null);
+        return toPublicView(toView(order, delivery, paymentMethod, null));
     }
 
     private Order findOnlineByCode(String code) {
@@ -143,7 +143,7 @@ public class OnlineOrderService {
             deliveryRepository.save(delivery);
         }
 
-        return toView(order, delivery, null, null);
+        return toPublicView(toView(order, delivery, null, null));
     }
 
     /**
@@ -254,6 +254,37 @@ public class OnlineOrderService {
                 : "đã được xác nhận";
         throw ApiException.conflict("Không " + action + " được: đơn " + no + " " + now
                 + " trước đó. Danh sách vừa được cập nhật lại.");
+    }
+
+    /**
+     * Bản cho trang công khai (tra bằng mã đơn): ai đoán được mã cũng gọi được nên che bớt tên, SĐT, địa chỉ.
+     * Thu ngân vẫn dùng toView (đầy đủ).
+     */
+    static OnlineOrderView toPublicView(OnlineOrderView v) {
+        return new OnlineOrderView(v.orderId(), v.orderNumber(), v.displayNumber(), v.status(),
+                maskName(v.customerName()), maskPhone(v.customerPhone()), maskAddress(v.deliveryAddress()),
+                v.deliveryStatus(), v.customerNote(), v.cancelReason(), v.paymentMethod(), v.paymentStatus(),
+                v.totalAmount(), v.createdAt(), v.items(), v.qrPaymentUrl());
+    }
+
+    /** "0901234567" -> "09*****567" */
+    static String maskPhone(String phone) {
+        if (phone == null || phone.length() < 6) return phone == null ? null : "***";
+        return phone.substring(0, 2) + "*".repeat(phone.length() - 5) + phone.substring(phone.length() - 3);
+    }
+
+    /** "Nguyễn Văn An" -> "*** An" (chỉ giữ tên gọi). */
+    static String maskName(String name) {
+        if (name == null || name.isBlank()) return name;
+        String[] parts = name.trim().split("\\s+");
+        return parts.length == 1 ? parts[0].charAt(0) + "***" : "*** " + parts[parts.length - 1];
+    }
+
+    /** "12 Nguyễn Trãi, Thanh Xuân, Hà Nội" -> "***, Thanh Xuân, Hà Nội" (bỏ số nhà / đường). */
+    static String maskAddress(String address) {
+        if (address == null || address.isBlank()) return address;
+        int comma = address.indexOf(',');
+        return comma >= 0 ? "***" + address.substring(comma) : "***";
     }
 
     public OnlineOrderView toView(Order order, Delivery delivery, String paymentMethod, String qrUrl) {

@@ -35,6 +35,7 @@ public class OnlineOrderController {
 
     /**
      * Xem chi tiết 1 đơn online bằng mã đơn (khách chỉ xem được đơn mình có mã).
+     * Tên, SĐT, địa chỉ được che bớt vì mã đơn dễ đoán.
      * GET /api/public/online/orders/code/261023-0008
      */
     @GetMapping("/orders/code/{code}")
