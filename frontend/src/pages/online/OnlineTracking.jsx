@@ -81,7 +81,7 @@ export default function OnlineTracking() {
       setOrder(res.data)
       setError('')
     } catch (err) {
-      // Lỗi lúc tự làm mới 30 giây thì giữ nguyên đơn đang hiện; chỉ báo lỗi khi mở / đổi mã đơn.
+      // Lỗi lúc tự làm mới 10 giây thì giữ nguyên đơn đang hiện; chỉ báo lỗi khi mở / đổi mã đơn.
       if (showSpinner) {
         setOrder(null)
         setError(errorMessage(err, 'Không tìm thấy đơn hàng với mã ' + activeCode + '.'))
@@ -91,13 +91,13 @@ export default function OnlineTracking() {
     }
   }, [activeCode])
 
-  // Đổi mã đang xem -> tải lại ngay; sau đó tự làm mới trạng thái mỗi 30 giây.
+  // Đổi mã đang xem -> tải lại ngay; sau đó tự làm mới trạng thái mỗi 10 giây.
   useEffect(() => {
     setOrder(null)
     setError('')
     fetchOrder(true)
   }, [fetchOrder])
-  usePolling(fetchOrder, 30000)
+  usePolling(fetchOrder, 10000)
 
   const lookup = (e) => {
     e.preventDefault()
@@ -112,15 +112,25 @@ export default function OnlineTracking() {
   }
 
   // Xử lý khách bấm nút "Hủy đơn hàng"
+  // Trang chỉ tự làm mới 10 giây/lần nên đơn đang hiện có thể đã cũ (thu ngân vừa xác nhận):
+  // hỏi lại trạng thái mới nhất trước khi hỏi khách, và tải lại đơn nếu hủy không thành công.
   const handleCancel = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return
     setCancelling(true)
     try {
+      const latest = (await onlineOrderApi.getOrderByCode(order.orderNumber)).data
+      setOrder(latest)
+      const step = getStepIndex(latest)
+      if (step !== 0) {
+        alert(step === -1 ? 'Đơn hàng này đã được hủy.' : 'Quán đã xác nhận đơn hàng này nên không thể hủy nữa.')
+        return
+      }
+      if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return
       const res = await onlineOrderApi.cancelOrder(order.orderNumber, 'Khách hàng tự hủy trên website')
       setOrder(res.data)
       alert('Đã hủy đơn hàng thành công.')
     } catch (err) {
       alert(errorMessage(err, 'Không thể hủy đơn hàng vào lúc này.'))
+      fetchOrder()
     } finally {
       setCancelling(false)
     }
