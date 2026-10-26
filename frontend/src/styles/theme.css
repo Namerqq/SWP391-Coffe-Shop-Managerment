@@ -262,8 +262,6 @@ body {
 /* ---------- Modal (React-controlled, không cần bootstrap.js) ---------- */
 .cf-modal-backdrop { position: fixed; inset: 0; background: rgba(30, 20, 15, 0.35); z-index: 1050; }
 .cf-modal { display: block; z-index: 1055; }
-.cf-modal .modal-dialog.modal-lg { max-width: 780px; }
-@media (max-width: 768px) { .cf-modal .modal-dialog.modal-lg { max-width: 95vw; margin: 0.5rem auto; } }
 .cf-modal .modal-content { border: 0; border-radius: 1rem; box-shadow: 0 25px 60px -20px rgba(40, 25, 15, 0.35); }
 .cf-modal .modal-header, .cf-modal .modal-footer { border-color: var(--cf-border); padding: 1rem 1.5rem; }
 .cf-modal .modal-body { padding: 1.5rem; }

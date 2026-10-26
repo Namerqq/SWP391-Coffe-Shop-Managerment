@@ -9,9 +9,7 @@ const baristaApi = {
   cancelItem: (orderId, itemId) => axiosClient.patch(`/barista/orders/${orderId}/items/${itemId}/cancel`),
   getRecipe: (menuItemId) => axiosClient.get(`/barista/recipes/${menuItemId}`),
   reportShortage: (data) => axiosClient.post('/barista/inventory/report-shortage', data),
-  reportShortageBatch: (data) => axiosClient.post('/barista/inventory/report-shortage-batch', data),
   reportWaste: (id, data) => axiosClient.post(`/barista/inventory/${id}/waste`, data),
-  getStaffList: () => axiosClient.get('/barista/staff-list'),
 }
 
 export default baristaApi

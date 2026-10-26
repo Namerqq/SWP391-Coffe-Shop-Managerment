@@ -10,19 +10,11 @@ import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.InventoryItemRepository;
-import com.example.project.repository.StockReceiptRepository;
 import com.example.project.repository.StockTransactionRepository;
-import com.example.project.repository.UserRepository;
-import com.example.project.entity.StockReceipt;
-import com.example.project.entity.StockReceiptItem;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -40,17 +32,10 @@ public class InventoryService {
 
     private final InventoryItemRepository itemRepo;
     private final StockTransactionRepository txRepo;
-    private final UserRepository userRepo;
-    private final StockReceiptRepository receiptRepo;
 
-    public InventoryService(InventoryItemRepository itemRepo,
-                            StockTransactionRepository txRepo,
-                            UserRepository userRepo,
-                            StockReceiptRepository receiptRepo) {
+    public InventoryService(InventoryItemRepository itemRepo, StockTransactionRepository txRepo) {
         this.itemRepo = itemRepo;
         this.txRepo = txRepo;
-        this.userRepo = userRepo;
-        this.receiptRepo = receiptRepo;
     }
 
     // ========== Danh sách ==========
@@ -215,58 +200,12 @@ public class InventoryService {
         tx.setCreatedBy(currentUser);
         tx.setTransactionType(StockTransaction.WASTE);
         tx.setQuantity(req.quantity());
-
-        long unitCost = item.getUnitCost() != null ? item.getUnitCost() : 0L;
-        long totalLoss = req.quantity().multiply(BigDecimal.valueOf(unitCost)).longValue();
-
-        boolean isSubjective = "SUBJECTIVE".equalsIgnoreCase(req.causeType());
-        if (isSubjective) {
-            String staffName = "Chưa chỉ định";
-            if (req.responsibleUserId() != null) {
-                staffName = userRepo.findById(req.responsibleUserId())
-                        .map(User::getFullName)
-                        .orElse("ID: " + req.responsibleUserId());
-            }
-            int pct = req.compensationPercentage() != null ? Math.max(0, Math.min(100, req.compensationPercentage())) : 0;
-            long penalty = Math.round(totalLoss * (pct / 100.0));
-            String formattedNote = String.format("[BIÊN BẢN SỰ CỐ - LỖI CHỦ QUAN] Trách nhiệm: %s | Phạt: %d%% (%,d đ / Thiệt hại: %,d đ)",
-                    staffName, pct, penalty, totalLoss);
-            if (req.note() != null && !req.note().isBlank()) {
-                formattedNote += " | Diễn giải: " + req.note().trim();
-            }
-            if (req.evidenceImageUrl() != null && !req.evidenceImageUrl().isBlank()) {
-                formattedNote += " | Ảnh: " + req.evidenceImageUrl().trim();
-            }
-            tx.setReason("Sự cố hư hỏng (Lỗi chủ quan - " + staffName + ")");
-            tx.setNote(formattedNote);
-        } else {
-            String formattedNote = "[BIÊN BẢN SỰ CỐ - KHÁCH QUAN] Quán chịu chi phí (Thiệt hại: " + String.format("%,d đ", totalLoss) + ")";
-            if (req.note() != null && !req.note().isBlank()) {
-                formattedNote += " | Diễn giải: " + req.note().trim();
-            }
-            if (req.evidenceImageUrl() != null && !req.evidenceImageUrl().isBlank()) {
-                formattedNote += " | Ảnh: " + req.evidenceImageUrl().trim();
-            }
-            tx.setReason("Sự cố hư hỏng (Khách quan / Quán chịu)");
-            tx.setNote(formattedNote);
-        }
+        tx.setReason("Hao hụt / Hư hỏng tại quầy pha chế");
+        tx.setNote(req.note());
         txRepo.save(tx);
 
         item.setCurrentQuantity(item.getCurrentQuantity().subtract(req.quantity()));
         return InventoryItemView.from(item);
-    }
-
-    /** Lấy danh sách nhân viên đang hoạt động để Barista chọn người chịu trách nhiệm biên bản. */
-    public List<StaffSelectView> listActiveStaff() {
-        return userRepo.findAllByStatusOrderByFullNameAsc(User.ACTIVE)
-                .stream()
-                .map(u -> new StaffSelectView(
-                        u.getId(),
-                        u.getUsername(),
-                        u.getFullName(),
-                        u.getRole() != null ? u.getRole().getName() : "STAFF"
-                ))
-                .toList();
     }
 
     // ========== Lịch sử giao dịch ==========
@@ -276,92 +215,6 @@ public class InventoryService {
         findItem(inventoryItemId); // đảm bảo tồn tại
         return txRepo.findByInventoryItem_IdOrderByCreatedAtDesc(inventoryItemId)
                 .stream().map(StockTransactionView::from).toList();
-    }
-
-    /**
-     * Tra cứu & đối soát lịch sử nhập kho của 1 nguyên liệu theo ngày đơn lẻ (Single Day View).
-     */
-    @Transactional(readOnly = true)
-    public IngredientSingleDayReceiptHistoryView getSingleDayReceiptHistory(Long ingredientId, LocalDate date) {
-        InventoryItem item = findItem(ingredientId);
-        LocalDate targetDate = date != null ? date : LocalDate.now();
-
-        LocalDateTime startOfDay = targetDate.atStartOfDay();
-        LocalDateTime endOfDay = targetDate.plusDays(1).atStartOfDay();
-
-        List<StockReceiptItem> receiptItems = receiptRepo.findReceivedItemsByIngredientAndDate(
-                ingredientId, startOfDay, endOfDay, targetDate);
-
-        // Lấy các giao dịch STOCK_IN để đối soát "Giá vốn BQ mới"
-        List<StockTransaction> inTransactions = txRepo.findByInventoryItem_IdOrderByCreatedAtDesc(ingredientId)
-                .stream()
-                .filter(t -> StockTransaction.STOCK_IN.equals(t.getTransactionType()))
-                .toList();
-
-        long totalCost = 0L;
-        BigDecimal totalQty = BigDecimal.ZERO;
-        List<IngredientReceiptDetailItemView> detailItems = new ArrayList<>();
-
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
-
-        for (StockReceiptItem ri : receiptItems) {
-            StockReceipt r = ri.getReceipt();
-            LocalDateTime timePoint = r.getConfirmedAt() != null ? r.getConfirmedAt() : r.getCreatedAt();
-            String formattedTime = timePoint != null ? timePoint.format(timeFormatter) : "--:--";
-
-            // Tìm giá vốn BQ mới từ ghi chú thẻ kho tương ứng
-            Long newAvgCost = null;
-            if (inTransactions != null) {
-                for (StockTransaction tx : inTransactions) {
-                    if (tx.getReason() != null && tx.getReason().contains(r.getReceiptCode())) {
-                        if (tx.getNote() != null && tx.getNote().contains("Giá vốn BQ mới: ")) {
-                            try {
-                                String part = tx.getNote().split("Giá vốn BQ mới: ")[1].split(" đ")[0].replace(",", "").trim();
-                                newAvgCost = Long.parseLong(part);
-                            } catch (Exception ignored) {}
-                        }
-                        break;
-                    }
-                }
-            }
-            if (newAvgCost == null) {
-                newAvgCost = item.getUnitCost();
-            }
-
-            BigDecimal q = ri.getQuantity() != null ? ri.getQuantity() : BigDecimal.ZERO;
-            Long sub = ri.getSubtotal() != null ? ri.getSubtotal() : 0L;
-            totalQty = totalQty.add(q);
-            totalCost += sub;
-
-            detailItems.add(new IngredientReceiptDetailItemView(
-                    r.getId(),
-                    r.getReceiptCode(),
-                    formattedTime,
-                    r.getSupplierName(),
-                    q,
-                    ri.getUnitCost(),
-                    sub,
-                    newAvgCost,
-                    r.getCreatedBy() != null ? r.getCreatedBy().getFullName() : "N/A",
-                    r.getNote()
-            ));
-        }
-
-        IngredientDailyReceiptSummaryView summary = new IngredientDailyReceiptSummaryView(
-                detailItems.size(),
-                totalQty,
-                totalCost
-        );
-
-        return new IngredientSingleDayReceiptHistoryView(
-                item.getId(),
-                item.getItemName(),
-                item.getUnit(),
-                item.getCurrentQuantity(),
-                targetDate,
-                summary,
-                detailItems
-        );
     }
 
     // ========== Tự động trừ nguyên liệu khi Barista nhận đơn ==========

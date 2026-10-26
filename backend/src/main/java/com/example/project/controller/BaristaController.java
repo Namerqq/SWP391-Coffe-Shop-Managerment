@@ -3,10 +3,8 @@ package com.example.project.controller;
 import com.example.project.dto.barista.ItemCheckRequest;
 import com.example.project.dto.barista.ItemsDoneRequest;
 import com.example.project.dto.barista.RecipeView;
-import com.example.project.dto.inventory.BatchShortageReportRequest;
 import com.example.project.dto.inventory.InventoryItemView;
 import com.example.project.dto.inventory.ShortageReportRequest;
-import com.example.project.dto.inventory.StaffSelectView;
 import com.example.project.dto.inventory.StockReceiptView;
 import com.example.project.dto.inventory.WasteReportRequest;
 import com.example.project.dto.order.OrderView;
@@ -63,19 +61,6 @@ public class BaristaController {
     public StockReceiptView reportShortage(@Valid @RequestBody ShortageReportRequest req, HttpServletRequest http) {
         User me = (User) http.getAttribute(AuthInterceptor.CURRENT_USER);
         return stockReceiptService.createShortageReport(req, me);
-    }
-
-    /** Báo thiếu nguyên liệu hàng loạt hoặc tạo đề xuất mua hàng tự động từ quầy Bar. */
-    @PostMapping("/inventory/report-shortage-batch")
-    public StockReceiptView reportShortageBatch(@Valid @RequestBody BatchShortageReportRequest req, HttpServletRequest http) {
-        User me = (User) http.getAttribute(AuthInterceptor.CURRENT_USER);
-        return stockReceiptService.createBatchShortageReport(req, me);
-    }
-
-    /** Danh sách nhân viên quầy bar / phục vụ đang hoạt động để chọn người chịu trách nhiệm biên bản. */
-    @GetMapping("/staff-list")
-    public List<StaffSelectView> staffList() {
-        return inventoryService.listActiveStaff();
     }
 
     // ===== UC-B06: Báo hao hụt / hư hỏng tại quầy (Waste) =====
