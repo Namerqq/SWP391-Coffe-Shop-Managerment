@@ -7,6 +7,7 @@ export const thangnnNav = {
       { to: '/cashier/takeaway', label: 'Bán mang đi', icon: 'bi-bag' },
       { to: '/cashier/tables', label: 'Sơ đồ bàn', icon: 'bi-grid-3x3-gap' },
       { to: '/cashier/history', label: 'Lịch sử đơn', icon: 'bi-clock-history' }, // Iter3: UC-C15
+      { to: '/cashier/loyalty', label: 'Khách thân thiết', icon: 'bi-people' }, // Iter3: UC-C12 / C10 / C13
     ],
   },
 }

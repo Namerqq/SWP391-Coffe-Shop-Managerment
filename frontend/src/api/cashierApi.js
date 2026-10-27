@@ -12,6 +12,12 @@ const cashierApi = {
   // UC-C15 Lịch sử đơn: mọi đơn trong ngày (yyyy-mm-dd, bỏ trống = hôm nay) + tiền đã thu trong ngày
   getHistory: (date) => axiosClient.get('/cashier/history', { params: date ? { date } : {} }),
 
+  // Iter3 Khách thân thiết (UC-C12). params: { keyword, sort: 'recent' | 'points' | 'name', page (từ 0), size }
+  getLoyaltyCustomers: (params) => axiosClient.get('/cashier/loyalty-customers', { params }),
+  getLoyaltyHistory: (id) => axiosClient.get(`/cashier/loyalty-customers/${id}/history`),
+  // data: { phoneNumber, fullName }. SĐT trùng khách khác -> 409.
+  updateCustomer: (id, data) => axiosClient.put(`/cashier/loyalty-customers/${id}`, data),
+
   // QR payOS tự xác nhận. data giống paySession / takeaway nhưng không có method.
   createSessionQr: (sessionId, data) => axiosClient.post(`/cashier/qr-payments/sessions/${sessionId}`, data),
   createTakeawayQr: (data) => axiosClient.post('/cashier/qr-payments/takeaway', data),
