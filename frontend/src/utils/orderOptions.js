@@ -17,6 +17,13 @@ export const standaloneCategories = (menu) => (menu?.categories || [])
   .map((c) => ({ ...c, items: c.items.filter((item) => !isSizeItem(item, menu)) }))
   .filter((c) => c.items.length > 0)
 
+/** Chỉ lấy topping đã được quản lý gán cho món; chưa cấu hình thì không có. */
+export const toppingsForItem = (item, options) => {
+  if (!item || isToppingItem(item, options) || isSizeItem(item, options)) return []
+  const id = item.menuItemId ?? item.id
+  return (options?.toppings || []).filter((t) => (t.allowedItemIds || []).includes(id))
+}
+
 /** Giá 1 ly = giá món + size + topping. */
 export const unitTotal = (l) =>
   (l.unitPrice || 0) + (l.sizePrice || 0) + (l.toppings || []).reduce((s, t) => s + (t.price || 0), 0)

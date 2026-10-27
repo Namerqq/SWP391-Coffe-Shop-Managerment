@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Modal from '../../components/Modal'
 import { assetUrl } from '../../utils/assetUrl'
 import { formatMoney } from '../../utils/orderFormat'
-import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS, isSizeItem, isToppingItem } from '../../utils/orderOptions'
+import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS, toppingsForItem, isSizeItem, isToppingItem } from '../../utils/orderOptions'
 import '../../styles/guest.css'
 
 const LEVEL_LABEL = { '100%': 'Bình thường', '70%': '70%', '50%': '50%', '30%': '30%', '0%': 'Không' }
@@ -16,7 +16,7 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
   const sizeItem = isSizeItem(item, options)
   const standaloneTopping = isToppingItem(item, options)
   const sizes = standaloneTopping ? [] : options?.sizes || []
-  const toppings = standaloneTopping ? [] : options?.toppings || []
+  const toppings = toppingsForItem(item, options)
   const [form, setForm] = useState(null)
 
   useEffect(() => {
