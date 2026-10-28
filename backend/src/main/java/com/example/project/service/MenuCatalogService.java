@@ -25,13 +25,16 @@ public class MenuCatalogService {
 
     private final CategoryRepository categoryRepository;
     private final MenuItemRepository menuItemRepository;
+    private final ToppingCompatibilityService toppingCompatibility;
 
     public MenuCatalogService(
             CategoryRepository categoryRepository,
-            MenuItemRepository menuItemRepository
+            MenuItemRepository menuItemRepository,
+            ToppingCompatibilityService toppingCompatibility
     ) {
         this.categoryRepository = categoryRepository;
         this.menuItemRepository = menuItemRepository;
+        this.toppingCompatibility = toppingCompatibility;
     }
 
     /** Lấy món bán riêng đang AVAILABLE, nhóm theo danh mục ACTIVE và bỏ nhóm rỗng. */
@@ -101,6 +104,7 @@ public class MenuCatalogService {
     private List<MenuOptionView> buildOptions(List<MenuItem> allItems, String categoryType) {
         String normalizedType = categoryType.toUpperCase(Locale.ROOT);
 
+        var rules = toppingCompatibility.rules();
         return allItems.stream()
                 .filter(item -> item.getCategory().isType(normalizedType))
                 .filter(MenuItem::isSellable)
@@ -108,7 +112,8 @@ public class MenuCatalogService {
                 .map(item -> new MenuOptionView(
                         item.getId(),
                         item.getName(),
-                        item.getBasePrice()
+                        item.getBasePrice(),
+                        "TOPPING".equals(normalizedType) ? rules.getOrDefault(item.getId(), List.of()) : List.of()
                 ))
                 .toList();
     }

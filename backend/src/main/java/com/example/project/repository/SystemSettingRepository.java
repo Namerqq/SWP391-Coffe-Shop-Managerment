@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface SystemSettingRepository extends JpaRepository<SystemSetting, String> {
     List<SystemSetting> findAllByOrderByGroupNameAscSortOrderAsc();
+    List<SystemSetting> findByKeyStartingWith(String prefix);
 }
