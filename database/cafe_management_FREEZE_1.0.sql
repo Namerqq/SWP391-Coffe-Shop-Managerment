@@ -10,6 +10,7 @@
 -- Base team snapshot is backed up separately. This local demo edition was updated at user request on 2026-10-16.
 -- Includes 20 sellable items (13 drinks, 3 cakes, 4 toppings) plus 2 size options.
 -- No demo users, customers, orders, payments or table sessions are included.
+-- Merged V8__incident_reports.sql (2026-10-26): + table incident_reports (20 application tables in total).
 
 CREATE DATABASE IF NOT EXISTS cafe_management
     CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
@@ -410,6 +411,35 @@ CREATE TABLE qr_payment_request_orders (
  CONSTRAINT fk_qr_orders_request FOREIGN KEY (qr_request_id) REFERENCES qr_payment_requests(qr_request_id) ON DELETE CASCADE,
  CONSTRAINT fk_qr_orders_order FOREIGN KEY (order_id) REFERENCES orders(order_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- V8: Biên bản sự cố làm đổ / vỡ món của phục vụ (incident_reports).
+-- Luồng:
+--   1. Phục vụ làm đổ / vỡ 1 món đang "Chờ mang ra" -> tạo 1 dòng, status = PENDING.
+--      action = REMAKE: khách muốn làm lại, món quay về "Chờ pha" cho pha chế làm lại.
+--      action = CANCEL: khách không muốn làm lại, món bị hủy (không tính tiền).
+--   2. Quản lý xem biên bản, nhập mức phạt (0 = không phạt) và ghi chú -> status = REVIEWED.
+-- Thông tin này là nội bộ: không ghi vào ghi chú món (order_items.note) nên khách không thấy.
+CREATE TABLE incident_reports (
+    incident_report_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_item_id BIGINT UNSIGNED NOT NULL,
+    reported_by_user_id BIGINT UNSIGNED NOT NULL,
+    action VARCHAR(20) NOT NULL,
+    reason VARCHAR(300) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    penalty_amount BIGINT UNSIGNED NULL,
+    manager_note VARCHAR(300) NULL,
+    reviewed_by_user_id BIGINT UNSIGNED NULL,
+    reviewed_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_incident_reports_item FOREIGN KEY (order_item_id) REFERENCES order_items(order_item_id),
+    CONSTRAINT fk_incident_reports_reporter FOREIGN KEY (reported_by_user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_incident_reports_reviewer FOREIGN KEY (reviewed_by_user_id) REFERENCES users(user_id),
+    CONSTRAINT chk_incident_reports_action CHECK (action IN ('REMAKE', 'CANCEL')),
+    CONSTRAINT chk_incident_reports_status CHECK (status IN ('PENDING', 'REVIEWED')),
+    CONSTRAINT chk_incident_reports_reviewed CHECK (
+        status <> 'REVIEWED' OR (penalty_amount IS NOT NULL AND reviewed_by_user_id IS NOT NULL AND reviewed_at IS NOT NULL)
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- Complete circular reference after both tables exist.
 ALTER TABLE orders ADD CONSTRAINT fk_orders_payment FOREIGN KEY (payment_id) REFERENCES payments(payment_id);
 
@@ -429,6 +459,8 @@ CREATE INDEX idx_inventory_low_stock ON inventory_items(status, current_quantity
 CREATE INDEX idx_stock_receipts_status_date ON stock_receipts(status, receipt_date);
 CREATE INDEX idx_stock_transactions_item_created ON stock_transactions(inventory_item_id, created_at);
 CREATE INDEX idx_orders_session_payment ON orders(table_session_id, payment_status);
+-- V8
+CREATE INDEX idx_incident_reports_status_created ON incident_reports(status, created_at);
 
 -- Reference roles (V2).
 INSERT INTO roles (role_id, role_name, description) VALUES
