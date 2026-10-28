@@ -13,11 +13,13 @@ const methodLabel = (r) => (r.paymentMethod === 'BANK_TRANSFER' && r.qrAutoConfi
 
 // Receipt Preview — SRS screen #8, UC-C09 View and Issue receipt.
 // Mở từ màn Lịch sử đơn (UC-C15, state.from = 'history'): xem / in lại hóa đơn cũ, có nút quay lại lịch sử.
+// Màn Khách thân thiết (UC-C12) cũng mở hóa đơn cũ như vậy, truyền thêm state.backLabel cho nút quay lại.
 export default function ReceiptPage() {
   const { paymentId } = useParams()
   const location = useLocation()
   const fromHistory = location.state?.from === 'history'
   const historyBack = location.state?.back || '/cashier/history'
+  const backLabel = location.state?.backLabel || 'Quay lại lịch sử đơn'
   const [r, setR] = useState(null)
   const [error, setError] = useState('')
 
@@ -33,7 +35,7 @@ export default function ReceiptPage() {
         <i className="bi bi-receipt" />
         <p>{error}</p>
         {fromHistory
-          ? <Link to={historyBack} className="btn btn-light-soft">Quay lại lịch sử đơn</Link>
+          ? <Link to={historyBack} className="btn btn-light-soft">{backLabel}</Link>
           : <Link to="/cashier" className="btn btn-light-soft">Về trang Thanh toán</Link>}
       </div>
     )
@@ -60,7 +62,7 @@ export default function ReceiptPage() {
         <div className="d-flex flex-wrap gap-2">
           <button type="button" className="btn btn-primary" onClick={() => window.print()}><i className="bi bi-printer me-1" />In hóa đơn</button>
           {fromHistory ? (
-            <Link to={historyBack} className="btn btn-light-soft"><i className="bi bi-arrow-left me-1" />Quay lại lịch sử đơn</Link>
+            <Link to={historyBack} className="btn btn-light-soft"><i className="bi bi-arrow-left me-1" />{backLabel}</Link>
           ) : (
             <>
               {r.takeaway && !delivery && <Link to="/cashier/takeaway" className="btn btn-light-soft">Bán đơn mới</Link>}

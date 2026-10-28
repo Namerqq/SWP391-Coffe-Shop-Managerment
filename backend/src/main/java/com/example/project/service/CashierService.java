@@ -342,8 +342,8 @@ public class CashierService {
                 .orElseThrow(() -> ApiException.badRequest("Không tìm thấy khách thân thiết id = " + customerId));
     }
 
-    /** Bỏ khoảng trắng, dấu chấm, gạch; số Việt Nam 10-11 số bắt đầu bằng 0. */
-    private static String normalizePhone(String phone) {
+    /** Bỏ khoảng trắng, dấu chấm, gạch; số Việt Nam 10-11 số bắt đầu bằng 0. Dùng chung với LoyaltyCustomerService. */
+    static String normalizePhone(String phone) {
         String p = phone == null ? "" : phone.replaceAll("[\\s.\\-]", "");
         if (!p.matches("^0\\d{9,10}$")) {
             throw ApiException.badRequest("Số điện thoại gồm 10-11 chữ số và bắt đầu bằng 0.");
