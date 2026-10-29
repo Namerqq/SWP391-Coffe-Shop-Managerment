@@ -9,8 +9,16 @@ const cashierApi = {
   paySession: (sessionId, data) => axiosClient.post(`/cashier/sessions/${sessionId}/pay`, data),
   takeaway: (data) => axiosClient.post('/cashier/takeaway', data),
   getReceipt: (paymentId) => axiosClient.get(`/cashier/payments/${paymentId}/receipt`),
+  // Iter3: bỏ 1 món chưa phục vụ của đơn tại bàn chưa thanh toán. data: { reason, expectedStatus }
+  cancelOrderItem: (orderId, itemId, data) => axiosClient.post(`/cashier/orders/${orderId}/items/${itemId}/cancel`, data),
   // UC-C15 Lịch sử đơn: mọi đơn trong ngày (yyyy-mm-dd, bỏ trống = hôm nay) + tiền đã thu trong ngày
   getHistory: (date) => axiosClient.get('/cashier/history', { params: date ? { date } : {} }),
+
+  // Iter3 Khách thân thiết (UC-C12). params: { keyword, sort: 'recent' | 'points' | 'name', page (từ 0), size }
+  getLoyaltyCustomers: (params) => axiosClient.get('/cashier/loyalty-customers', { params }),
+  getLoyaltyHistory: (id) => axiosClient.get(`/cashier/loyalty-customers/${id}/history`),
+  // Chỉ sửa tên: data = { fullName }. Số điện thoại không sửa được.
+  updateCustomer: (id, data) => axiosClient.put(`/cashier/loyalty-customers/${id}`, data),
 
   // QR payOS tự xác nhận. data giống paySession / takeaway nhưng không có method.
   createSessionQr: (sessionId, data) => axiosClient.post(`/cashier/qr-payments/sessions/${sessionId}`, data),

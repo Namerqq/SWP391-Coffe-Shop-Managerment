@@ -170,3 +170,24 @@
 @media print {
   .qr-alerts { display: none !important; }
 }
+
+/* ---------- Khách thân thiết (Iter3, UC-C12) ---------- */
+.row-clickable { cursor: pointer; }
+.row-clickable:hover > td { background: var(--cf-primary-soft); }
+.loyalty-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+.loyalty-stats > div { border: 1px solid var(--cf-border); border-radius: 0.7rem; padding: 0.7rem 0.9rem; }
+.loyalty-stat-value { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.loyalty-stats > div:first-child .loyalty-stat-value { color: var(--cf-primary); }
+.loyalty-history-scroll { max-height: 50vh; overflow-y: auto; }
+.loyalty-history-scroll thead th { position: sticky; top: 0; background: var(--bs-modal-bg, var(--cf-surface)); z-index: 1; }
+@media (max-width: 575.98px) { .loyalty-stats { gap: 0.5rem; } .loyalty-stat-value { font-size: 1.15rem; } }
+
+/* ---------- Bỏ món chưa phục vụ khi thanh toán (Iter3) ---------- */
+.item-flag {
+  display: inline-block; margin-left: 0.4rem; padding: 0.05rem 0.45rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 600; vertical-align: 0.1em; background: #f1efed; color: #7a706a;
+}
+.item-flag.is-waiting { background: #fbf1df; color: #b7791f; }
+.item-flag.is-ready { background: #e5f4ec; color: #2f8f5b; }
+.order-line.is-dropped { color: var(--cf-muted); }
+.order-line.is-dropped .line-name { text-decoration: line-through; }

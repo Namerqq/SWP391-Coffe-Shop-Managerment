@@ -225,6 +225,7 @@ export default function MenuManagement() {
         <MenuItemModal
           item={itemModal.id ? itemModal : null}
           categories={categories}
+          items={data?.items || []}
           initialCategory={filter === 'all' ? undefined : filter}
           onClose={() => setItemModal(null)}
           onSaved={() => saved('item')}

@@ -83,4 +83,21 @@ public class ManagerInventoryController {
     public List<StockTransactionView> history(@PathVariable Long id) {
         return service.history(id);
     }
+
+    /**
+     * Tra cứu & đối soát lịch sử nhập kho của 1 nguyên liệu theo ngày đơn lẻ (Single Day View).
+     */
+    @GetMapping("/receipt-history")
+    public IngredientSingleDayReceiptHistoryView receiptHistory(
+            @RequestParam Long ingredientId,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date) {
+        return service.getSingleDayReceiptHistory(ingredientId, date);
+    }
+
+    @GetMapping("/{id}/receipt-history")
+    public IngredientSingleDayReceiptHistoryView receiptHistoryById(
+            @PathVariable Long id,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date) {
+        return service.getSingleDayReceiptHistory(id, date);
+    }
 }

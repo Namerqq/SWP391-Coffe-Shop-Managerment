@@ -11,8 +11,13 @@ import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderForma
 import PaymentModal from './PaymentModal'
 import PaymentPill, { isPaid } from './PaymentPill'
 import QrPaymentDialog from './QrPaymentDialog'
+import CancelItemModal from './CancelItemModal'
 import { markQrAnnounced } from './qrScreen'
+import { ITEM_STATUS_LABEL } from '../../utils/itemStatus'
 import '../../styles/cashier.css'
+
+// Món chưa mang ra cho khách thì thu ngân bỏ được (đơn chưa thanh toán, không nằm trong QR đang chờ).
+const UNSERVED = ['PENDING', 'PREPARING', 'READY']
 
 /**
  * Bill Detail & Edit Bill — SRS 1.3.1 / 1.3.2. UC-C05, UC-C06.
@@ -21,7 +26,8 @@ import '../../styles/cashier.css'
  * phục vụ nào cũng được (mặc định chọn hết). Bàn tự trả về trống khi mọi đơn đã phục vụ và đã thanh toán.
  * Đơn đang nằm trong mã QR payOS chờ khách quét: không tick được, hiện "Đang chờ QR"; khung bên phải
  * cho xem lại mã hoặc hủy mã (khách trả xong hệ thống tự xác nhận).
- * Món trong hóa đơn chỉ xem (theo Permission Matrix, Thu ngân không sửa / hủy đơn).
+ * Iter3: khách báo món chưa mang ra và không dùng nữa -> thu ngân "Bỏ món" (đơn chưa thanh toán) rồi thu
+ * phần còn lại. Món đã mang ra không bỏ được; đơn đã thanh toán thì để phần Refund (cần hoàn tiền).
  */
 export default function BillDetail() {
   const { tableId } = useParams()
@@ -36,6 +42,7 @@ export default function BillDetail() {
   const [viewQr, setViewQr] = useState(null) // mã QR đang mở lại để khách quét
   const [cancelQr, setCancelQr] = useState(null) // mã QR đang hỏi xác nhận hủy
   const [cancelling, setCancelling] = useState(false)
+  const [cancelItem, setCancelItem] = useState(null) // { order, item } đang hỏi bỏ món
 
   const load = useCallback(async () => {
     try {
@@ -132,6 +139,15 @@ export default function BillDetail() {
     }
   }
 
+  const itemCancelled = (orderView) => {
+    const { item } = cancelItem
+    setCancelItem(null)
+    toast(orderView.status === 'CANCELLED'
+      ? `Đã bỏ ${item.itemName}, đơn ${orderView.displayNumber} không còn món nào nên đã hủy.`
+      : `Đã bỏ ${item.itemName}, đơn ${orderView.displayNumber} còn ${formatMoney(orderView.totalAmount)}.`)
+    load()
+  }
+
   return (
     <>
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
@@ -182,16 +198,38 @@ export default function BillDetail() {
                       </div>
                       <span className="cell-sub">{formatTime(o.createdAt)}</span>
                     </div>
-                    {o.items.filter((i) => i.status !== 'CANCELLED').map((i) => (
-                      <div className="order-line" key={i.id}>
-                        <span className="order-qty">{i.quantity}×</span>
-                        <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                          <div>{i.itemName}</div>
-                          {itemOptionsText(i) && <div className="cell-sub">{itemOptionsText(i)}</div>}
+                    {o.items.map((i) => {
+                      const dropped = i.status === 'CANCELLED'
+                      const unserved = UNSERVED.includes(i.status)
+                      const canDrop = unserved && !paidOrder && !inQr
+                      return (
+                        <div className={`order-line${dropped ? ' is-dropped' : ''}`} key={i.id}>
+                          <span className="order-qty">{i.quantity}×</span>
+                          <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                            <div>
+                              <span className="line-name">{i.itemName}</span>
+                              {dropped && <span className="item-flag">Đã hủy</span>}
+                              {unserved && (
+                                <span className={`item-flag ${i.status === 'READY' ? 'is-ready' : 'is-waiting'}`}>
+                                  {ITEM_STATUS_LABEL[i.status]}
+                                </span>
+                              )}
+                            </div>
+                            {itemOptionsText(i) && <div className="cell-sub">{itemOptionsText(i)}</div>}
+                          </div>
+                          <div className="text-end">
+                            <div className={`text-nowrap${dropped ? ' line-name' : ''}`}>{formatMoney(i.subtotal)}</div>
+                            {canDrop && (
+                              <button type="button" className="btn btn-link btn-sm p-0 text-danger text-decoration-none"
+                                      onClick={() => setCancelItem({ order: o, item: i })}
+                                      aria-label={`Bỏ món ${i.itemName} của đơn ${o.displayNumber}`}>
+                                Bỏ món
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-nowrap">{formatMoney(i.subtotal)}</div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 pb-3 small">
                       {paidOrder ? (
                         <span className="cell-sub">
@@ -254,6 +292,7 @@ export default function BillDetail() {
                 <div className="bill-hint mb-3">
                   <i className="bi bi-info-circle me-1" aria-hidden="true" />
                   {numbers(selectedNotServed)} chưa phục vụ xong, vẫn thu trước được.
+                  Khách không dùng món chưa mang ra thì bấm "Bỏ món" ở món đó trước khi thu.
                   Bàn tự trả về trống khi mọi đơn đã phục vụ và đã thanh toán.
                 </div>
               )}
@@ -293,6 +332,7 @@ export default function BillDetail() {
       <ConfirmModal show={!!cancelQr} title="Hủy mã QR?" danger confirmText="Hủy mã" loading={cancelling}
                     message={`Chỉ hủy khi khách chưa chuyển tiền. Hủy xong, đơn ${cancelQr?.orderNumbers || ''} có thể thu bằng cách khác.`}
                     onConfirm={confirmCancelQr} onClose={() => setCancelQr(null)} />
+      <CancelItemModal target={cancelItem} onClose={() => { setCancelItem(null); load() }} onDone={itemCancelled} />
     </>
   )
 }

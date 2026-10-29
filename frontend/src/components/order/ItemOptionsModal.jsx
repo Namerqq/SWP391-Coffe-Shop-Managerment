@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Modal from '../Modal'
 import { formatMoney } from '../../utils/orderFormat'
-import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS, isSizeItem, isToppingItem } from '../../utils/orderOptions'
+import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS, toppingsForItem, isSizeItem, isToppingItem } from '../../utils/orderOptions'
 
 /**
  * Chọn size / đường / đá / topping / số lượng / ghi chú cho 1 món (dùng chung: bán mang đi, sửa đơn...).
@@ -15,7 +15,7 @@ export default function ItemOptionsModal({ show, item, options, initial, confirm
   const sizeItem = isSizeItem(item, options)
   const standaloneTopping = isToppingItem(item, options)
   const sizes = standaloneTopping ? [] : options?.sizes || []
-  const toppings = standaloneTopping ? [] : options?.toppings || []
+  const toppings = toppingsForItem(item, options)
   const [form, setForm] = useState(null)
 
   // Chỉ khởi tạo lại khi mở modal hoặc đổi món (tránh mất dữ liệu đang chọn khi trang cha cập nhật).

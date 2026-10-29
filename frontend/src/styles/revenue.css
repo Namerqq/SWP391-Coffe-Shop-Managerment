@@ -1,0 +1,98 @@
+/* Màn Doanh thu của Quản lý (RevenueReport.jsx). */
+.rv-period-title {
+  min-width: 11rem;
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Biểu đồ cột: trục trái 48px, nhãn dưới cột 22px, chừa 18px phía trên cho số của cột cao nhất. */
+.rv-chart {
+  position: relative;
+  height: 260px;
+  padding: 18px 0 0 48px;
+}
+.rv-axis {
+  position: absolute;
+  left: 48px;
+  right: 0;
+  top: 18px;
+  bottom: 22px;
+  pointer-events: none;
+}
+.rv-gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--cf-border);
+}
+.rv-gridline span {
+  position: absolute;
+  right: 100%;
+  margin-right: 6px;
+  transform: translateY(-50%);
+  font-size: 0.72rem;
+  color: var(--cf-muted);
+  white-space: nowrap;
+}
+.rv-bars {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 100%;
+}
+.rv-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: default;
+}
+.rv-plot {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.rv-bar {
+  width: 100%;
+  max-width: 36px;
+  background: var(--cf-primary);
+  border-radius: 4px 4px 0 0;
+  transition: background 0.15s;
+}
+.rv-col.is-hover .rv-bar { background: var(--cf-primary-hover); }
+.rv-col.is-hover .rv-plot { background: rgba(var(--cf-primary-rgb), 0.06); }
+.rv-peak {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -2px);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--cf-text);
+  white-space: nowrap;
+}
+.rv-tick {
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--cf-muted);
+  white-space: nowrap;
+}
+.rv-tip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 5;
+  padding: 0.4rem 0.6rem;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.rv-tip.is-left { left: auto; right: 50%; }

@@ -4,7 +4,7 @@ import waiterApi from '../../api/waiterApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 import { formatMoney } from '../../utils/orderFormat'
-import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS } from '../../utils/orderOptions'
+import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS, toppingsForItem } from '../../utils/orderOptions'
 
 /**
  * UC-W06: Change item details (Chỉnh sửa chi tiết món khi đơn còn chờ pha).
@@ -18,7 +18,7 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
 
   // Danh sách các lựa chọn size và topping lấy từ menu hệ thống
   const sizes = menuOptions?.sizes || []
-  const toppings = menuOptions?.toppings || []
+  const toppings = toppingsForItem(item, menuOptions)
 
   // State lưu trữ dữ liệu form đang chỉnh sửa
   const [quantity, setQuantity] = useState(1)
@@ -79,7 +79,7 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
       menuItemId: item.menuItemId,
       quantity,
       sizeId,
-      toppingIds,
+      toppingIds: toppingIds.filter((id) => toppings.some((t) => t.id === id)),
       sugarLevel,
       iceLevel,
       note: note.trim() || null,
