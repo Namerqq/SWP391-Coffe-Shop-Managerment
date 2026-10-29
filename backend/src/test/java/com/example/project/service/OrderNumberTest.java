@@ -23,7 +23,7 @@ class OrderNumberTest {
     private final String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMMdd"));
 
     private OrderSupportService support(OrderRepository orders) {
-        return new OrderSupportService(null, orders, null, null, null, null);
+        return new OrderSupportService(null, orders, null, null, null, null, null);
     }
 
     @Test

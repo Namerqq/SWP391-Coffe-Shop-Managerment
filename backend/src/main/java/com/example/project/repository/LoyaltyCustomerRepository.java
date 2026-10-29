@@ -29,8 +29,6 @@ public interface LoyaltyCustomerRepository extends Repository<Customer, Long> {
 
     Optional<Customer> findById(Long id);
 
-    boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
-
     Customer save(Customer customer);
 
     /** Lần cộng / dùng điểm gần nhất của từng khách: mỗi dòng [customerId, createdAt]. */

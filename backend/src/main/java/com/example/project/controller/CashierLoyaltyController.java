@@ -43,7 +43,7 @@ public class CashierLoyaltyController {
         return service.history(id);
     }
 
-    /** Sửa tên / SĐT. PUT /api/cashier/loyalty-customers/3  Body: { "phoneNumber": "0901234567", "fullName": "An" } */
+    /** Sửa tên khách (SĐT không sửa được). PUT /api/cashier/loyalty-customers/3  Body: { "fullName": "An" } */
     @PutMapping("/{id}")
     public LoyaltyCustomerRow update(@PathVariable Long id, @Valid @RequestBody CustomerUpdateRequest req) {
         return service.update(id, req);

@@ -7,7 +7,6 @@ import com.example.project.dto.cashier.LoyaltyHistoryView;
 import com.example.project.entity.Customer;
 import com.example.project.entity.LoyaltyTransaction;
 import com.example.project.entity.Payment;
-import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.LoyaltyCustomerRepository;
 import org.springframework.data.domain.Page;
@@ -27,8 +26,8 @@ import java.util.Map;
  * - Danh sách khách thân thiết: tìm theo SĐT hoặc tên, sắp xếp, phân trang.
  * - Lịch sử điểm của 1 khách: chỉ xem, giao dịch điểm không sửa / xóa và thu ngân không tự cộng / trừ điểm
  *   (SRS 4.4 [11]); điểm chỉ thay đổi khi thanh toán (CashierService.record).
- * - Sửa tên và số điện thoại của khách. Đổi SĐT không đổi điểm: điểm và lịch sử gắn với customer_id.
- *   SĐT đã lưu trên các đơn cũ (orders.customer_phone) giữ nguyên như lúc thanh toán.
+ * - Chỉ sửa được TÊN khách. Số điện thoại là định danh để tích / dùng điểm nên thu ngân không sửa được
+ *   (tránh chuyển nhầm điểm sang người khác); muốn dùng số khác thì đăng ký khách mới.
  * - Đăng ký khách mới dùng lại POST /api/cashier/customers (CashierService.createCustomer).
  * Không có xóa khách (Permission Matrix chỉ cho Create / View / Update).
  */
@@ -89,15 +88,10 @@ public class LoyaltyCustomerService {
         return new LoyaltyHistoryView(LoyaltyCustomerRow.from(c, lastActivity), earned, redeemed, entries);
     }
 
-    /** Sửa tên + SĐT. SĐT mới trùng khách khác -> 409. Tên bỏ trống = không có tên. */
+    /** Chỉ sửa tên. SĐT giữ nguyên (body có gửi phoneNumber cũng bỏ qua). Tên bỏ trống = không có tên. */
     @Transactional
     public LoyaltyCustomerRow update(Long customerId, CustomerUpdateRequest req) {
         Customer c = find(customerId);
-        String phone = CashierService.normalizePhone(req.phoneNumber());
-        if (!phone.equals(c.getPhoneNumber()) && repository.existsByPhoneNumberAndIdNot(phone, customerId)) {
-            throw ApiException.conflict("Số " + phone + " đã là khách thân thiết khác.");
-        }
-        c.setPhoneNumber(phone);
         c.setFullName(OrderSupportService.blankToNull(req.fullName()));
         Customer saved = repository.save(c);
         List<LoyaltyTransaction> txs = repository.history(customerId);
