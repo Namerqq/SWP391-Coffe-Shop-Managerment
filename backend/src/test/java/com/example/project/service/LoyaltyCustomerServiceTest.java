@@ -7,7 +7,6 @@ import com.example.project.dto.cashier.LoyaltyHistoryView;
 import com.example.project.entity.Customer;
 import com.example.project.entity.LoyaltyTransaction;
 import com.example.project.entity.Payment;
-import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.LoyaltyCustomerRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,7 +27,6 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
@@ -179,51 +177,37 @@ class LoyaltyCustomerServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> service.history(99L));
     }
 
-    // ===== Sửa tên / SĐT =====
+    // ===== Sửa tên (SĐT không sửa được) =====
 
     @Test
-    void updateNameAndPhoneKeepsPoints() {
+    void updateChangesNameOnlyKeepsPhoneAndPoints() {
         Customer c = customer(5, "0905555555", "Cũ", 40);
         when(repository.findById(5L)).thenReturn(Optional.of(c));
-        when(repository.existsByPhoneNumberAndIdNot("0906666666", 5L)).thenReturn(false);
 
-        LoyaltyCustomerRow row = service.update(5L, new CustomerUpdateRequest("0906 666.666", "  Mới  "));
+        LoyaltyCustomerRow row = service.update(5L, new CustomerUpdateRequest("  Mới  "));
 
-        assertEquals("0906666666", row.phoneNumber());
         assertEquals("Mới", row.fullName());
+        assertEquals("0905555555", row.phoneNumber());
         assertEquals(40, row.currentPoints());
         verify(repository).save(c);
     }
 
     @Test
-    void updateToPhoneOfAnotherCustomerIsConflict() {
-        when(repository.findById(5L)).thenReturn(Optional.of(customer(5, "0905555555", "A", 0)));
-        when(repository.existsByPhoneNumberAndIdNot("0907777777", 5L)).thenReturn(true);
-
-        ApiException e = assertThrows(ApiException.class,
-                () -> service.update(5L, new CustomerUpdateRequest("0907777777", "A")));
-        assertEquals(409, e.getStatus().value());
-        verify(repository, never()).save(any());
-    }
-
-    @Test
-    void updateKeepingSamePhoneSkipsDuplicateCheckAndBlankNameBecomesNull() {
+    void blankNameBecomesNull() {
         Customer c = customer(5, "0905555555", "A", 0);
         when(repository.findById(5L)).thenReturn(Optional.of(c));
 
-        LoyaltyCustomerRow row = service.update(5L, new CustomerUpdateRequest("0905555555", "   "));
+        LoyaltyCustomerRow row = service.update(5L, new CustomerUpdateRequest("   "));
 
         assertNull(row.fullName());
-        verify(repository, never()).existsByPhoneNumberAndIdNot(anyString(), anyLong());
+        assertEquals("0905555555", row.phoneNumber());
     }
 
     @Test
-    void updateWithInvalidPhoneIsBadRequest() {
-        when(repository.findById(5L)).thenReturn(Optional.of(customer(5, "0905555555", "A", 0)));
+    void updateUnknownCustomerIs404() {
+        when(repository.findById(anyLong())).thenReturn(Optional.empty());
 
-        ApiException e = assertThrows(ApiException.class,
-                () -> service.update(5L, new CustomerUpdateRequest("12345", "A")));
-        assertEquals(400, e.getStatus().value());
+        assertThrows(ResourceNotFoundException.class, () -> service.update(99L, new CustomerUpdateRequest("A")));
         verify(repository, never()).save(any());
     }
 }

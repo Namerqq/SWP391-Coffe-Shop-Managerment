@@ -15,7 +15,7 @@ export const TX_TYPE = {
 
 const signed = (n) => (n > 0 ? `+${n}` : String(n))
 
-/** customerId = khách đang xem (null = đóng). reloadKey đổi -> tải lại (vd. vừa sửa tên / SĐT). */
+/** customerId = khách đang xem (null = đóng). reloadKey đổi -> tải lại (vd. vừa sửa tên). */
 export default function LoyaltyHistoryModal({ customerId, reloadKey, onClose, onEdit }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -48,7 +48,7 @@ export default function LoyaltyHistoryModal({ customerId, reloadKey, onClose, on
               <div className="cell-sub">{c.phoneNumber} · tham gia {formatDateTime(c.createdAt)}</div>
             </div>
             <button type="button" className="btn btn-light-soft btn-sm" onClick={() => onEdit(c)}>
-              <i className="bi bi-pencil me-1" aria-hidden="true" />Sửa thông tin
+              <i className="bi bi-pencil me-1" aria-hidden="true" />Sửa tên
             </button>
           </div>
 

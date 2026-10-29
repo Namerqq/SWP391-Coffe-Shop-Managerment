@@ -8,7 +8,7 @@ import LoyaltyHistoryModal from './LoyaltyHistoryModal'
 import '../../styles/cashier.css'
 
 // Loyalty Customer List & Point History — SRS 1.3.7, UC-C12 / UC-C10 / UC-C13 (ThangNN Iter3).
-// Danh sách khách thân thiết: tìm theo SĐT hoặc tên, thêm khách mới, sửa tên / SĐT, xem lịch sử điểm (popup).
+// Danh sách khách thân thiết: tìm theo SĐT hoặc tên, thêm khách mới, sửa tên (không sửa SĐT), xem lịch sử điểm (popup).
 // ?customer=<id> trên URL -> mở sẵn popup lịch sử điểm (dùng khi quay lại từ trang hóa đơn).
 
 const PAGE_SIZE = 20
@@ -76,7 +76,7 @@ export default function LoyaltyCustomers() {
     const editing = !!form.customer?.id // form.customer = { prefill } khi đăng ký nhanh số vừa tìm
     setForm({ show: false, customer: null })
     setNotice(editing
-      ? `Đã lưu thông tin khách ${saved.fullName || saved.phoneNumber}.`
+      ? `Đã lưu tên khách ${saved.fullName || "(không tên)"}, số ${saved.phoneNumber}.`
       : `Đã đăng ký khách thân thiết ${saved.fullName ? `${saved.fullName} (${saved.phoneNumber})` : saved.phoneNumber}.`)
     if (!editing) {
       // Khách mới hiện ở đầu danh sách "Mới đăng ký trước".
@@ -98,7 +98,7 @@ export default function LoyaltyCustomers() {
         <div>
           <h1 className="page-title">Khách thân thiết</h1>
           <p className="page-subtitle">
-            Tìm khách theo số điện thoại hoặc tên, đăng ký khách mới, sửa thông tin và xem lịch sử tích / dùng điểm.
+            Tìm khách theo số điện thoại hoặc tên, đăng ký khách mới, sửa tên khách và xem lịch sử tích / dùng điểm.
           </p>
         </div>
         <button type="button" className="btn btn-primary" onClick={() => setForm({ show: true, customer: null })}>
@@ -174,7 +174,7 @@ export default function LoyaltyCustomers() {
                       <button type="button" className="btn btn-sm btn-light-soft me-1" onClick={() => openHistory(c.id)}>
                         <i className="bi bi-clock-history me-1" aria-hidden="true" />Lịch sử điểm
                       </button>
-                      <button type="button" className="btn btn-sm btn-light-soft" aria-label={`Sửa ${c.fullName || c.phoneNumber}`}
+                      <button type="button" className="btn btn-sm btn-light-soft" aria-label={`Sửa tên ${c.fullName || c.phoneNumber}`} title="Sửa tên"
                               onClick={() => setForm({ show: true, customer: c })}>
                         <i className="bi bi-pencil" aria-hidden="true" />
                       </button>

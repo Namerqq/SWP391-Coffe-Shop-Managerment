@@ -17,7 +17,7 @@ const cashierApi = {
   // Iter3 Khách thân thiết (UC-C12). params: { keyword, sort: 'recent' | 'points' | 'name', page (từ 0), size }
   getLoyaltyCustomers: (params) => axiosClient.get('/cashier/loyalty-customers', { params }),
   getLoyaltyHistory: (id) => axiosClient.get(`/cashier/loyalty-customers/${id}/history`),
-  // data: { phoneNumber, fullName }. SĐT trùng khách khác -> 409.
+  // Chỉ sửa tên: data = { fullName }. Số điện thoại không sửa được.
   updateCustomer: (id, data) => axiosClient.put(`/cashier/loyalty-customers/${id}`, data),
 
   // QR payOS tự xác nhận. data giống paySession / takeaway nhưng không có method.
