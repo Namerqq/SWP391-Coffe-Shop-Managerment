@@ -77,16 +77,25 @@ public class MenuManagementService {
     /** Tạo hoặc sửa tên/loại danh mục sau khi kiểm tra tên trùng và loại được hỗ trợ. */
     public CategoryView saveCategory(Long id, CategoryRequest request) {
         String name = request.name().trim();
-        Category category = id == null ? new Category() : requireManagedCategory(id);
+        // Reuse the soft-deleted row: category names remain unique in the database.
+        Category category = id == null
+                ? categoryRepository.findAll().stream()
+                    .filter(c -> Category.INACTIVE.equals(c.getStatus()))
+                    .filter(c -> !c.isType(SIZE_TYPE))
+                    .filter(c -> c.getName().equalsIgnoreCase(name))
+                    .findFirst().orElseGet(Category::new)
+                : requireManagedCategory(id);
+        Long categoryId = category.getId();
 
-        validateCategoryName(id, name);
+        validateCategoryName(categoryId, name);
         validateCategoryType(request.categoryType());
 
-        if (!category.getCategoryType().equals(request.categoryType()) && id != null) {
+        if (!category.getCategoryType().equals(request.categoryType()) && categoryId != null) {
             menuItemRepository.findAll().stream()
-                    .filter(item -> id.equals(item.getCategory().getId()))
+                    .filter(item -> categoryId.equals(item.getCategory().getId()))
                     .forEach(item -> toppingCompatibility.removeForItem(item.getId()));
         }
+        category.setStatus(Category.ACTIVE);
         category.setName(name);
         category.setCategoryType(request.categoryType());
         categoryRepository.save(category);
@@ -291,7 +300,7 @@ public class MenuManagementService {
                         && !Objects.equals(category.getId(), id));
 
         if (duplicate) {
-            throw ApiException.conflict("Tên danh mục đã tồn tại, kể cả danh mục đã xoá.");
+            throw ApiException.conflict("Tên danh mục đã tồn tại. Nếu danh mục đã xoá, hãy thêm lại thay vì đổi tên danh mục khác.");
         }
     }
 
