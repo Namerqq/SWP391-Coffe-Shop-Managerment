@@ -118,7 +118,7 @@ export default function ShipOrderList() {
       await cashierApi.confirmDeliveryOrder(order.orderId)
       setFeedback({
         type: 'success',
-        message: `Đã xác nhận đơn ${order.displayNumber || '#' + order.orderId}. Đơn đã chuyển sang quầy Barista!`,
+        message: `Đã xác nhận đơn ${order.orderNumber || order.displayNumber}. Đơn đã chuyển sang quầy Barista!`,
       })
       await loadOrders()
     } catch (err) {
@@ -136,7 +136,7 @@ export default function ShipOrderList() {
   // Hủy đơn giao hàng do hết nguyên liệu
   const handleCancel = async (order) => {
     const ok = window.confirm(
-      `Xác nhận hủy đơn ${order.displayNumber || '#' + order.orderId} do hết nguyên liệu?`
+      `Xác nhận hủy đơn ${order.orderNumber || order.displayNumber} do hết nguyên liệu?`
     )
     if (!ok) return
 
@@ -146,7 +146,7 @@ export default function ShipOrderList() {
       await cashierApi.cancelDeliveryOrder(order.orderId, 'Hết nguyên liệu')
       setFeedback({
         type: 'success',
-        message: `Đã hủy đơn ${order.displayNumber || '#' + order.orderId} (Hết nguyên liệu).`,
+        message: `Đã hủy đơn ${order.orderNumber || order.displayNumber} (Hết nguyên liệu).`,
       })
       await loadOrders()
     } catch (err) {
@@ -168,7 +168,7 @@ export default function ShipOrderList() {
       const matchName = o.customerName?.toLowerCase().includes(kw)
       const matchPhone = o.customerPhone?.toLowerCase().includes(kw)
       const matchAddr = o.deliveryAddress?.toLowerCase().includes(kw)
-      const matchNo = (o.displayNumber || o.orderNumber || '').toLowerCase().includes(kw)
+      const matchNo = [o.orderNumber, o.displayNumber].some((n) => n?.toLowerCase().includes(kw))
       if (!matchName && !matchPhone && !matchAddr && !matchNo) return false
     }
 
@@ -326,7 +326,7 @@ export default function ShipOrderList() {
                   {/* Mã đơn và Trạng thái */}
                   <div className="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
                     <div>
-                      <span className="fw-bold text-dark me-2">{o.displayNumber || `#ONL-${o.orderId}`}</span>
+                      <span className="fw-bold text-dark me-2">{o.orderNumber || o.displayNumber}</span>
                       <small className="text-muted">{formatTime(o.createdAt)}</small>
                     </div>
                     <span className={badge.pillClass}>{badge.label}</span>
