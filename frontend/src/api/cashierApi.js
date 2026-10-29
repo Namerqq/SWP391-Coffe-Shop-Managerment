@@ -9,6 +9,8 @@ const cashierApi = {
   paySession: (sessionId, data) => axiosClient.post(`/cashier/sessions/${sessionId}/pay`, data),
   takeaway: (data) => axiosClient.post('/cashier/takeaway', data),
   getReceipt: (paymentId) => axiosClient.get(`/cashier/payments/${paymentId}/receipt`),
+  // Iter3: bỏ 1 món chưa phục vụ của đơn tại bàn chưa thanh toán. data: { reason, expectedStatus }
+  cancelOrderItem: (orderId, itemId, data) => axiosClient.post(`/cashier/orders/${orderId}/items/${itemId}/cancel`, data),
   // UC-C15 Lịch sử đơn: mọi đơn trong ngày (yyyy-mm-dd, bỏ trống = hôm nay) + tiền đã thu trong ngày
   getHistory: (date) => axiosClient.get('/cashier/history', { params: date ? { date } : {} }),
 
