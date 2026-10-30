@@ -3,6 +3,7 @@ import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
 import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderFormat'
 import usePolling from '../../utils/usePolling'
+import ShipAssignModal, { canAssign } from './ShipAssignModal'
 
 // Trạng thái đơn giao hàng
 const FILTER_TABS = [
@@ -26,6 +27,7 @@ function getStatusBadge(order) {
     return { label: 'Đang giao', pillClass: 'status-pill tone-pending' }
   }
   if (order.status === 'CONFIRMED' || order.status === 'PREPARING' || order.status === 'READY') {
+    if (order.deliveryStatus === 'ASSIGNED') return { label: 'Đã gán', pillClass: 'status-pill tone-preparing' }
     return { label: 'Đã xác nhận', pillClass: 'status-pill tone-preparing' }
   }
   return { label: 'Chờ duyệt', pillClass: 'status-pill tone-pending' }
@@ -60,6 +62,7 @@ export default function ShipOrderList() {
   const [feedback, setFeedback] = useState(null)
   const [processingId, setProcessingId] = useState(null)
   const [activeTab, setActiveTab] = useState('ALL')
+  const [detailId, setDetailId] = useState(null) // đơn đang mở popup chi tiết / gán người giao
   // Tìm đơn theo ngày đặt / mã đơn: searchForm = đang nhập, search = đang áp dụng (gửi lên server)
   const [searchForm, setSearchForm] = useState(EMPTY_SEARCH)
   const [search, setSearch] = useState(EMPTY_SEARCH)
@@ -308,6 +311,12 @@ export default function ShipOrderList() {
                           "{o.customerNote}"
                         </div>
                       )}
+                      {o.assignedWaiterName && (
+                        <div className="small mt-1">
+                          <i className="bi bi-bicycle me-1 text-primary" />
+                          Người giao: <strong>{o.assignedWaiterName}</strong>
+                        </div>
+                      )}
                       {o.cancelReason && (
                         <div className="small text-danger fst-italic mt-1">
                           <i className="bi bi-info-circle me-1" />
@@ -402,12 +411,37 @@ export default function ShipOrderList() {
                         </button>
                       </div>
                     )}
+
+                    {/* Chi tiết + gán / đổi người giao (đơn đã xác nhận, phục vụ chưa lấy hàng) */}
+                    {!isPending && (
+                      <div className="pt-2 border-top">
+                        <button
+                          type="button"
+                          className={`btn btn-sm w-100 ${canAssign(o) && !o.assignedWaiterName ? 'btn-primary' : 'btn-outline-secondary'}`}
+                          onClick={() => setDetailId(o.orderId)}
+                        >
+                          <i className="bi bi-person-check me-1" />
+                          {!canAssign(o) ? 'Xem chi tiết' : o.assignedWaiterName ? 'Chi tiết / Đổi người giao' : 'Gán người giao'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             )
           })}
         </div>
+      )}
+
+      {detailId && (
+        <ShipAssignModal
+          orderId={detailId}
+          onClose={() => setDetailId(null)}
+          onChanged={(message) => {
+            if (message) setFeedback({ type: 'success', message })
+            loadOrders()
+          }}
+        />
       )}
     </div>
   )
