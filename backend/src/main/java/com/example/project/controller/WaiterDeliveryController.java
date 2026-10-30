@@ -1,16 +1,18 @@
 package com.example.project.controller;
 
+import com.example.project.dto.delivery.FailDeliveryRequest;
 import com.example.project.dto.online.OnlineOrderView;
 import com.example.project.entity.User;
 import com.example.project.security.AuthInterceptor;
 import com.example.project.security.RequireRole;
 import com.example.project.service.DeliveryService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 /**
- * Phục vụ đi giao đơn online (Iter 3): xem đơn mình được gán, bấm nhận hàng / đã giao.
+ * Phục vụ đi giao đơn online (Iter 3): xem đơn mình được gán, bấm nhận hàng / đã giao / giao không thành công.
  * Người bấm lấy từ phiên đăng nhập, chỉ thao tác được trên đơn gán cho chính mình.
  */
 @RestController
@@ -42,5 +44,12 @@ public class WaiterDeliveryController {
     public OnlineOrderView deliver(@PathVariable Long orderId,
                                    @RequestAttribute(AuthInterceptor.CURRENT_USER) User me) {
         return deliveryService.deliver(orderId, me.getId());
+    }
+
+    /** Giao không thành công. PUT /api/waiter/deliveries/12/fail  body { "reason": "Khách không nghe máy" } */
+    @PutMapping("/{orderId}/fail")
+    public OnlineOrderView fail(@PathVariable Long orderId, @Valid @RequestBody FailDeliveryRequest req,
+                                @RequestAttribute(AuthInterceptor.CURRENT_USER) User me) {
+        return deliveryService.fail(orderId, me.getId(), req.reason());
     }
 }
