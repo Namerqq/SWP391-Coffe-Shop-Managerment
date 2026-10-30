@@ -405,8 +405,13 @@ export default function ShipOrderList() {
                         </span>
                       </div>
                       <div className="text-end">
-                        <div className="small text-muted">Tổng tiền</div>
-                        <span className="fw-bold text-primary fs-6">{formatMoney(o.totalAmount)}</span>
+                        <div className="small text-muted">
+                          Tiền món {formatMoney(o.totalAmount)} + ship {formatMoney(o.shippingFee || 0)}
+                        </div>
+                        <div className="small text-muted">Cần thu khi giao</div>
+                        <span className="fw-bold text-primary fs-6">
+                          {formatMoney((isPaid ? 0 : o.totalAmount) + (o.shippingFee || 0))}
+                        </span>
                       </div>
                     </div>
 

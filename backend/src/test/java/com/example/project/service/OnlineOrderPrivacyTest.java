@@ -84,11 +84,23 @@ class OnlineOrderPrivacyTest {
         assertEquals(at, v.assignedAt());
         assertNull(v.deliveredAt());
         assertNull(v.failureReason());
+        assertEquals(25_000, v.shippingFee());
     }
 
     @Test
     void notAssignedYet_waiterIsNull() {
         assertNull(service.getOrderByCode("261026-0008").assignedWaiterName());
+    }
+
+    @Test
+    void shippingFee_readsSystemSetting_withDefault() {
+        assertEquals(25_000, service.shippingFee()); // chưa có cấu hình -> mặc định
+
+        SystemSettingService settings = mock(SystemSettingService.class);
+        when(settings.getLong(OnlineOrderService.SHIPPING_FEE_KEY, 25_000)).thenReturn(30_000L);
+        service.setSettings(settings);
+        assertEquals(30_000, service.shippingFee());
+        assertEquals(30_000, service.getOrderByCode("261026-0008").shippingFee());
     }
 
     @Test

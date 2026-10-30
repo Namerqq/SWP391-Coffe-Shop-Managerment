@@ -32,5 +32,7 @@ public record OnlineOrderView(
         LocalDateTime pickedUpAt,
         LocalDateTime deliveredAt,
         LocalDateTime failedAt,
-        String failureReason
+        String failureReason,
+        // Phí ship mỗi đơn, quán thu (cấu hình delivery.shipping_fee trong Cài đặt hệ thống).
+        long shippingFee
 ) {}
