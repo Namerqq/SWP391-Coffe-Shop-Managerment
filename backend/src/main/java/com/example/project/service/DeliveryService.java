@@ -18,7 +18,8 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Giao hàng đơn online (Iter 3): thu ngân xem chi tiết đơn, chọn phục vụ và gán đi giao.
+ * Giao hàng đơn online (Iter 3): thu ngân xem chi tiết đơn, chọn phục vụ và gán đi giao;
+ * phục vụ được gán bấm qua từng bước giao.
  * Các bước lấy hàng / giao xong / giao lỗi của phục vụ sẽ thêm ở commit sau.
  */
 @Service
@@ -78,9 +79,7 @@ public class DeliveryService {
     @Transactional
     public OnlineOrderView assign(Long orderId, Long waiterId) {
         if (waiterId == null) throw ApiException.badRequest("Chọn phục vụ đi giao.");
-        Order order = lockRepository.findWithLockById(orderId)
-                .filter(o -> Order.DELIVERY.equals(o.getFulfillmentType()))
-                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn giao hàng #" + orderId));
+        Order order = lockedDeliveryOrder(orderId);
         String no = OrderSupportService.displayNumber(order.getOrderNumber());
 
         if (!ASSIGNABLE_ORDER.contains(order.getStatus())) {
@@ -112,6 +111,46 @@ public class DeliveryService {
         }
 
         return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
+    }
+
+    /**
+     * Phục vụ bấm "Đã lấy hàng": chỉ đúng người được gán, món đã pha xong (READY) và chưa lấy trước đó.
+     * Ghi giờ lấy hàng, chuyển sang Đang giao (OUT_FOR_DELIVERY). Từ đây thu ngân không đổi người được nữa.
+     */
+    @Transactional
+    public OnlineOrderView pickUp(Long orderId, Long waiterId) {
+        Order order = lockedDeliveryOrder(orderId);
+        String no = OrderSupportService.displayNumber(order.getOrderNumber());
+        Delivery delivery = myDelivery(order, waiterId, no);
+
+        if (!Delivery.STATUS_ASSIGNED.equals(delivery.getDeliveryStatus())) {
+            throw ApiException.conflict("Đơn " + no + " đã được lấy hàng rồi.");
+        }
+        if (!Order.READY.equals(order.getStatus())) {
+            throw ApiException.conflict("Đơn " + no + " chưa pha xong, chưa lấy hàng được.");
+        }
+        delivery.setPickedUpAt(LocalDateTime.now());
+        delivery.setDeliveryStatus(Delivery.STATUS_OUT_FOR_DELIVERY);
+        deliveryRepository.save(delivery);
+        return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
+    }
+
+    /** Đơn giao hàng kèm khóa dòng: thao tác cùng lúc trên 1 đơn (thu ngân đổi người / phục vụ bấm) phải chờ nhau. */
+    private Order lockedDeliveryOrder(Long orderId) {
+        return lockRepository.findWithLockById(orderId)
+                .filter(o -> Order.DELIVERY.equals(o.getFulfillmentType()))
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn giao hàng #" + orderId));
+    }
+
+    /** Dòng giao hàng của đơn, chỉ khi người đang đăng nhập đúng là phục vụ được gán. */
+    private Delivery myDelivery(Order order, Long waiterId, String no) {
+        Delivery delivery = deliveryRepository.findByOrder_Id(order.getId())
+                .orElseThrow(() -> ApiException.notFound("Đơn " + no + " chưa có thông tin giao hàng."));
+        User assigned = delivery.getAssignedWaiter();
+        if (assigned == null || !assigned.getId().equals(waiterId)) {
+            throw ApiException.forbidden("Đơn " + no + " không được gán cho bạn.");
+        }
+        return delivery;
     }
 
     private static String paymentMethod(Order order) {
