@@ -218,6 +218,15 @@ public class DeliveryService {
         return order.getPayment() != null ? order.getPayment().getPaymentMethod() : "CASH";
     }
 
+    /** Đơn phục vụ đang cầm (đã gán, đang giao), gán trước hiện trước. */
+    @Transactional(readOnly = true)
+    public List<OnlineOrderView> myDeliveries(Long waiterId) {
+        return deliveryRepository.findByAssignedWaiter_IdAndDeliveryStatusInOrderByAssignedAtAsc(waiterId, HOLDING)
+                .stream()
+                .map(d -> onlineOrderService.toView(d.getOrder(), d, paymentMethod(d.getOrder()), null))
+                .toList();
+    }
+
     /** Số đơn phục vụ đang cầm (đã gán, đã lấy hàng, đang giao). */
     @Transactional(readOnly = true)
     public long holdingCount(Long waiterId) {

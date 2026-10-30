@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -186,5 +187,17 @@ class DeliveryStepsTest {
         ApiException ex = assertThrows(ApiException.class, () -> service.fail(8L, 5L, "Sai địa chỉ"));
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
         assertEquals(Order.SERVED, order.getStatus());
+    }
+
+    @Test
+    void myDeliveries_listsOrdersHeldByWaiter() {
+        delivery.setOrder(order);
+        when(deliveryRepository.findByAssignedWaiter_IdAndDeliveryStatusInOrderByAssignedAtAsc(5L, DeliveryService.HOLDING))
+                .thenReturn(List.of(delivery));
+
+        var list = service.myDeliveries(5L);
+        assertEquals(1, list.size());
+        assertEquals(8L, list.get(0).orderId());
+        assertEquals("Trần Bình", list.get(0).assignedWaiterName());
     }
 }
