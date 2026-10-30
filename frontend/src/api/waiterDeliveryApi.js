@@ -4,6 +4,7 @@ import axiosClient from './axiosClient'
 const waiterDeliveryApi = {
   getMyDeliveries: () => axiosClient.get('/waiter/deliveries'),
   pickUp: (orderId) => axiosClient.put(`/waiter/deliveries/${orderId}/pick-up`),
+  deliver: (orderId) => axiosClient.put(`/waiter/deliveries/${orderId}/deliver`),
 }
 
 export default waiterDeliveryApi

@@ -57,6 +57,11 @@ export default function WaiterDeliveries() {
   const handlePickUp = (o) =>
     runStep(o, () => waiterDeliveryApi.pickUp(o.orderId), `Đã nhận đơn ${o.orderNumber}, bắt đầu đi giao.`)
 
+  const handleDeliver = (o) => {
+    if (!window.confirm(`Xác nhận đã giao đơn ${o.orderNumber} cho khách?`)) return
+    runStep(o, () => waiterDeliveryApi.deliver(o.orderId), `Đơn ${o.orderNumber} đã giao xong.`)
+  }
+
   return (
     <div className="staff-content p-3 p-md-4">
       {error && <div className="alert alert-danger py-2">{error}</div>}
@@ -155,6 +160,21 @@ export default function WaiterDeliveries() {
                         >
                           {busy ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-bag-check me-1" />}
                           {o.status === 'READY' ? 'Nhận hàng đi giao' : 'Chờ pha xong mới nhận được'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Đang giao: khách nhận hàng xong thì bấm Đã giao */}
+                    {isOut(o) && (
+                      <div className="pt-2 mt-2 border-top">
+                        <button
+                          type="button"
+                          className="btn btn-success btn-sm w-100"
+                          disabled={busy}
+                          onClick={() => handleDeliver(o)}
+                        >
+                          {busy ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-check2-circle me-1" />}
+                          Đã giao
                         </button>
                       </div>
                     )}
