@@ -1,5 +1,6 @@
 package com.example.project.service;
 
+import com.example.project.dto.delivery.WaiterOptionView;
 import com.example.project.dto.online.OnlineOrderView;
 import com.example.project.entity.Delivery;
 import com.example.project.entity.Order;
@@ -16,10 +17,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -28,6 +31,7 @@ import static org.mockito.Mockito.*;
  */
 class DeliveryAssignTest {
 
+    private OrderRepository orderRepository;
     private DeliveryRepository deliveryRepository;
     private UserRepository userRepository;
     private DeliveryService service;
@@ -43,7 +47,8 @@ class DeliveryAssignTest {
         userRepository = mock(UserRepository.class);
         OnlineOrderService online = new OnlineOrderService(mock(OrderRepository.class), deliveryRepository,
                 mock(OrderSupportService.class), lockRepository);
-        service = new DeliveryService(lockRepository, deliveryRepository, userRepository, online);
+        orderRepository = mock(OrderRepository.class);
+        service = new DeliveryService(orderRepository, lockRepository, deliveryRepository, userRepository, online);
 
         order = new Order();
         ReflectionTestUtils.setField(order, "id", 8L);
@@ -159,5 +164,35 @@ class DeliveryAssignTest {
         order.setFulfillmentType(Order.PICKUP);
         ApiException ex = assertThrows(ApiException.class, () -> service.assign(8L, 5L));
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatus());
+    }
+
+    @Test
+    void detail_showsFullCustomerInfoForCashier() {
+        order.setCustomerPhone("0901234567");
+        when(orderRepository.findById(8L)).thenReturn(Optional.of(order));
+        OnlineOrderView v = service.getDeliveryOrder(8L);
+        assertEquals("0901234567", v.customerPhone()); // thu ngân thấy đủ, không che
+        assertEquals("12 Nguyễn Trãi, Hà Nội", v.deliveryAddress());
+    }
+
+    @Test
+    void detail_unknownOrder_isNotFound() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+        ApiException ex = assertThrows(ApiException.class, () -> service.getDeliveryOrder(99L));
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatus());
+    }
+
+    @Test
+    void waiterList_onlyActiveWaiters_fewestOrdersFirst() {
+        User cashier = user(7L, "Thu Ngân", "CASHIER", User.ACTIVE);
+        when(userRepository.findAllByStatusOrderByFullNameAsc(User.ACTIVE)).thenReturn(List.of(waiterB, cashier, waiterA));
+        when(deliveryRepository.countByAssignedWaiter_IdAndDeliveryStatusIn(eq(5L), any())).thenReturn(0L);
+        when(deliveryRepository.countByAssignedWaiter_IdAndDeliveryStatusIn(eq(6L), any())).thenReturn(2L);
+
+        List<WaiterOptionView> list = service.listWaiters();
+        assertEquals(2, list.size());
+        assertEquals("Trần Bình", list.get(0).fullName());
+        assertEquals(0, list.get(0).holdingCount());
+        assertEquals(2, list.get(1).holdingCount());
     }
 }

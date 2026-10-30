@@ -38,6 +38,10 @@ const cashierApi = {
   confirmDeliveryOrder: (id) => axiosClient.post(`/cashier/delivery-orders/${id}/confirm`),
   // Thu ngân hủy đơn (ví dụ hết nguyên liệu)
   cancelDeliveryOrder: (id, reason) => axiosClient.post(`/cashier/delivery-orders/${id}/cancel`, reason ? { reason } : {}),
+  // Iter 3: chi tiết 1 đơn giao, danh sách phục vụ (kèm số đơn đang cầm), gán / đổi người giao
+  getDeliveryOrder: (id) => axiosClient.get(`/cashier/delivery-orders/${id}`),
+  getWaiters: () => axiosClient.get('/cashier/waiters'),
+  assignWaiter: (id, waiterId) => axiosClient.put(`/cashier/delivery-orders/${id}/assign`, { waiterId }),
 }
 
 export default cashierApi

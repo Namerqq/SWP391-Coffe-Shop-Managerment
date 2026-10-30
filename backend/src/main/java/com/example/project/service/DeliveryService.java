@@ -1,5 +1,6 @@
 package com.example.project.service;
 
+import com.example.project.dto.delivery.WaiterOptionView;
 import com.example.project.dto.online.OnlineOrderView;
 import com.example.project.entity.Delivery;
 import com.example.project.entity.Order;
@@ -7,15 +8,17 @@ import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
 import com.example.project.repository.DeliveryRepository;
 import com.example.project.repository.OrderLockRepository;
+import com.example.project.repository.OrderRepository;
 import com.example.project.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 /**
- * Giao hàng đơn online (Iter 3): thu ngân gán phục vụ đi giao.
+ * Giao hàng đơn online (Iter 3): thu ngân xem chi tiết đơn, chọn phục vụ và gán đi giao.
  * Các bước lấy hàng / giao xong / giao lỗi của phục vụ sẽ thêm ở commit sau.
  */
 @Service
@@ -31,17 +34,40 @@ public class DeliveryService {
     public static final List<String> HOLDING = List.of(
             Delivery.STATUS_ASSIGNED, Delivery.STATUS_PICKED_UP, Delivery.STATUS_OUT_FOR_DELIVERY);
 
+    private final OrderRepository orderRepository;
     private final OrderLockRepository lockRepository;
     private final DeliveryRepository deliveryRepository;
     private final UserRepository userRepository;
     private final OnlineOrderService onlineOrderService;
 
-    public DeliveryService(OrderLockRepository lockRepository, DeliveryRepository deliveryRepository,
-                           UserRepository userRepository, OnlineOrderService onlineOrderService) {
+    public DeliveryService(OrderRepository orderRepository, OrderLockRepository lockRepository,
+                           DeliveryRepository deliveryRepository, UserRepository userRepository,
+                           OnlineOrderService onlineOrderService) {
+        this.orderRepository = orderRepository;
         this.lockRepository = lockRepository;
         this.deliveryRepository = deliveryRepository;
         this.userRepository = userRepository;
         this.onlineOrderService = onlineOrderService;
+    }
+
+    /** Chi tiết 1 đơn giao hàng cho thu ngân (thông tin khách đầy đủ, không che). */
+    @Transactional(readOnly = true)
+    public OnlineOrderView getDeliveryOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .filter(o -> Order.DELIVERY.equals(o.getFulfillmentType()))
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn giao hàng #" + orderId));
+        Delivery delivery = deliveryRepository.findByOrder_Id(order.getId()).orElse(null);
+        return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
+    }
+
+    /** Phục vụ đang hoạt động để thu ngân chọn người giao, ai ít đơn đang cầm hơn xếp trước. */
+    @Transactional(readOnly = true)
+    public List<WaiterOptionView> listWaiters() {
+        return userRepository.findAllByStatusOrderByFullNameAsc(User.ACTIVE).stream()
+                .filter(u -> u.getRole() != null && WAITER_ROLE.equals(u.getRole().getName()))
+                .map(u -> new WaiterOptionView(u.getId(), u.getFullName(), holdingCount(u.getId())))
+                .sorted(Comparator.comparingLong(WaiterOptionView::holdingCount))
+                .toList();
     }
 
     /**
@@ -85,8 +111,11 @@ public class DeliveryService {
             deliveryRepository.save(delivery);
         }
 
-        String pm = order.getPayment() != null ? order.getPayment().getPaymentMethod() : "CASH";
-        return onlineOrderService.toView(order, delivery, pm, null);
+        return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
+    }
+
+    private static String paymentMethod(Order order) {
+        return order.getPayment() != null ? order.getPayment().getPaymentMethod() : "CASH";
     }
 
     /** Số đơn phục vụ đang cầm (đã gán, đã lấy hàng, đang giao). */
