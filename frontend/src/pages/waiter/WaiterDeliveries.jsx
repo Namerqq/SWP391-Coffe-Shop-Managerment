@@ -4,9 +4,11 @@ import { errorMessage } from '../../api/axiosClient'
 import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderFormat'
 import usePolling from '../../utils/usePolling'
 
+const isOut = (o) => o.deliveryStatus === 'OUT_FOR_DELIVERY' || o.deliveryStatus === 'PICKED_UP'
+
 /** Nhãn trạng thái cho phục vụ: đơn chưa pha xong thì chưa lấy được. */
 function stepBadge(o) {
-  if (o.deliveryStatus === 'OUT_FOR_DELIVERY' || o.deliveryStatus === 'PICKED_UP') {
+  if (isOut(o)) {
     return { label: 'Đang giao', pillClass: 'status-pill tone-pending' }
   }
   if (o.status === 'READY') return { label: 'Pha xong, lấy hàng được', pillClass: 'status-pill tone-ready' }
@@ -21,6 +23,8 @@ export default function WaiterDeliveries() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState(null)
+  const [processingId, setProcessingId] = useState(null) // đơn đang gửi thao tác, khóa nút tránh bấm 2 lần
 
   const loadOrders = async () => {
     try {
@@ -36,9 +40,32 @@ export default function WaiterDeliveries() {
 
   usePolling(loadOrders, 10000)
 
+  /** Gửi 1 thao tác giao hàng rồi tải lại danh sách. Lỗi 409 (đơn đã đổi trạng thái) cũng tải lại cho đúng. */
+  const runStep = async (o, call, successText) => {
+    setProcessingId(o.orderId)
+    try {
+      await call()
+      setFeedback({ type: 'success', message: successText })
+    } catch (err) {
+      setFeedback({ type: 'danger', message: errorMessage(err, 'Thao tác chưa thành công, vui lòng thử lại.') })
+    } finally {
+      setProcessingId(null)
+      loadOrders()
+    }
+  }
+
+  const handlePickUp = (o) =>
+    runStep(o, () => waiterDeliveryApi.pickUp(o.orderId), `Đã nhận đơn ${o.orderNumber}, bắt đầu đi giao.`)
+
   return (
     <div className="staff-content p-3 p-md-4">
       {error && <div className="alert alert-danger py-2">{error}</div>}
+      {feedback && (
+        <div className={`alert alert-${feedback.type} alert-dismissible fade show py-2 mb-3`} role="alert">
+          {feedback.message}
+          <button type="button" className="btn-close py-2" onClick={() => setFeedback(null)} aria-label="Đóng" />
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-5">
@@ -57,6 +84,7 @@ export default function WaiterDeliveries() {
             const badge = stepBadge(o)
             const isPaid = o.paymentStatus === 'PAID'
             const fee = o.shippingFee || 0
+            const busy = processingId === o.orderId
             return (
               <div key={o.orderId} className="col-12 col-lg-6 col-xl-4">
                 <div className="card h-100 border shadow-sm" style={{ borderRadius: '0.85rem' }}>
@@ -115,6 +143,21 @@ export default function WaiterDeliveries() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Nhận hàng: chỉ khi pha xong. Chưa pha xong thì nút mờ để phục vụ biết phải chờ. */}
+                    {!isOut(o) && (
+                      <div className="pt-2 mt-2 border-top">
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm w-100"
+                          disabled={busy || o.status !== 'READY'}
+                          onClick={() => handlePickUp(o)}
+                        >
+                          {busy ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-bag-check me-1" />}
+                          {o.status === 'READY' ? 'Nhận hàng đi giao' : 'Chờ pha xong mới nhận được'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
