@@ -264,7 +264,9 @@ public class OnlineOrderService {
         return new OnlineOrderView(v.orderId(), v.orderNumber(), v.displayNumber(), v.status(),
                 maskName(v.customerName()), maskPhone(v.customerPhone()), maskAddress(v.deliveryAddress()),
                 v.deliveryStatus(), v.customerNote(), v.cancelReason(), v.paymentMethod(), v.paymentStatus(),
-                v.totalAmount(), v.createdAt(), v.items(), v.qrPaymentUrl());
+                v.totalAmount(), v.createdAt(), v.items(), v.qrPaymentUrl(),
+                v.assignedWaiterName(), v.assignedAt(), v.pickedUpAt(), v.deliveredAt(),
+                v.failedAt(), v.failureReason());
     }
 
     /** "0901234567" -> "09*****567" */
@@ -290,6 +292,8 @@ public class OnlineOrderService {
     public OnlineOrderView toView(Order order, Delivery delivery, String paymentMethod, String qrUrl) {
         String deliveryAddr = delivery != null ? delivery.getDeliveryAddress() : "";
         String deliveryStatus = delivery != null ? delivery.getDeliveryStatus() : Delivery.STATUS_PENDING_ASSIGNMENT;
+        String waiterName = delivery != null && delivery.getAssignedWaiter() != null
+                ? delivery.getAssignedWaiter().getFullName() : null;
 
         return new OnlineOrderView(
                 order.getId(),
@@ -307,7 +311,13 @@ public class OnlineOrderService {
                 order.activeTotal(),
                 order.getCreatedAt(),
                 order.getItems().stream().map(orderSupport::toItemView).toList(),
-                qrUrl
+                qrUrl,
+                waiterName,
+                delivery != null ? delivery.getAssignedAt() : null,
+                delivery != null ? delivery.getPickedUpAt() : null,
+                delivery != null ? delivery.getDeliveredAt() : null,
+                delivery != null ? delivery.getFailedAt() : null,
+                delivery != null ? delivery.getFailureReason() : null
         );
     }
 }

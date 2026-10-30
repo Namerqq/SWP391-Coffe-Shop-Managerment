@@ -3,6 +3,7 @@ package com.example.project.service;
 import com.example.project.dto.online.OnlineOrderView;
 import com.example.project.entity.Delivery;
 import com.example.project.entity.Order;
+import com.example.project.entity.User;
 import com.example.project.repository.DeliveryRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,6 +27,7 @@ class OnlineOrderPrivacyTest {
     private OrderRepository orderRepository;
     private OnlineOrderService service;
     private Order order;
+    private Delivery delivery;
 
     @BeforeEach
     void setUp() {
@@ -41,7 +44,7 @@ class OnlineOrderPrivacyTest {
         order.setStatus(Order.PENDING);
         order.setCustomerName("Nguyễn Văn An");
         order.setCustomerPhone("0901234567");
-        Delivery delivery = new Delivery();
+        delivery = new Delivery();
         delivery.setDeliveryAddress("12 Nguyễn Trãi, Thanh Xuân, Hà Nội");
         delivery.setDeliveryStatus(Delivery.STATUS_PENDING_ASSIGNMENT);
 
@@ -66,6 +69,26 @@ class OnlineOrderPrivacyTest {
         assertEquals(Order.CANCELLED, order.getStatus());
         assertEquals("Đặt nhầm", order.getCancelReason());
         assertEquals("09*****567", v.customerPhone());
+    }
+
+    @Test
+    void lookupByCode_showsWaiterAndDeliveryTimes() {
+        User waiter = new User();
+        waiter.setFullName("Trần Bình");
+        LocalDateTime at = LocalDateTime.of(2026, 10, 30, 9, 15);
+        delivery.setAssignedWaiter(waiter);
+        delivery.setAssignedAt(at);
+
+        OnlineOrderView v = service.getOrderByCode("261026-0008");
+        assertEquals("Trần Bình", v.assignedWaiterName());
+        assertEquals(at, v.assignedAt());
+        assertNull(v.deliveredAt());
+        assertNull(v.failureReason());
+    }
+
+    @Test
+    void notAssignedYet_waiterIsNull() {
+        assertNull(service.getOrderByCode("261026-0008").assignedWaiterName());
     }
 
     @Test
