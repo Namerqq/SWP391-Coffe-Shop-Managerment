@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * Phục vụ đi giao đơn online (Iter 3): xem đơn mình được gán.
+ * Phục vụ đi giao đơn online (Iter 3): xem đơn mình được gán, bấm nhận hàng đi giao.
  * Người bấm lấy từ phiên đăng nhập, chỉ thao tác được trên đơn gán cho chính mình.
  */
 @RestController
@@ -28,5 +28,12 @@ public class WaiterDeliveryController {
     @GetMapping
     public List<OnlineOrderView> myDeliveries(@RequestAttribute(AuthInterceptor.CURRENT_USER) User me) {
         return deliveryService.myDeliveries(me.getId());
+    }
+
+    /** Nhận hàng đi giao. PUT /api/waiter/deliveries/12/pick-up */
+    @PutMapping("/{orderId}/pick-up")
+    public OnlineOrderView pickUp(@PathVariable Long orderId,
+                                  @RequestAttribute(AuthInterceptor.CURRENT_USER) User me) {
+        return deliveryService.pickUp(orderId, me.getId());
     }
 }
