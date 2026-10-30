@@ -32,7 +32,8 @@ const cashierApi = {
   getQrEvents: (since) => axiosClient.get('/cashier/qr-payments/events', { params: since ? { since } : {} }),
 
   // Lấy danh sách đơn giao hàng online cho thu ngân (Ship Order List)
-  getDeliveryOrders: () => axiosClient.get('/cashier/delivery-orders'),
+  // params (không bắt buộc): { from, to } = thời gian đặt đơn dạng 2026-10-26T08:00, { code } = mã đơn (1 phần cũng được)
+  getDeliveryOrders: (params) => axiosClient.get('/cashier/delivery-orders', { params }),
   // Thu ngân xác nhận đơn giao hàng
   confirmDeliveryOrder: (id) => axiosClient.post(`/cashier/delivery-orders/${id}/confirm`),
   // Thu ngân hủy đơn (ví dụ hết nguyên liệu)
