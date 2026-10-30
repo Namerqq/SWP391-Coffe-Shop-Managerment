@@ -31,23 +31,23 @@ function getStatusBadge(order) {
   return { label: 'Chờ duyệt', pillClass: 'status-pill tone-pending' }
 }
 
-const EMPTY_SEARCH = { from: '', to: '', code: '' }
+const EMPTY_SEARCH = { date: '', code: '' }
 
-/** "2026-10-26T23:59" -> "2026-10-27T00:00": backend lọc [from, to) nên cộng 1 phút để tính cả phút đã chọn. */
-function plusOneMinute(value) {
-  const [date, time] = value.split('T')
+/** "2026-10-26" -> "2026-10-27": backend lọc [from, to) nên "đến" là 00:00 ngày hôm sau. */
+function nextDay(date) {
   const [y, m, d] = date.split('-').map(Number)
-  const [h, min] = time.split(':').map(Number)
-  const t = new Date(y, m - 1, d, h, min + 1)
+  const t = new Date(y, m - 1, d + 1)
   const pad = (n) => String(n).padStart(2, '0')
-  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}T${pad(t.getHours())}:${pad(t.getMinutes())}`
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`
 }
 
-/** Tham số gửi lên GET /cashier/delivery-orders (bỏ ô trống). */
+/** Tham số gửi lên GET /cashier/delivery-orders . Chọn 1 ngày = cả ngày đó. */
 function toSearchParams(search) {
   const params = {}
-  if (search.from) params.from = search.from
-  if (search.to) params.to = plusOneMinute(search.to)
+  if (search.date) {
+    params.from = `${search.date}T00:00`
+    params.to = `${nextDay(search.date)}T00:00`
+  }
   const code = search.code.replace(/[\s#]/g, '')
   if (code) params.code = code
   return params
@@ -60,12 +60,11 @@ export default function ShipOrderList() {
   const [feedback, setFeedback] = useState(null)
   const [processingId, setProcessingId] = useState(null)
   const [activeTab, setActiveTab] = useState('ALL')
-  const [keyword, setKeyword] = useState('')
-  // Tìm đơn theo thời gian đặt / mã đơn: searchForm = đang nhập, search = đang áp dụng (gửi lên server)
+  // Tìm đơn theo ngày đặt / mã đơn: searchForm = đang nhập, search = đang áp dụng (gửi lên server)
   const [searchForm, setSearchForm] = useState(EMPTY_SEARCH)
   const [search, setSearch] = useState(EMPTY_SEARCH)
   const [searchError, setSearchError] = useState('')
-  const isSearching = Boolean(search.from || search.to || search.code)
+  const isSearching = Boolean(search.date || search.code)
 
   // Tải danh sách đơn giao hàng từ API (kèm điều kiện tìm đang áp dụng)
   const loadOrders = async (current = search) => {
@@ -88,10 +87,6 @@ export default function ShipOrderList() {
   // Bấm "Tìm": kiểm tra rồi tải lại danh sách theo điều kiện mới
   const applySearch = (e) => {
     e.preventDefault()
-    if (searchForm.from && searchForm.to && searchForm.from > searchForm.to) {
-      setSearchError('Thời gian "Từ" phải trước thời gian "Đến".')
-      return
-    }
     if (!/^[\d\s#-]*$/.test(searchForm.code)) {
       setSearchError('Mã đơn chỉ gồm số và dấu gạch, ví dụ 261026-0012 hoặc 0012.')
       return
@@ -161,17 +156,8 @@ export default function ShipOrderList() {
     }
   }
 
-  // Lọc danh sách đơn theo từ khóa và tab
+  // Lọc danh sách đơn theo tab
   const filteredOrders = orders.filter((o) => {
-    if (keyword.trim()) {
-      const kw = keyword.trim().toLowerCase()
-      const matchName = o.customerName?.toLowerCase().includes(kw)
-      const matchPhone = o.customerPhone?.toLowerCase().includes(kw)
-      const matchAddr = o.deliveryAddress?.toLowerCase().includes(kw)
-      const matchNo = [o.orderNumber, o.displayNumber].some((n) => n?.toLowerCase().includes(kw))
-      if (!matchName && !matchPhone && !matchAddr && !matchNo) return false
-    }
-
     if (activeTab === 'ALL') return true
     if (activeTab === 'CANCELLED') return o.status === 'CANCELLED' || o.deliveryStatus === 'CANCELLED'
     if (activeTab === 'COMPLETED') return o.status === 'COMPLETED' || o.deliveryStatus === 'DELIVERED'
@@ -201,7 +187,7 @@ export default function ShipOrderList() {
         </div>
       )}
 
-      {/* Bộ lọc Tab + Thanh tìm kiếm */}
+      {/* Bộ lọc Tab */}
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div className="chip-tabs">
           {FILTER_TABS.map((tab) => (
@@ -216,52 +202,22 @@ export default function ShipOrderList() {
             </button>
           ))}
         </div>
-
-        <div style={{ maxWidth: '280px', width: '100%' }}>
-          <div className="input-group input-group-sm">
-            <span className="input-group-text bg-white">
-              <i className="bi bi-search text-muted" />
-            </span>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Tìm theo tên, SĐT, địa chỉ..."
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-            />
-            {keyword && (
-              <button className="btn btn-outline-secondary" onClick={() => setKeyword('')}>
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
       </div>
 
-      {/* Tìm đơn theo thời gian đặt đơn và mã đơn (lọc ở server) */}
+      {/* Tìm đơn theo ngày đặt và mã đơn  */}
       <form className="card border-0 shadow-sm p-3 mb-3" onSubmit={applySearch} noValidate>
         <div className="row g-2 align-items-end">
-          <div className="col-12 col-sm-6 col-lg-3">
-            <label htmlFor="so-from" className="form-label small mb-1">Từ</label>
+          <div className="col-12 col-sm-6 col-lg-4">
+            <label htmlFor="so-date" className="form-label small mb-1">Ngày đặt</label>
             <input
-              id="so-from"
-              type="datetime-local"
+              id="so-date"
+              type="date"
               className="form-control form-control-sm"
-              value={searchForm.from}
-              onChange={changeSearch('from')}
+              value={searchForm.date}
+              onChange={changeSearch('date')}
             />
           </div>
-          <div className="col-12 col-sm-6 col-lg-3">
-            <label htmlFor="so-to" className="form-label small mb-1">Đến</label>
-            <input
-              id="so-to"
-              type="datetime-local"
-              className="form-control form-control-sm"
-              value={searchForm.to}
-              onChange={changeSearch('to')}
-            />
-          </div>
-          <div className="col-12 col-sm-6 col-lg-3">
+          <div className="col-12 col-sm-6 col-lg-4">
             <label htmlFor="so-code" className="form-label small mb-1">Mã đơn</label>
             <input
               id="so-code"
@@ -273,7 +229,7 @@ export default function ShipOrderList() {
               maxLength={20}
             />
           </div>
-          <div className="col-12 col-sm-6 col-lg-3 d-flex gap-2">
+          <div className="col-12 col-lg-4 d-flex gap-2">
             <button type="submit" className="btn btn-primary btn-sm flex-fill">
               <i className="bi bi-search me-1" />
               Tìm
@@ -299,7 +255,7 @@ export default function ShipOrderList() {
           <div className="fs-1 mb-2">📦</div>
           <h6 className="fw-bold">Không có đơn giao hàng nào</h6>
           <p className="small mb-0">
-            {keyword || isSearching
+            {isSearching
               ? 'Không tìm thấy đơn phù hợp với điều kiện tìm.'
               : 'Chưa có đơn hàng nào ở trạng thái này.'}
           </p>
