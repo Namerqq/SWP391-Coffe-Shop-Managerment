@@ -3,6 +3,7 @@ import waiterDeliveryApi from '../../api/waiterDeliveryApi'
 import { errorMessage } from '../../api/axiosClient'
 import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderFormat'
 import usePolling from '../../utils/usePolling'
+import CancelOrderModal from './CancelOrderModal'
 
 const isOut = (o) => o.deliveryStatus === 'OUT_FOR_DELIVERY' || o.deliveryStatus === 'PICKED_UP'
 
@@ -25,6 +26,7 @@ export default function WaiterDeliveries() {
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState(null)
   const [processingId, setProcessingId] = useState(null) // đơn đang gửi thao tác, khóa nút tránh bấm 2 lần
+  const [failOrder, setFailOrder] = useState(null) // đơn đang mở popup nhập lý do giao lỗi
 
   const loadOrders = async () => {
     try {
@@ -60,6 +62,18 @@ export default function WaiterDeliveries() {
   const handleDeliver = (o) => {
     if (!window.confirm(`Xác nhận đã giao đơn ${o.orderNumber} cho khách?`)) return
     runStep(o, () => waiterDeliveryApi.deliver(o.orderId), `Đơn ${o.orderNumber} đã giao xong.`)
+  }
+
+  /** Gửi lý do giao lỗi. Lỗi thì ném ra để popup giữ nguyên và hiện lỗi ngay dưới ô nhập. */
+  const handleFail = async (reason) => {
+    const o = failOrder
+    try {
+      await waiterDeliveryApi.fail(o.orderId, reason)
+      setFailOrder(null)
+      setFeedback({ type: 'warning', message: `Đã báo giao không thành công đơn ${o.orderNumber}. Đơn chuyển sang Đã hủy.` })
+    } finally {
+      loadOrders()
+    }
   }
 
   return (
@@ -176,6 +190,15 @@ export default function WaiterDeliveries() {
                           {busy ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-check2-circle me-1" />}
                           Đã giao
                         </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm w-100 mt-2"
+                          disabled={busy}
+                          onClick={() => setFailOrder(o)}
+                        >
+                          <i className="bi bi-x-octagon me-1" />
+                          Giao không thành công
+                        </button>
                       </div>
                     )}
                   </div>
@@ -185,6 +208,19 @@ export default function WaiterDeliveries() {
           })}
         </div>
       )}
+
+      <CancelOrderModal
+        show={Boolean(failOrder)}
+        order={failOrder}
+        title="Giao không thành công đơn"
+        message="Đơn sẽ chuyển sang Đã hủy. Lý do sẽ hiện cho khách và thu ngân xem."
+        label="Lý do giao không thành công"
+        required
+        placeholder="Ví dụ: khách không nghe máy, sai địa chỉ..."
+        confirmText="Xác nhận giao lỗi"
+        onClose={() => setFailOrder(null)}
+        onConfirm={handleFail}
+      />
     </div>
   )
 }
