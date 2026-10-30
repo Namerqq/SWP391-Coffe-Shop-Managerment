@@ -4,6 +4,7 @@ import com.example.project.dto.delivery.WaiterOptionView;
 import com.example.project.dto.online.OnlineOrderView;
 import com.example.project.entity.Delivery;
 import com.example.project.entity.Order;
+import com.example.project.entity.OrderItem;
 import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
 import com.example.project.repository.DeliveryRepository;
@@ -132,6 +133,33 @@ public class DeliveryService {
         delivery.setPickedUpAt(LocalDateTime.now());
         delivery.setDeliveryStatus(Delivery.STATUS_OUT_FOR_DELIVERY);
         deliveryRepository.save(delivery);
+        return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
+    }
+
+    /**
+     * Phục vụ bấm "Đã giao": chỉ đúng người được gán, đơn đang giao.
+     * Chỉ đổi trạng thái giao hàng.
+     * Đơn chuyển sang Hoàn thành để không còn nằm ở "Pha xong".
+     */
+    @Transactional
+    public OnlineOrderView deliver(Long orderId, Long waiterId) {
+        Order order = lockedDeliveryOrder(orderId);
+        String no = OrderSupportService.displayNumber(order.getOrderNumber());
+        Delivery delivery = myDelivery(order, waiterId, no);
+
+        if (!Delivery.STATUS_OUT_FOR_DELIVERY.equals(delivery.getDeliveryStatus())) {
+            throw ApiException.conflict(Delivery.STATUS_DELIVERED.equals(delivery.getDeliveryStatus())
+                    ? "Đơn " + no + " đã giao xong rồi."
+                    : "Đơn " + no + " chưa lấy hàng, chưa giao xong được.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        delivery.setDeliveredAt(now);
+        delivery.setDeliveryStatus(Delivery.STATUS_DELIVERED);
+        deliveryRepository.save(delivery);
+        order.moveTo(Order.SERVED, OrderItem.SERVED);
+        order.setCompletedAt(now);
+        orderRepository.save(order);
         return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
     }
 
