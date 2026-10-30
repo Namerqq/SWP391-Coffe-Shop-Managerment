@@ -20,8 +20,7 @@ import java.util.List;
 
 /**
  * Giao hàng đơn online (Iter 3): thu ngân xem chi tiết đơn, chọn phục vụ và gán đi giao;
- * phục vụ được gán bấm qua từng bước giao.
- * Các bước lấy hàng / giao xong / giao lỗi của phục vụ sẽ thêm ở commit sau.
+ * phục vụ được gán bấm qua từng bước giao: nhận hàng đi giao, đã giao, giao không thành công.
  */
 @Service
 public class DeliveryService {
@@ -159,6 +158,40 @@ public class DeliveryService {
         deliveryRepository.save(delivery);
         order.moveTo(Order.SERVED, OrderItem.SERVED);
         order.setCompletedAt(now);
+        orderRepository.save(order);
+        return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
+    }
+
+    /**
+     * Phục vụ bấm "Giao không thành công" (khách không nghe máy, sai địa chỉ...): chỉ đúng người được gán, đơn đang giao.
+     * Bắt buộc ghi lý do. Đơn chuyển sang Đã hủy, lý do hủy = "Giao không thành công: <lý do>".
+     * Không xử lý tiền (hoàn tiền QR nếu có là việc của phần thanh toán).
+     */
+    @Transactional
+    public OnlineOrderView fail(Long orderId, Long waiterId, String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw ApiException.badRequest("Vui lòng nhập lý do giao không thành công.");
+        }
+        if (reason.trim().length() > 400) {
+            throw ApiException.badRequest("Lý do tối đa 400 ký tự.");
+        }
+        Order order = lockedDeliveryOrder(orderId);
+        String no = OrderSupportService.displayNumber(order.getOrderNumber());
+        Delivery delivery = myDelivery(order, waiterId, no);
+
+        if (!Delivery.STATUS_OUT_FOR_DELIVERY.equals(delivery.getDeliveryStatus())) {
+            throw ApiException.conflict("Đơn " + no + " không còn đang giao, không báo giao lỗi được.");
+        }
+
+        String why = reason.trim();
+        LocalDateTime now = LocalDateTime.now();
+        delivery.setFailedAt(now);
+        delivery.setFailureReason(why);
+        delivery.setDeliveryStatus(Delivery.STATUS_FAILED);
+        deliveryRepository.save(delivery);
+        order.moveTo(Order.CANCELLED, OrderItem.CANCELLED);
+        order.setCancelReason("Giao không thành công: " + why);
+        order.setCancelledAt(now);
         orderRepository.save(order);
         return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
     }

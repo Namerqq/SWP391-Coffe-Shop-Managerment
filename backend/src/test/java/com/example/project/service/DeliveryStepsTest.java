@@ -142,4 +142,49 @@ class DeliveryStepsTest {
         ApiException ex = assertThrows(ApiException.class, () -> service.deliver(8L, 5L));
         assertTrue(ex.getMessage().contains("đã giao xong"));
     }
+
+    @Test
+    void fail_cancelsOrderWithReason() {
+        outForDelivery();
+        service.fail(8L, 5L, "  Khách không nghe máy ");
+
+        assertEquals(Delivery.STATUS_FAILED, delivery.getDeliveryStatus());
+        assertNotNull(delivery.getFailedAt());
+        assertEquals("Khách không nghe máy", delivery.getFailureReason());
+        assertEquals(Order.CANCELLED, order.getStatus());
+        assertEquals("Giao không thành công: Khách không nghe máy", order.getCancelReason());
+        assertNotNull(order.getCancelledAt());
+        assertFalse(order.isPaid()); // không xử lý tiền
+    }
+
+    @Test
+    void fail_withoutReason_isRejected() {
+        outForDelivery();
+        ApiException ex = assertThrows(ApiException.class, () -> service.fail(8L, 5L, "  "));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertEquals(Delivery.STATUS_OUT_FOR_DELIVERY, delivery.getDeliveryStatus());
+    }
+
+    @Test
+    void fail_beforePickup_isRejected() {
+        ApiException ex = assertThrows(ApiException.class, () -> service.fail(8L, 5L, "Sai địa chỉ"));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        verify(deliveryRepository, never()).save(any());
+    }
+
+    @Test
+    void fail_byAnotherWaiter_isForbidden() {
+        outForDelivery();
+        ApiException ex = assertThrows(ApiException.class, () -> service.fail(8L, 6L, "Sai địa chỉ"));
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+    }
+
+    @Test
+    void fail_afterDelivered_isRejected() {
+        outForDelivery();
+        service.deliver(8L, 5L);
+        ApiException ex = assertThrows(ApiException.class, () -> service.fail(8L, 5L, "Sai địa chỉ"));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertEquals(Order.SERVED, order.getStatus());
+    }
 }
