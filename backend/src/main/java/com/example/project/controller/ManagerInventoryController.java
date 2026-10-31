@@ -5,6 +5,7 @@ import com.example.project.entity.User;
 import com.example.project.security.AuthInterceptor;
 import com.example.project.security.RequireRole;
 import com.example.project.service.InventoryService;
+import com.example.project.service.LowStockCheckingJob;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -22,9 +23,23 @@ import java.util.Map;
 public class ManagerInventoryController {
 
     private final InventoryService service;
+    private final LowStockCheckingJob lowStockCheckingJob;
 
-    public ManagerInventoryController(InventoryService service) {
+    public ManagerInventoryController(InventoryService service, LowStockCheckingJob lowStockCheckingJob) {
         this.service = service;
+        this.lowStockCheckingJob = lowStockCheckingJob;
+    }
+
+    /** Lấy snapshot cảnh báo của SRS Background Job #1. */
+    @GetMapping("/low-stock-job/snapshot")
+    public LowStockCheckingJob.LowStockSnapshot jobSnapshot() {
+        return lowStockCheckingJob.getLatestSnapshot();
+    }
+
+    /** Kích hoạt chạy ngay lập tức SRS Background Job #1. */
+    @PostMapping("/low-stock-job/run")
+    public LowStockCheckingJob.LowStockSnapshot triggerJob() {
+        return lowStockCheckingJob.checkLowStock();
     }
 
     /** Thống kê tổng quan kho (tổng, sắp hết, đủ). */
