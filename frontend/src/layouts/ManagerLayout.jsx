@@ -10,6 +10,7 @@ const NAV = [
   { to: '/manager/menu-items', label: 'Menu món', icon: 'bi-cup-hot' },
   { to: '/manager/inventory', label: 'Kho nguyên liệu', icon: 'bi-box-seam' },
   { to: '/manager/stock-receipts', label: 'Phiếu nhập kho', icon: 'bi-file-earmark-arrow-down' },
+  { to: '/manager/stock-history', label: 'Lịch sử kho', icon: 'bi-clock-history' },
   { to: '/manager/incidents', label: 'Sự cố đổ / vỡ', icon: 'bi-exclamation-triangle' },
   { to: '/manager/refunds', label: 'Hoàn tiền', icon: 'bi-arrow-counterclockwise' }, // ThangNN Iter3: hậu kiểm hoàn tiền
 ]

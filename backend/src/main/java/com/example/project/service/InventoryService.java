@@ -273,8 +273,35 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public List<StockTransactionView> history(Long inventoryItemId) {
+        return history(inventoryItemId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StockTransactionView> history(Long inventoryItemId, LocalDate date) {
         findItem(inventoryItemId); // đảm bảo tồn tại
+        if (date != null) {
+            LocalDateTime start = date.atStartOfDay();
+            LocalDateTime end = date.plusDays(1).atStartOfDay();
+            return txRepo.findByInventoryItem_IdAndCreatedAtBetweenOrderByCreatedAtDesc(inventoryItemId, start, end)
+                    .stream().map(StockTransactionView::from).toList();
+        }
         return txRepo.findByInventoryItem_IdOrderByCreatedAtDesc(inventoryItemId)
+                .stream().map(StockTransactionView::from).toList();
+    }
+
+    /**
+     * UC-IV01 / GBR-09: Sổ biến động kho tổng thể (Immutable ledger).
+     * Cho phép lọc theo nguyên liệu (tất cả hoặc 1 món), loại biến động (ALL/STOCK_IN/STOCK_OUT/WASTE), và khoảng ngày (fromDate - toDate).
+     */
+    @Transactional(readOnly = true)
+    public List<StockTransactionView> searchTransactions(
+            Long inventoryItemId, String type, LocalDate fromDate, LocalDate toDate) {
+        LocalDateTime start = fromDate != null ? fromDate.atStartOfDay() : null;
+        LocalDateTime end = toDate != null ? toDate.plusDays(1).atStartOfDay() : null;
+        String txType = (type != null && !type.isBlank() && !"ALL".equalsIgnoreCase(type))
+                ? type.trim().toUpperCase() : null;
+
+        return txRepo.searchTransactions(inventoryItemId, txType, start, end)
                 .stream().map(StockTransactionView::from).toList();
     }
 

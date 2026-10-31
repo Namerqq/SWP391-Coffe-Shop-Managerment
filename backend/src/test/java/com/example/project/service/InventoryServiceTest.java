@@ -505,4 +505,32 @@ class InventoryServiceTest {
         assertEquals("14:30", view.items().get(0).receiptTime());
         assertEquals("NCC Cầu Đất Farm", view.items().get(0).supplierName());
     }
+
+    @Test
+    @DisplayName("Sổ biến động kho tổng thể (searchTransactions) theo khoảng ngày, nguyên liệu và loại biến động")
+    void searchTransactions_success() {
+        StockTransaction tx = new StockTransaction();
+        org.springframework.test.util.ReflectionTestUtils.setField(tx, "id", 501L);
+        tx.setInventoryItem(sampleItem);
+        tx.setTransactionType("STOCK_IN");
+        tx.setQuantity(new BigDecimal("5.000"));
+        tx.setReason("Nhập hàng NCC");
+        tx.setCreatedBy(sampleManager);
+        org.springframework.test.util.ReflectionTestUtils.setField(tx, "createdAt", java.time.LocalDateTime.of(2026, 10, 25, 9, 0));
+
+        when(txRepo.searchTransactions(eq(1L), eq("STOCK_IN"), any(), any()))
+                .thenReturn(List.of(tx));
+
+        var list = inventoryService.searchTransactions(
+                1L, "STOCK_IN",
+                java.time.LocalDate.of(2026, 10, 20),
+                java.time.LocalDate.of(2026, 10, 25)
+        );
+
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        assertEquals(501L, list.get(0).id());
+        assertEquals("STOCK_IN", list.get(0).transactionType());
+        assertEquals(new BigDecimal("5.000"), list.get(0).quantity());
+    }
 }

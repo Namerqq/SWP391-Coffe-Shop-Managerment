@@ -78,10 +78,25 @@ public class ManagerInventoryController {
         return service.stockOut(id, req, me);
     }
 
-    /** Lịch sử nhập/xuất kho của 1 nguyên liệu. */
+    /** Lịch sử nhập/xuất kho của 1 nguyên liệu (hỗ trợ kiểm tra theo ngày hoặc toàn bộ). */
     @GetMapping("/{id}/history")
-    public List<StockTransactionView> history(@PathVariable Long id) {
-        return service.history(id);
+    public List<StockTransactionView> history(
+            @PathVariable Long id,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date) {
+        return service.history(id, date);
+    }
+
+    /**
+     * UC-IV01 / GBR-09: Sổ cái biến động kho tổng thể (Immutable ledger).
+     * GET /api/manager/inventory/transactions?ingredientId=...&type=...&fromDate=...&toDate=...
+     */
+    @GetMapping("/transactions")
+    public List<StockTransactionView> getStockTransactions(
+            @RequestParam(required = false) Long ingredientId,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fromDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate toDate) {
+        return service.searchTransactions(ingredientId, type, fromDate, toDate);
     }
 
     /**
