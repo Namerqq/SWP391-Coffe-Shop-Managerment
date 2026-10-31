@@ -11,6 +11,7 @@
 -- Includes 20 sellable items (13 drinks, 3 cakes, 4 toppings) plus 2 size options.
 -- No demo users, customers, orders, payments or table sessions are included.
 -- Merged V8__incident_reports.sql (2026-10-26): + table incident_reports (20 application tables in total).
+-- Merged V9__refund_note.sql (2026-10-31): + payments.note (hoàn tiền dùng dòng payments REFUND_PENDING / REFUNDED).
 
 CREATE DATABASE IF NOT EXISTS cafe_management
     CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
@@ -242,6 +243,7 @@ CREATE TABLE payments (
     total_amount BIGINT UNSIGNED NOT NULL,
     payment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     paid_at DATETIME NULL,
+    note VARCHAR(500) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_payments_code UNIQUE (payment_code),
     CONSTRAINT fk_payments_confirmer FOREIGN KEY (confirmed_by_user_id) REFERENCES users(user_id)

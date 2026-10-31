@@ -6,6 +6,7 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -22,4 +23,15 @@ public interface CashierHistoryRepository extends Repository<Order, Long> {
     @Query("select p.paymentMethod, count(p), coalesce(sum(p.totalAmount), 0) from Payment p "
             + "where p.paymentStatus = 'PAID' and p.paidAt >= :from and p.paidAt < :to group by p.paymentMethod")
     List<Object[]> sumPaidByMethod(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /** Hoàn tiền: tiền đã trả lại khách trong khoảng [from, to) theo cách hoàn: [paymentMethod, số phiếu, tổng tiền]. */
+    @Query("select p.paymentMethod, count(p), coalesce(sum(p.totalAmount), 0) from Payment p "
+            + "where p.paymentStatus = 'REFUNDED' and p.paidAt >= :from and p.paidAt < :to group by p.paymentMethod")
+    List<Object[]> sumRefundedByMethod(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /** Hoàn tiền theo đơn: [orderId, paymentStatus (REFUND_PENDING / REFUNDED), tổng tiền]. */
+    @Query("select p.order.id, p.paymentStatus, coalesce(sum(p.totalAmount), 0) from Payment p "
+            + "where p.order.id in :orderIds and p.paymentStatus in ('REFUND_PENDING', 'REFUNDED') "
+            + "group by p.order.id, p.paymentStatus")
+    List<Object[]> sumRefundsByOrder(@Param("orderIds") Collection<Long> orderIds);
 }

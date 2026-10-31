@@ -16,9 +16,15 @@ public record OrderHistoryView(LocalDate date, List<Row> orders, Summary summary
     /**
      * 1 dòng = 1 đơn. Đơn đã thanh toán có thêm thông tin hóa đơn (mã, phương thức, thu ngân) để mở trang xem / in lại.
      * cashierName null với đơn online trả QR (hệ thống tự xác nhận, không có thu ngân).
+     * refundedAmount / refundPendingAmount (ThangNN Iter3 - Hoàn tiền): tiền đã hoàn / đang chờ chuyển khoản trả khách
+     * của đơn này (0 nếu chưa hoàn).
      */
-    public record Row(OrderView order, String paymentCode, String paymentMethod, String cashierName) {}
+    public record Row(OrderView order, String paymentCode, String paymentMethod, String cashierName,
+                      long refundedAmount, long refundPendingAmount) {}
 
-    /** billCount = số hóa đơn đã thu; total = cash + transfer. */
-    public record Summary(int billCount, long total, long cash, long transfer) {}
+    /**
+     * billCount = số hóa đơn đã thu; cash / transfer / total = tiền thực giữ lại (đã thu trừ tiền đã hoàn trả khách
+     * trong ngày, theo cách hoàn). refundCount / refunded = số phiếu và tiền đã hoàn trả khách trong ngày.
+     */
+    public record Summary(int billCount, long total, long cash, long transfer, int refundCount, long refunded) {}
 }

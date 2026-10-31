@@ -92,6 +92,24 @@ class RevenueServiceTest {
     }
 
     @Test
+    void refundsAreSubtractedByRefundTimeAndMethod() {
+        when(repository.findPaid(eq(LocalDateTime.of(2026, 10, 1, 0, 0)), any())).thenReturn(List.of(
+                new Object[]{LocalDateTime.of(2026, 10, 1, 8, 15), Payment.CASH, 50000L},
+                new Object[]{LocalDateTime.of(2026, 10, 1, 8, 40), Payment.BANK_TRANSFER, 70000L}));
+        when(repository.findRefunded(eq(LocalDateTime.of(2026, 10, 1, 0, 0)), any())).thenReturn(List.<Object[]>of(
+                new Object[]{LocalDateTime.of(2026, 10, 3, 9, 0), Payment.BANK_TRANSFER, 20000L}));
+
+        RevenueReportView v = service.report("MONTH", LocalDate.of(2026, 10, 15));
+
+        assertEquals(70000L, v.rows().get(0).transfer()); // ngày thu tiền giữ nguyên
+        assertEquals(-20000L, v.rows().get(2).transfer()); // trừ vào ngày trả lại khách
+        assertEquals(0, v.rows().get(2).billCount());     // hoàn tiền không tính là hóa đơn
+        assertEquals(2, v.summary().billCount());
+        assertEquals(100000L, v.summary().total());
+        assertEquals(20000L, v.summary().refunded());
+    }
+
+    @Test
     void futureDateAndUnknownPeriodAreRejected() {
         assertThrows(ApiException.class, () -> service.report("DAY", LocalDate.now().plusDays(1)));
         assertThrows(ApiException.class, () -> service.report("QUARTER", null));

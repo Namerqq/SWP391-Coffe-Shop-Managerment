@@ -7,6 +7,7 @@ import com.example.project.dto.cashier.PaymentSettingsView;
 import com.example.project.dto.cashier.ReceiptView;
 import com.example.project.dto.cashier.TakeawayRequest;
 import com.example.project.dto.order.CustomerView;
+import com.example.project.dto.refund.RefundView;
 import com.example.project.entity.Customer;
 import com.example.project.entity.LoyaltyTransaction;
 import com.example.project.entity.Order;
@@ -60,12 +61,13 @@ public class CashierService {
     private final SystemSettingService settings;
     private final QrPaymentRequestRepository qrRepository;
     private final PayosClient payos;
+    private final RefundService refundService;
 
     public CashierService(CustomerRepository customerRepository, TableSessionRepository sessionRepository,
                           OrderRepository orderRepository, OrderLockRepository lockRepository,
                           PaymentRepository paymentRepository, LoyaltyTransactionRepository loyaltyRepository,
                           OrderSupportService support, SystemSettingService settings,
-                          QrPaymentRequestRepository qrRepository, PayosClient payos) {
+                          QrPaymentRequestRepository qrRepository, PayosClient payos, RefundService refundService) {
         this.customerRepository = customerRepository;
         this.sessionRepository = sessionRepository;
         this.orderRepository = orderRepository;
@@ -76,6 +78,7 @@ public class CashierService {
         this.settings = settings;
         this.qrRepository = qrRepository;
         this.payos = payos;
+        this.refundService = refundService;
     }
 
     // ===== UC-C10 / UC-C13: khách thân thiết =====
@@ -180,8 +183,11 @@ public class CashierService {
 
     @Transactional(readOnly = true)
     public ReceiptView receipt(Long paymentId) {
-        Payment p = paymentRepository.findById(paymentId)
+        Payment found = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hóa đơn id = " + paymentId));
+        // Mở bằng mã phiếu hoàn (vd. từ lịch sử điểm) -> hiện hóa đơn gốc của phiếu hoàn đó.
+        Payment p = found.isRefund() && found.getOrder() != null && found.getOrder().getPayment() != null
+                ? found.getOrder().getPayment() : found;
         TableSession s = p.getTableSession();
         Order single = p.getOrder();
         // Các đơn được thu trong hóa đơn này: mang đi = 1 đơn; tại bàn = các đơn thu ngân đã chọn khi thu.
@@ -207,16 +213,23 @@ public class CashierService {
         }
         if (customer == null) customer = s != null ? s.getCustomer() : (single == null ? null : single.getCustomer());
 
+        // Hóa đơn đã có hoàn tiền: món đã hoàn bị hủy nên không còn trong tổng món; tạm tính / giảm giá lấy lại
+        // theo lúc thu tiền = tiền khách trả + giảm giá bằng điểm đã dùng (giá trị 1 điểm theo cài đặt hiện tại).
+        List<RefundView> refunds = refundService.refundsOf(p.getId());
+        long refundedAmount = refunds.stream().mapToLong(RefundView::amount).sum();
+        long discount = refunds.isEmpty() ? Math.max(0, subtotal - p.getTotalAmount()) : redeemed * pointValue();
+        if (!refunds.isEmpty()) subtotal = p.getTotalAmount() + discount;
+
         User cashier = p.getConfirmedBy();
         return new ReceiptView(
                 settings.get("shop.name", "Cafe Shop"), settings.get("shop.address", ""), settings.get("shop.phone", ""),
                 p.getId(), p.getPaymentCode(), p.getPaidAt(), cashier == null ? null : cashier.getFullName(),
                 p.getPaymentMethod(), place, s == null, s == null ? null : s.getSessionCode(),
                 orders.stream().map(support::toView).toList(),
-                subtotal, Math.max(0, subtotal - p.getTotalAmount()), p.getTotalAmount(),
+                subtotal, discount, p.getTotalAmount(),
                 redeemed, earned, CustomerView.from(customer),
                 s == null ? null : s.getTable().getId(), s != null && s.isActive(),
-                qrRepository.existsByPayment_Id(p.getId()));
+                qrRepository.existsByPayment_Id(p.getId()), refunds, refundedAmount);
     }
 
     // ===== Dùng chung =====

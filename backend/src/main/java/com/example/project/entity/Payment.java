@@ -50,11 +50,26 @@ public class Payment {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    /**
+     * V9 (ThangNN Iter3 - Hoàn tiền): ghi chú của dòng hoàn tiền (món hoàn, lý do, mã giao dịch chuyển khoản trả khách).
+     * Hóa đơn thu tiền bình thường để trống.
+     */
+    @Column(name = "note", length = 500)
+    private String note;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     void onCreate() { this.createdAt = LocalDateTime.now(); }
+
+    /**
+     * Dòng hoàn tiền (REFUND_PENDING / REFUNDED): tiền chiều ngược lại, gắn order_id của đơn được hoàn.
+     * Hóa đơn gốc của dòng này = getOrder().getPayment().
+     */
+    public boolean isRefund() {
+        return REFUND_PENDING.equals(paymentStatus) || REFUNDED.equals(paymentStatus);
+    }
 
     public Long getId() { return id; }
     public User getConfirmedBy() { return confirmedBy; }
@@ -73,5 +88,7 @@ public class Payment {
     public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
     public LocalDateTime getPaidAt() { return paidAt; }
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
+    public String getNote() { return note; }
+    public void setNote(String note) { this.note = note; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

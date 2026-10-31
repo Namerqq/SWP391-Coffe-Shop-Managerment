@@ -5,11 +5,20 @@ import { errorMessage } from '../../api/axiosClient'
 import usePolling from '../../utils/usePolling'
 import { formatDateTime } from '../../utils/format'
 import { formatMoney, formatTime, itemOptionsText, ORDER_STATUS, placeLabel } from '../../utils/orderFormat'
+import { useToast } from '../../context/ToastContext'
+import RefundItemsModal from './RefundItemsModal'
+import RefundQueueModal from './RefundQueueModal'
+import CancelRefundModal from './CancelRefundModal'
+import { canRefundCounterOrder } from './refundFormat'
 import '../../styles/cashier.css'
 
 // Today's order and bill history — SRS 1.3.6, UC-C15 View Bills History (ThangNN Iter3).
 // 1 danh sách đơn trong ngày (mặc định hôm nay, chọn được ngày bất kỳ trước đó); đơn đã trả có nút "Xem hóa đơn".
-// Mỗi đơn có 2 trạng thái song song (phục vụ / thanh toán) nên lọc bằng 2 ô riêng. Chỉ xem, không sửa / hủy.
+// Mỗi đơn có 2 trạng thái song song (phục vụ / thanh toán) nên lọc bằng 2 ô riêng. Không sửa / hủy đơn ở đây.
+// Iter3 Hoàn tiền: đơn tại bàn / mang đi đã thanh toán còn món chưa mang ra có nút "Hoàn tiền" (RefundItemsModal);
+// đơn đã hoàn hiện số tiền đã hoàn / chờ chuyển khoản; tiền trong ngày đã trừ tiền hoàn trả khách.
+// Nút "Hoàn tiền" trên đầu trang mở popup RefundQueueModal: phiếu chờ chuyển khoản, đơn online đã hủy cần hoàn,
+// phiếu hoàn của ngày đang xem. Mở thẳng popup bằng /cashier/history?refunds=1 (link từ Đơn giao hàng).
 
 const METHOD = { CASH: 'Tiền mặt', BANK_TRANSFER: 'Chuyển khoản' }
 
@@ -73,9 +82,25 @@ export default function OrderHistory() {
   const [serve, setServe] = useState('')
   const [pay, setPay] = useState('')
   const [keyword, setKeyword] = useState('')
+  const [refundOrder, setRefundOrder] = useState(null) // đơn đang mở hộp hoàn tiền
+  const [queueOpen, setQueueOpen] = useState(Boolean(params.get('refunds'))) // popup Hoàn tiền
+  const [creating, setCreating] = useState(null) // đơn online đã hủy đang mở hộp tạo phiếu hoàn
+  const [queueCount, setQueueCount] = useState(0) // phiếu chờ chuyển khoản + đơn online cần hoàn
+  const toast = useToast()
   const requestNo = useRef(0)
 
+  // Số việc hoàn tiền đang chờ (hiện trên nút Hoàn tiền), lỗi thì bỏ qua để không ảnh hưởng danh sách đơn.
+  const loadQueueCount = useCallback(async () => {
+    try {
+      const [a, b] = await Promise.all([cashierApi.getPendingRefunds(), cashierApi.getOrdersToRefund()])
+      setQueueCount(a.data.length + b.data.length)
+    } catch {
+      // giữ số cũ
+    }
+  }, [])
+
   const load = useCallback(async () => {
+    loadQueueCount()
     const no = ++requestNo.current
     try {
       const res = await cashierApi.getHistory(date)
@@ -89,7 +114,15 @@ export default function OrderHistory() {
     } finally {
       if (no === requestNo.current) setLoading(false)
     }
-  }, [date])
+  }, [date, loadQueueCount])
+
+  // Mở bằng ?refunds=1: đã mở popup lúc khởi tạo, bỏ tham số khỏi địa chỉ để tải lại trang không mở lại.
+  useEffect(() => {
+    if (!params.get('refunds')) return
+    const next = new URLSearchParams(params)
+    next.delete('refunds')
+    setParams(next, { replace: true })
+  }, [params, setParams])
 
   // Đổi ngày -> tải ngay; sau đó tự tải lại mỗi 30 giây.
   useEffect(() => {
@@ -125,12 +158,20 @@ export default function OrderHistory() {
           <h1 className="page-title">Lịch sử đơn</h1>
           <p className="page-subtitle">
             Mọi đơn {isToday ? 'hôm nay' : `ngày ${dayLabel(date)}`}: tại bàn, mang đi và giao hàng online.
-            Đơn đã thanh toán bấm "Xem hóa đơn" để xem hoặc in lại.
+            Đơn đã thanh toán bấm "Xem hóa đơn" để xem hoặc in lại, "Hoàn tiền" khi khách không dùng món chưa mang ra.
           </p>
         </div>
-        <button type="button" className="btn btn-light-soft" onClick={load} disabled={loading}>
-          <i className="bi bi-arrow-clockwise me-1" aria-hidden="true" />Tải lại
-        </button>
+        <div className="d-flex gap-2">
+          <button type="button" className="btn btn-light-soft" onClick={() => setQueueOpen(true)}>
+            <i className="bi bi-arrow-counterclockwise me-1" aria-hidden="true" />Hoàn tiền
+            {queueCount > 0 && (
+              <span className="badge rounded-pill text-bg-danger ms-2" aria-label={`${queueCount} việc hoàn tiền đang chờ`}>{queueCount}</span>
+            )}
+          </button>
+          <button type="button" className="btn btn-light-soft" onClick={load} disabled={loading}>
+            <i className="bi bi-arrow-clockwise me-1" aria-hidden="true" />Tải lại
+          </button>
+        </div>
       </div>
 
       <div className="cf-card">
@@ -194,7 +235,7 @@ export default function OrderHistory() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ order: o, paymentCode, paymentMethod, cashierName }) => {
+                {rows.map(({ order: o, paymentCode, paymentMethod, cashierName, refundedAmount, refundPendingAmount }) => {
                   const st = serveStatus(o)
                   const paid = o.paymentStatus === 'PAID'
                   return (
@@ -233,14 +274,35 @@ export default function OrderHistory() {
                             {o.paidAt && <> · {formatTime(o.paidAt)}</>}
                           </div>
                         )}
+                        {(refundedAmount > 0 || refundPendingAmount > 0) && (
+                          <div className="cell-sub text-danger mt-1">
+                            <i className="bi bi-arrow-counterclockwise me-1" aria-hidden="true" />
+                            {refundedAmount > 0 && `Đã hoàn ${formatMoney(refundedAmount)}`}
+                            {refundedAmount > 0 && refundPendingAmount > 0 && ', '}
+                            {refundPendingAmount > 0 && `chờ chuyển khoản trả ${formatMoney(refundPendingAmount)}`}
+                            {refundPendingAmount > 0 && (
+                              <button type="button" className="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                                      onClick={() => setQueueOpen(true)}>
+                                Nhập mã giao dịch
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="text-end">
+                        <div className="d-flex flex-column align-items-end gap-1">
+                        {canRefundCounterOrder(o) && (
+                          <button type="button" className="btn btn-sm btn-outline-danger text-nowrap" onClick={() => setRefundOrder(o)}>
+                            <i className="bi bi-arrow-counterclockwise me-1" aria-hidden="true" />Hoàn tiền
+                          </button>
+                        )}
                         {o.paymentId && (
                           <Link to={`/cashier/receipt/${o.paymentId}`} className="btn btn-sm btn-light-soft text-nowrap"
                                 state={{ from: 'history', back: isToday ? '/cashier/history' : `/cashier/history?date=${date}` }}>
                             <i className="bi bi-receipt me-1" aria-hidden="true" />Xem hóa đơn
                           </Link>
                         )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -264,11 +326,47 @@ export default function OrderHistory() {
               <div className="cell-sub">
                 Tiền mặt {formatMoney(sum.cash)} · Chuyển khoản {formatMoney(sum.transfer)} (tính theo giờ thu tiền, đã trừ giảm giá)
               </div>
+              {sum.refunded > 0 && (
+                <div className="cell-sub text-danger">
+                  Đã trừ {formatMoney(sum.refunded)} hoàn trả khách ({sum.refundCount} phiếu, theo giờ trả)
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
       {data && <p className="cell-sub mt-2 mb-0">Cập nhật lúc {formatDateTime(new Date())}</p>}
+
+      <RefundItemsModal
+        order={refundOrder}
+        onClose={() => setRefundOrder(null)}
+        onDone={(r) => {
+          setRefundOrder(null)
+          toast(r.status === 'REFUNDED'
+            ? `Đã hoàn ${formatMoney(r.amount)} tiền mặt (phiếu ${r.refundCode}).`
+            : `Phiếu ${r.refundCode} ${formatMoney(r.amount)} chờ chuyển khoản trả khách. Chuyển xong thì nhập mã giao dịch ở nút Hoàn tiền.`)
+          load()
+        }}
+      />
+
+      <RefundQueueModal
+        show={queueOpen && !creating}
+        date={date}
+        isToday={isToday}
+        onClose={() => setQueueOpen(false)}
+        onCreate={setCreating}
+        onChanged={load}
+      />
+      <CancelRefundModal
+        mode="refund"
+        target={creating}
+        onClose={() => setCreating(null)}
+        onDone={(r) => {
+          setCreating(null)
+          toast(`Đã tạo phiếu ${r.refundCode} ${formatMoney(r.amount)}, chờ chuyển khoản trả khách.`)
+          load()
+        }}
+      />
     </>
   )
 }

@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
 import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderFormat'
 import usePolling from '../../utils/usePolling'
 import ShipAssignModal, { canAssign } from './ShipAssignModal'
+import CancelRefundModal from './CancelRefundModal' // ThangNN Iter3: hủy đơn đã trả QR + hoàn tiền
+import { canCancelPaidDelivery } from './refundFormat'
 
 // Trạng thái đơn giao hàng
 const FILTER_TABS = [
@@ -63,6 +66,7 @@ export default function ShipOrderList() {
   const [processingId, setProcessingId] = useState(null)
   const [activeTab, setActiveTab] = useState('ALL')
   const [detailId, setDetailId] = useState(null) // đơn đang mở popup chi tiết / gán người giao
+  const [refundTarget, setRefundTarget] = useState(null) // ThangNN Iter3: đơn đã trả QR đang mở hộp Hủy & hoàn tiền
   // Tìm đơn theo ngày đặt / mã đơn: searchForm = đang nhập, search = đang áp dụng (gửi lên server)
   const [searchForm, setSearchForm] = useState(EMPTY_SEARCH)
   const [search, setSearch] = useState(EMPTY_SEARCH)
@@ -323,6 +327,11 @@ export default function ShipOrderList() {
                           Lý do hủy: {o.cancelReason}
                         </div>
                       )}
+                      {o.cancelReason && isPaid && (
+                        <Link to="/cashier/history?refunds=1" className="small d-inline-block mt-1">
+                          <i className="bi bi-arrow-counterclockwise me-1" />Khách đã trả QR: xem hoàn tiền
+                        </Link>
+                      )}
                     </div>
 
                     {/* Danh sách món */}
@@ -423,6 +432,22 @@ export default function ShipOrderList() {
                           <i className="bi bi-person-check me-1" />
                           {!canAssign(o) ? 'Xem chi tiết' : o.assignedWaiterName ? 'Chi tiết / Đổi người giao' : 'Gán người giao'}
                         </button>
+                        {canCancelPaidDelivery(o) && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger btn-sm w-100 mt-2"
+                            onClick={() => setRefundTarget({
+                              orderId: o.orderId,
+                              label: o.orderNumber || o.displayNumber,
+                              amount: o.totalAmount,
+                              customerName: o.customerName,
+                              customerPhone: o.customerPhone,
+                            })}
+                          >
+                            <i className="bi bi-arrow-counterclockwise me-1" />
+                            Hủy & hoàn tiền
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -432,6 +457,20 @@ export default function ShipOrderList() {
           })}
         </div>
       )}
+
+      <CancelRefundModal
+        mode="cancel"
+        target={refundTarget}
+        onClose={() => setRefundTarget(null)}
+        onDone={(r) => {
+          setFeedback({
+            type: 'success',
+            message: `Đã hủy đơn ${refundTarget?.label}. Phiếu hoàn ${r.refundCode} ${formatMoney(r.amount)} chờ chuyển khoản trả khách (nút Hoàn tiền ở Lịch sử đơn).`,
+          })
+          setRefundTarget(null)
+          loadOrders()
+        }}
+      />
 
       {detailId && (
         <ShipAssignModal
