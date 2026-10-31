@@ -24,13 +24,19 @@ public class ManagerRevenueController {
     }
 
     /**
-     * GET /api/manager/revenue?period=WEEK&date=2026-10-24
-     * period = DAY | WEEK | MONTH | YEAR (bỏ trống = DAY); date = 1 ngày bất kỳ trong kỳ (bỏ trống = hôm nay; tương lai -> 400).
+     * GET /api/manager/revenue?period=CUSTOM&fromDate=2026-10-15&toDate=2026-10-28
+     * period = DAY | WEEK | MONTH | YEAR | CUSTOM (bỏ trống = DAY)
+     * date = 1 ngày bất kỳ trong kỳ (cho DAY, WEEK, MONTH, YEAR)
+     * fromDate, toDate = khoảng ngày tùy chọn khi period=CUSTOM
      */
     @GetMapping
     public RevenueReportView report(@RequestParam(required = false) String period,
                                     @RequestParam(required = false)
-                                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return service.report(period, date);
+                                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                    @RequestParam(required = false)
+                                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+                                    @RequestParam(required = false)
+                                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return service.report(period, date, fromDate, toDate);
     }
 }
