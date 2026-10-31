@@ -12,7 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * Phục vụ đi giao đơn online (Iter 3): xem đơn mình được gán, bấm nhận hàng / đã giao / giao không thành công.
+ * Phục vụ đi giao đơn online (Iter 3): xem đơn mình được gán, bấm nhận hàng / đã thu tiền COD / đã giao /
+ * giao không thành công.
  * Người bấm lấy từ phiên đăng nhập, chỉ thao tác được trên đơn gán cho chính mình.
  */
 @RestController
@@ -39,7 +40,14 @@ public class WaiterDeliveryController {
         return deliveryService.pickUp(orderId, me.getId());
     }
 
-    /** Đã giao. PUT /api/waiter/deliveries/12/deliver */
+    /** UC-W10 Đã thu tiền COD (đơn trả tiền mặt khi nhận hàng). PUT /api/waiter/deliveries/12/confirm-cod */
+    @PutMapping("/{orderId}/confirm-cod")
+    public OnlineOrderView confirmCod(@PathVariable Long orderId,
+                                      @RequestAttribute(AuthInterceptor.CURRENT_USER) User me) {
+        return deliveryService.confirmCod(orderId, me);
+    }
+
+    /** Đã giao (đơn COD phải thu tiền trước). PUT /api/waiter/deliveries/12/deliver */
     @PutMapping("/{orderId}/deliver")
     public OnlineOrderView deliver(@PathVariable Long orderId,
                                    @RequestAttribute(AuthInterceptor.CURRENT_USER) User me) {
