@@ -42,6 +42,7 @@ public class OrderSupportService {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
 
     private final MenuItemRepository menuItemRepository;
+    private final ToppingCompatibilityService toppingCompatibility;
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
     private final TableSessionRepository sessionRepository;
@@ -58,8 +59,9 @@ public class OrderSupportService {
     public OrderSupportService(MenuItemRepository menuItemRepository, OrderRepository orderRepository,
                                PaymentRepository paymentRepository, TableSessionRepository sessionRepository,
                                ObjectMapper objectMapper, QrPaymentRequestRepository qrRepository,
-                               GuestSessionStore guestSessions) {
+                               GuestSessionStore guestSessions, ToppingCompatibilityService toppingCompatibility) {
         this.menuItemRepository = menuItemRepository;
+        this.toppingCompatibility = toppingCompatibility;
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
         this.sessionRepository = sessionRepository;
@@ -68,12 +70,13 @@ public class OrderSupportService {
         this.guestSessions = guestSessions;
     }
 
-    /** Giữ hàm tạo cũ cho các unit test đang gọi trực tiếp (không cần phiên khách thật). */
+    /** Hàm tạo cho các unit test gọi trực tiếp (không cần phiên khách thật). */
     public OrderSupportService(MenuItemRepository menuItemRepository, OrderRepository orderRepository,
                                PaymentRepository paymentRepository, TableSessionRepository sessionRepository,
-                               ObjectMapper objectMapper, QrPaymentRequestRepository qrRepository) {
+                               ObjectMapper objectMapper, QrPaymentRequestRepository qrRepository,
+                               ToppingCompatibilityService toppingCompatibility) {
         this(menuItemRepository, orderRepository, paymentRepository, sessionRepository, objectMapper, qrRepository,
-                new GuestSessionStore());
+                new GuestSessionStore(), toppingCompatibility);
     }
 
     /** Tạo 1 dòng món từ yêu cầu: kiểm tra món còn bán, lấy giá hiện tại làm "ảnh chụp" giá. */
@@ -105,6 +108,9 @@ public class OrderSupportService {
         if (req.toppingIds() != null) {
             for (Long id : new LinkedHashSet<>(req.toppingIds())) {
                 MenuItem t = option(id, Category.TOPPING);
+                if (!toppingCompatibility.allows(id, item.getId())) {
+                    throw ApiException.badRequest("Topping \"" + t.getName() + "\" không được dùng kèm món \"" + item.getName() + "\".");
+                }
                 toppings.add(new ToppingView(t.getId(), t.getName(), t.getBasePrice()));
             }
         }

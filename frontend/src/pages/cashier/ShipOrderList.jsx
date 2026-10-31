@@ -31,6 +31,28 @@ function getStatusBadge(order) {
   return { label: 'Chờ duyệt', pillClass: 'status-pill tone-pending' }
 }
 
+const EMPTY_SEARCH = { from: '', to: '', code: '' }
+
+/** "2026-10-26T23:59" -> "2026-10-27T00:00": backend lọc [from, to) nên cộng 1 phút để tính cả phút đã chọn. */
+function plusOneMinute(value) {
+  const [date, time] = value.split('T')
+  const [y, m, d] = date.split('-').map(Number)
+  const [h, min] = time.split(':').map(Number)
+  const t = new Date(y, m - 1, d, h, min + 1)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}T${pad(t.getHours())}:${pad(t.getMinutes())}`
+}
+
+/** Tham số gửi lên GET /cashier/delivery-orders (bỏ ô trống). */
+function toSearchParams(search) {
+  const params = {}
+  if (search.from) params.from = search.from
+  if (search.to) params.to = plusOneMinute(search.to)
+  const code = search.code.replace(/[\s#]/g, '')
+  if (code) params.code = code
+  return params
+}
+
 export default function ShipOrderList() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -39,11 +61,16 @@ export default function ShipOrderList() {
   const [processingId, setProcessingId] = useState(null)
   const [activeTab, setActiveTab] = useState('ALL')
   const [keyword, setKeyword] = useState('')
+  // Tìm đơn theo thời gian đặt / mã đơn: searchForm = đang nhập, search = đang áp dụng (gửi lên server)
+  const [searchForm, setSearchForm] = useState(EMPTY_SEARCH)
+  const [search, setSearch] = useState(EMPTY_SEARCH)
+  const [searchError, setSearchError] = useState('')
+  const isSearching = Boolean(search.from || search.to || search.code)
 
-  // Tải danh sách đơn giao hàng từ API
-  const loadOrders = async () => {
+  // Tải danh sách đơn giao hàng từ API (kèm điều kiện tìm đang áp dụng)
+  const loadOrders = async (current = search) => {
     try {
-      const res = await cashierApi.getDeliveryOrders()
+      const res = await cashierApi.getDeliveryOrders(toSearchParams(current))
       setOrders(res.data || [])
       setError('')
     } catch (err) {
@@ -56,6 +83,33 @@ export default function ShipOrderList() {
   // Tự động cập nhật ngầm mỗi 10 giây
   usePolling(loadOrders, 10000)
 
+  const changeSearch = (field) => (e) => setSearchForm((f) => ({ ...f, [field]: e.target.value }))
+
+  // Bấm "Tìm": kiểm tra rồi tải lại danh sách theo điều kiện mới
+  const applySearch = (e) => {
+    e.preventDefault()
+    if (searchForm.from && searchForm.to && searchForm.from > searchForm.to) {
+      setSearchError('Thời gian "Từ" phải trước thời gian "Đến".')
+      return
+    }
+    if (!/^[\d\s#-]*$/.test(searchForm.code)) {
+      setSearchError('Mã đơn chỉ gồm số và dấu gạch, ví dụ 261026-0012 hoặc 0012.')
+      return
+    }
+    setSearchError('')
+    setSearch(searchForm)
+    setLoading(true)
+    loadOrders(searchForm)
+  }
+
+  const clearSearch = () => {
+    setSearchForm(EMPTY_SEARCH)
+    setSearch(EMPTY_SEARCH)
+    setSearchError('')
+    setLoading(true)
+    loadOrders(EMPTY_SEARCH)
+  }
+
   // Xác nhận đơn giao hàng (chuyển sang Barista chế biến)
   const handleConfirm = async (order) => {
     try {
@@ -64,7 +118,7 @@ export default function ShipOrderList() {
       await cashierApi.confirmDeliveryOrder(order.orderId)
       setFeedback({
         type: 'success',
-        message: `Đã xác nhận đơn ${order.displayNumber || '#' + order.orderId}. Đơn đã chuyển sang quầy Barista!`,
+        message: `Đã xác nhận đơn ${order.orderNumber || order.displayNumber}. Đơn đã chuyển sang quầy Barista!`,
       })
       await loadOrders()
     } catch (err) {
@@ -82,7 +136,7 @@ export default function ShipOrderList() {
   // Hủy đơn giao hàng do hết nguyên liệu
   const handleCancel = async (order) => {
     const ok = window.confirm(
-      `Xác nhận hủy đơn ${order.displayNumber || '#' + order.orderId} do hết nguyên liệu?`
+      `Xác nhận hủy đơn ${order.orderNumber || order.displayNumber} do hết nguyên liệu?`
     )
     if (!ok) return
 
@@ -92,7 +146,7 @@ export default function ShipOrderList() {
       await cashierApi.cancelDeliveryOrder(order.orderId, 'Hết nguyên liệu')
       setFeedback({
         type: 'success',
-        message: `Đã hủy đơn ${order.displayNumber || '#' + order.orderId} (Hết nguyên liệu).`,
+        message: `Đã hủy đơn ${order.orderNumber || order.displayNumber} (Hết nguyên liệu).`,
       })
       await loadOrders()
     } catch (err) {
@@ -114,7 +168,7 @@ export default function ShipOrderList() {
       const matchName = o.customerName?.toLowerCase().includes(kw)
       const matchPhone = o.customerPhone?.toLowerCase().includes(kw)
       const matchAddr = o.deliveryAddress?.toLowerCase().includes(kw)
-      const matchNo = (o.displayNumber || o.orderNumber || '').toLowerCase().includes(kw)
+      const matchNo = [o.orderNumber, o.displayNumber].some((n) => n?.toLowerCase().includes(kw))
       if (!matchName && !matchPhone && !matchAddr && !matchNo) return false
     }
 
@@ -184,6 +238,56 @@ export default function ShipOrderList() {
         </div>
       </div>
 
+      {/* Tìm đơn theo thời gian đặt đơn và mã đơn (lọc ở server) */}
+      <form className="card border-0 shadow-sm p-3 mb-3" onSubmit={applySearch} noValidate>
+        <div className="row g-2 align-items-end">
+          <div className="col-12 col-sm-6 col-lg-3">
+            <label htmlFor="so-from" className="form-label small mb-1">Từ</label>
+            <input
+              id="so-from"
+              type="datetime-local"
+              className="form-control form-control-sm"
+              value={searchForm.from}
+              onChange={changeSearch('from')}
+            />
+          </div>
+          <div className="col-12 col-sm-6 col-lg-3">
+            <label htmlFor="so-to" className="form-label small mb-1">Đến</label>
+            <input
+              id="so-to"
+              type="datetime-local"
+              className="form-control form-control-sm"
+              value={searchForm.to}
+              onChange={changeSearch('to')}
+            />
+          </div>
+          <div className="col-12 col-sm-6 col-lg-3">
+            <label htmlFor="so-code" className="form-label small mb-1">Mã đơn</label>
+            <input
+              id="so-code"
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="Ví dụ 261026-0012 hoặc 0012"
+              value={searchForm.code}
+              onChange={changeSearch('code')}
+              maxLength={20}
+            />
+          </div>
+          <div className="col-12 col-sm-6 col-lg-3 d-flex gap-2">
+            <button type="submit" className="btn btn-primary btn-sm flex-fill">
+              <i className="bi bi-search me-1" />
+              Tìm
+            </button>
+            {isSearching && (
+              <button type="button" className="btn btn-outline-secondary btn-sm flex-fill" onClick={clearSearch}>
+                Xóa lọc
+              </button>
+            )}
+          </div>
+        </div>
+        {searchError && <div className="text-danger small mt-2">{searchError}</div>}
+      </form>
+
       {/* Danh sách đơn hàng giao tận nơi */}
       {loading ? (
         <div className="text-center py-5">
@@ -195,7 +299,9 @@ export default function ShipOrderList() {
           <div className="fs-1 mb-2">📦</div>
           <h6 className="fw-bold">Không có đơn giao hàng nào</h6>
           <p className="small mb-0">
-            {keyword ? 'Không tìm thấy kết quả phù hợp với từ khóa.' : 'Chưa có đơn hàng nào ở trạng thái này.'}
+            {keyword || isSearching
+              ? 'Không tìm thấy đơn phù hợp với điều kiện tìm.'
+              : 'Chưa có đơn hàng nào ở trạng thái này.'}
           </p>
         </div>
       ) : (
@@ -220,7 +326,7 @@ export default function ShipOrderList() {
                   {/* Mã đơn và Trạng thái */}
                   <div className="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
                     <div>
-                      <span className="fw-bold text-dark me-2">{o.displayNumber || `#ONL-${o.orderId}`}</span>
+                      <span className="fw-bold text-dark me-2">{o.orderNumber || o.displayNumber}</span>
                       <small className="text-muted">{formatTime(o.createdAt)}</small>
                     </div>
                     <span className={badge.pillClass}>{badge.label}</span>

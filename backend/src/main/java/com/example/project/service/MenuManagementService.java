@@ -1,5 +1,16 @@
 package com.example.project.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.project.dto.menu.CategoryRequest;
 import com.example.project.dto.menu.CategoryView;
 import com.example.project.dto.menu.ManagedItemView;
@@ -9,16 +20,6 @@ import com.example.project.entity.MenuItem;
 import com.example.project.exception.ApiException;
 import com.example.project.repository.CategoryRepository;
 import com.example.project.repository.MenuItemRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * Quản lý món và danh mục của Manager: đọc, thêm, sửa, bật/tắt bán và xoá mềm.
@@ -40,13 +41,16 @@ public class MenuManagementService {
 
     private final CategoryRepository categoryRepository;
     private final MenuItemRepository menuItemRepository;
+    private final ToppingCompatibilityService toppingCompatibility;
 
     public MenuManagementService(
             CategoryRepository categoryRepository,
-            MenuItemRepository menuItemRepository
+            MenuItemRepository menuItemRepository,
+            ToppingCompatibilityService toppingCompatibility
     ) {
         this.categoryRepository = categoryRepository;
         this.menuItemRepository = menuItemRepository;
+        this.toppingCompatibility = toppingCompatibility;
     }
 
     // Đọc dữ liệu cho trang Menu Management.
@@ -73,11 +77,25 @@ public class MenuManagementService {
     /** Tạo hoặc sửa tên/loại danh mục sau khi kiểm tra tên trùng và loại được hỗ trợ. */
     public CategoryView saveCategory(Long id, CategoryRequest request) {
         String name = request.name().trim();
-        Category category = id == null ? new Category() : requireManagedCategory(id);
+        // Reuse the soft-deleted row: category names remain unique in the database.
+        Category category = id == null
+                ? categoryRepository.findAll().stream()
+                    .filter(c -> Category.INACTIVE.equals(c.getStatus()))
+                    .filter(c -> !c.isType(SIZE_TYPE))
+                    .filter(c -> c.getName().equalsIgnoreCase(name))
+                    .findFirst().orElseGet(Category::new)
+                : requireManagedCategory(id);
+        Long categoryId = category.getId();
 
-        validateCategoryName(id, name);
+        validateCategoryName(categoryId, name);
         validateCategoryType(request.categoryType());
 
+        if (!category.getCategoryType().equals(request.categoryType()) && categoryId != null) {
+            menuItemRepository.findAll().stream()
+                    .filter(item -> categoryId.equals(item.getCategory().getId()))
+                    .forEach(item -> toppingCompatibility.removeForItem(item.getId()));
+        }
+        category.setStatus(Category.ACTIVE);
         category.setName(name);
         category.setCategoryType(request.categoryType());
         categoryRepository.save(category);
@@ -113,6 +131,12 @@ public class MenuManagementService {
         validateItemName(id, category.getId(), name);
         String imageUrl = normalizeImageUrl(request.imageUrl());
 
+        if (id != null && !item.getCategory().getCategoryType().equals(category.getCategoryType())) {
+            toppingCompatibility.removeForItem(id);
+        }
+        if (!category.isType("TOPPING") && request.allowedItemIds() != null && !request.allowedItemIds().isEmpty()) {
+            throw ApiException.badRequest("Chỉ cấu hình món đi kèm trong form topping.");
+        }
         item.setCategory(category);
         item.setName(name);
         item.setBasePrice(request.basePrice());
@@ -120,8 +144,11 @@ public class MenuManagementService {
         item.setImageUrl(imageUrl);
         item.setSellStandalone(true);
 
-        // Chỉ sửa menu_items; giá snapshot trong order_items giữ nguyên.
-        return toManagedItemView(menuItemRepository.save(item));
+        MenuItem saved = menuItemRepository.save(item);
+        if (category.isType("TOPPING") && request.allowedItemIds() != null) {
+            toppingCompatibility.replace(saved.getId(), request.allowedItemIds());
+        }
+        return toManagedItemView(saved);
     }
 
     /** Chuyển món chưa xoá giữa AVAILABLE (đang bán) và UNAVAILABLE (tạm hết). */
@@ -134,6 +161,7 @@ public class MenuManagementService {
     /** Ẩn món bằng trạng thái INACTIVE, giữ bản ghi để đơn cũ tiếp tục tham chiếu. */
     public void deleteItem(Long id) {
         MenuItem item = requireManagedItem(id);
+        toppingCompatibility.removeForItem(id);
         item.setAvailabilityStatus(MenuItem.INACTIVE);
         menuItemRepository.save(item);
     }
@@ -150,7 +178,8 @@ public class MenuManagementService {
                 item.getBasePrice(),
                 item.getImageUrl(),
                 item.getAvailabilityStatus(),
-                item.isSellStandalone()
+                item.isSellStandalone(),
+                item.getCategory().isType("TOPPING") ? toppingCompatibility.allowedItemIds(item.getId()) : List.of()
         );
     }
 
@@ -271,7 +300,7 @@ public class MenuManagementService {
                         && !Objects.equals(category.getId(), id));
 
         if (duplicate) {
-            throw ApiException.conflict("Tên danh mục đã tồn tại, kể cả danh mục đã xoá.");
+            throw ApiException.conflict("Tên danh mục đã tồn tại. Nếu danh mục đã xoá, hãy thêm lại thay vì đổi tên danh mục khác.");
         }
     }
 

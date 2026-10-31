@@ -1,7 +1,13 @@
 package com.example.project.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 
 /** ENTITY = 1 dòng trong bảng "system_settings" (tạo bởi database/V3__system_settings.sql). */
 @Entity
@@ -42,6 +48,17 @@ public class SystemSetting {
     @PreUpdate
     void touch() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    /** Internal menu compatibility rule, managed through Menu Management. */
+    public static SystemSetting menuRule(String key) {
+        SystemSetting setting = new SystemSetting();
+        setting.key = key;
+        setting.value = "true";
+        setting.dataType = "BOOLEAN";
+        setting.groupName = "SALES";
+        setting.label = "Topping đi kèm món";
+        return setting;
     }
 
     public String getKey() { return key; }
