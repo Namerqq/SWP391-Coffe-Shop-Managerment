@@ -109,7 +109,9 @@ export default function WaiterDeliveries() {
           {orders.map((o) => {
             const badge = stepBadge(o)
             const isPaid = o.paymentStatus === 'PAID'
-            const fee = o.shippingFee || 0
+            // COD đã thu: phục vụ đã nhận cả tiền món lẫn phí ship nên không còn gì phải thu.
+            const codCollected = isPaid && o.paymentMethod === 'CASH'
+            const fee = codCollected ? 0 : o.shippingFee || 0
             const busy = processingId === o.orderId
             return (
               <div key={o.orderId} className="col-12 col-lg-6 col-xl-4">
@@ -160,7 +162,7 @@ export default function WaiterDeliveries() {
                         className={`badge ${isPaid ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'} border`}
                         style={{ fontSize: '0.72rem' }}
                       >
-                        {isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                        {codCollected ? 'Đã thu tiền COD' : isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
                       </span>
                       <div className="text-end">
                         <div className="small text-muted">Cần thu khi giao</div>
