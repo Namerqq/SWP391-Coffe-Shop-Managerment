@@ -25,5 +25,14 @@ public record OnlineOrderView(
         long totalAmount,
         LocalDateTime createdAt,
         List<OrderItemView> items,
-        String qrPaymentUrl
+        String qrPaymentUrl,
+        // Thông tin giao hàng (Iter 3): ai đi giao và các mốc thời gian. Chưa gán thì null.
+        String assignedWaiterName,
+        LocalDateTime assignedAt,
+        LocalDateTime pickedUpAt,
+        LocalDateTime deliveredAt,
+        LocalDateTime failedAt,
+        String failureReason,
+        // Phí ship mỗi đơn, quán thu (cấu hình delivery.shipping_fee trong Cài đặt hệ thống).
+        long shippingFee
 ) {}

@@ -483,6 +483,7 @@ VALUES
 
     ('loyalty.vnd_per_point', '10000', 'NUMBER', 'SALES', 'Số tiền đổi 1 điểm (VND)', 'Ví dụ 10000: mỗi 10.000đ thanh toán được 1 điểm.', 2),
     ('payment.qr_timeout_minutes', '15', 'NUMBER', 'SALES', 'Hết hạn QR thanh toán (phút)', 'Quá thời gian này đơn online chưa thanh toán sẽ bị hủy.', 3),
+    ('delivery.shipping_fee', '25000', 'NUMBER', 'SALES', 'Phí ship mỗi đơn giao hàng (VND)', 'Cộng vào tiền phục vụ thu khi giao đơn online. Quán giữ khoản này.', 8),
 
     ('security.max_login_attempts', '5', 'NUMBER', 'SECURITY', 'Số lần đăng nhập sai tối đa', 'Vượt quá sẽ khóa tài khoản (LOCKED). 0 = không giới hạn.', 1),
     ('security.session_timeout_minutes', '120', 'NUMBER', 'SECURITY', 'Thời gian hết phiên (phút)', 'Không thao tác quá thời gian này phải đăng nhập lại.', 2),

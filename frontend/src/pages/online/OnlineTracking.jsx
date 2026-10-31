@@ -262,10 +262,17 @@ export default function OnlineTracking() {
         ))}
 
         {/* Tổng tiền */}
+        <div className="d-flex justify-content-between mt-2">
+          <span>Phí ship:</span>
+          <span className="gx-price">{formatMoney(order.shippingFee || 0)}</span>
+        </div>
         <footer>
           <span>Tổng tiền:</span>
-          <span className="gx-price fs-5">{formatMoney(order.totalAmount)}</span>
+          <span className="gx-price fs-5">{formatMoney(order.totalAmount + (order.shippingFee || 0))}</span>
         </footer>
+        {order.paymentStatus === 'PAID' && order.shippingFee > 0 && (
+          <div className="gx-muted small">Đã trả tiền món. Phí ship trả tiền mặt khi nhận hàng.</div>
+        )}
 
         <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top gap-2">
           {/* Hóa đơn chỉ có khi đơn đã thanh toán */}

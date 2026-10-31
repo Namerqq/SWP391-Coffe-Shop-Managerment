@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 /**
  * Controller cho khách đặt đơn online (UC-CU05 Place Online Order).
  * Endpoint public không yêu cầu đăng nhập.
@@ -21,6 +23,15 @@ public class OnlineOrderController {
 
     public OnlineOrderController(OnlineOrderService onlineOrderService) {
         this.onlineOrderService = onlineOrderService;
+    }
+
+    /**
+     * Phí ship (Admin chỉnh ở Cài đặt hệ thống) để trang thanh toán hiện trước khi đặt.
+     * GET /api/public/online/shipping-fee -> { "shippingFee": 25000 }
+     */
+    @GetMapping("/shipping-fee")
+    public Map<String, Long> shippingFee() {
+        return Map.of("shippingFee", onlineOrderService.shippingFee());
     }
 
     /**

@@ -9,6 +9,7 @@ import com.example.project.exception.ApiException;
 import com.example.project.repository.DeliveryRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,10 +27,16 @@ import java.util.List;
 @Service
 public class OnlineOrderService {
 
+    /** Phí ship mỗi đơn giao hàng: Admin chỉnh ở Cài đặt hệ thống > Bán hàng. Quán thu, phục vụ nộp lại cho quán. */
+    public static final String SHIPPING_FEE_KEY = "delivery.shipping_fee";
+    /** Dùng khi DB chưa có dòng cấu hình (chưa chạy INSERT). */
+    public static final long DEFAULT_SHIPPING_FEE = 25_000;
+
     private final OrderRepository orderRepository;
     private final DeliveryRepository deliveryRepository;
     private final OrderSupportService orderSupport;
     private final OrderLockRepository lockRepository;
+    private SystemSettingService settings;
 
     public OnlineOrderService(OrderRepository orderRepository,
                               DeliveryRepository deliveryRepository,
@@ -264,7 +271,9 @@ public class OnlineOrderService {
         return new OnlineOrderView(v.orderId(), v.orderNumber(), v.displayNumber(), v.status(),
                 maskName(v.customerName()), maskPhone(v.customerPhone()), maskAddress(v.deliveryAddress()),
                 v.deliveryStatus(), v.customerNote(), v.cancelReason(), v.paymentMethod(), v.paymentStatus(),
-                v.totalAmount(), v.createdAt(), v.items(), v.qrPaymentUrl());
+                v.totalAmount(), v.createdAt(), v.items(), v.qrPaymentUrl(),
+                v.assignedWaiterName(), v.assignedAt(), v.pickedUpAt(), v.deliveredAt(),
+                v.failedAt(), v.failureReason(), v.shippingFee());
     }
 
     /** "0901234567" -> "09*****567" */
@@ -287,9 +296,23 @@ public class OnlineOrderService {
         return comma >= 0 ? "***" + address.substring(comma) : "***";
     }
 
+    /** Không bắt buộc để unit test cũ vẫn tạo service bằng constructor như trước (khi đó dùng mặc định). */
+    @Autowired
+    void setSettings(SystemSettingService settings) {
+        this.settings = settings;
+    }
+
+    /** Phí ship hiện tại (VND), không âm. */
+    public long shippingFee() {
+        long fee = settings == null ? DEFAULT_SHIPPING_FEE : settings.getLong(SHIPPING_FEE_KEY, DEFAULT_SHIPPING_FEE);
+        return Math.max(0, fee);
+    }
+
     public OnlineOrderView toView(Order order, Delivery delivery, String paymentMethod, String qrUrl) {
         String deliveryAddr = delivery != null ? delivery.getDeliveryAddress() : "";
         String deliveryStatus = delivery != null ? delivery.getDeliveryStatus() : Delivery.STATUS_PENDING_ASSIGNMENT;
+        String waiterName = delivery != null && delivery.getAssignedWaiter() != null
+                ? delivery.getAssignedWaiter().getFullName() : null;
 
         return new OnlineOrderView(
                 order.getId(),
@@ -307,7 +330,14 @@ public class OnlineOrderService {
                 order.activeTotal(),
                 order.getCreatedAt(),
                 order.getItems().stream().map(orderSupport::toItemView).toList(),
-                qrUrl
+                qrUrl,
+                waiterName,
+                delivery != null ? delivery.getAssignedAt() : null,
+                delivery != null ? delivery.getPickedUpAt() : null,
+                delivery != null ? delivery.getDeliveredAt() : null,
+                delivery != null ? delivery.getFailedAt() : null,
+                delivery != null ? delivery.getFailureReason() : null,
+                shippingFee()
         );
     }
 }
