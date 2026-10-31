@@ -21,6 +21,14 @@ public interface RevenueRepository extends Repository<Payment, Long> {
     List<Object[]> findPaid(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
     /**
+     * Hoàn tiền (ThangNN Iter3): tiền đã trả lại khách trong khoảng [from, to) theo giờ trả:
+     * mỗi dòng [paidAt, paymentMethod, totalAmount]. Doanh thu = tiền đã thu - tiền đã hoàn.
+     */
+    @Query("select p.paidAt, p.paymentMethod, p.totalAmount from Payment p "
+            + "where p.paymentStatus = 'REFUNDED' and p.paidAt >= :from and p.paidAt < :to")
+    List<Object[]> findRefunded(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    /**
      * Món bán được trong khoảng [from, to) (đơn thuộc hóa đơn đã thu, bỏ món đã hủy), nhiều nhất trước:
      * mỗi dòng [tên món, tổng số lượng, tổng thành tiền]. Thành tiền theo giá món, chưa trừ giảm giá bằng điểm.
      */

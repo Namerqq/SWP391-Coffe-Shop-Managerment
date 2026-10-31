@@ -26,3 +26,9 @@ File duy nhất: `cafe_management_FREEZE_1.0.sql`. Theo yêu cầu ngày 16/10/2
 Backend 8087 vẫn kết nối `cafe_management_freeze_local` qua `backend/application-default.properties`; database này đã có 20 món và 6 bàn từ các bước trước. Việc sửa file SQL không import lại hay xoá database runtime.
 
 Bản snapshot gốc và bản sao trước sửa được giữ ngoài project trong thư mục Codex outputs. Khi gửi PR, ghi rõ file này là bản demo mở rộng có thay đổi schema và seed để nhóm review.
+
+## V9 — Hoàn tiền (ThangNN Iter3)
+
+- Database đang chạy (đã có dữ liệu): chạy `V9__refund_note.sql` một lần. Script chỉ thêm cột `payments.note`.
+- Cài mới từ `cafe_management_FREEZE_1.0.sql`: cột `note` đã nằm sẵn trong CREATE TABLE payments, **không chạy V9 nữa**.
+- Không thêm bảng. Mỗi lần hoàn tiền là 1 dòng `payments` có `payment_status` = `REFUND_PENDING` / `REFUNDED`, mã `RF...`, gắn `order_id` của đơn được hoàn. Query nào cộng tiền trên `payments` phải lọc theo `payment_status`.

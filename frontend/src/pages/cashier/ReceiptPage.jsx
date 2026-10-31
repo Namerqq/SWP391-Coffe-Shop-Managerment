@@ -4,6 +4,7 @@ import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
 import { formatDateTime } from '../../utils/format'
 import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
+import { refundStatus } from './refundFormat'
 import '../../styles/cashier.css'
 
 const METHOD = { CASH: 'Tiền mặt', BANK_TRANSFER: 'Chuyển khoản' }
@@ -117,6 +118,22 @@ export default function ReceiptPage() {
         )}
         <div className="receipt-row receipt-grand"><span>Tổng thanh toán</span><span>{formatMoney(r.total)}</span></div>
         <div className="receipt-row"><span>Thanh toán bằng</span><span>{methodLabel(r)}</span></div>
+
+        {/* Iter3 Hoàn tiền: món đã hoàn không còn trong danh sách món ở trên, ghi trong từng phiếu hoàn. */}
+        {r.refunds?.length > 0 && (
+          <div className="receipt-refunds">
+            {r.refunds.map((f) => (
+              <div key={f.id} className="receipt-line">
+                <div className="receipt-row">
+                  <span className="fw-semibold">Hoàn tiền {f.refundCode} ({refundStatus(f).label.toLowerCase()})</span>
+                  <span>-{formatMoney(f.amount)}</span>
+                </div>
+                {f.note && <div className="cell-sub">{f.note}</div>}
+              </div>
+            ))}
+            <div className="receipt-row receipt-grand"><span>Còn lại sau hoàn</span><span>{formatMoney(r.total - r.refundedAmount)}</span></div>
+          </div>
+        )}
 
         {r.customer && (
           <div className="receipt-customer">

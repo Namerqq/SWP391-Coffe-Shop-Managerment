@@ -17,6 +17,7 @@ import java.util.List;
 /**
  * UC-RP01 View Order Statistics: Quản lý xem doanh thu theo ngày / tuần / tháng / năm.
  * Doanh thu tính theo hóa đơn đã thu (payments PAID) và giờ thu tiền, giống phần "Đã thu" ở Lịch sử đơn của Thu ngân.
+ * Từ Iter3 (Hoàn tiền, ThangNN) trừ tiền đã hoàn trả khách (payments REFUNDED) theo giờ trả.
  * Tuần bắt đầu từ Thứ 2. Chỉ xem, không sửa gì.
  */
 @Service
@@ -51,7 +52,9 @@ public class RevenueService {
         LocalDate previousFrom = previous(p, from);
 
         List<Object[]> paid = revenueRepository.findPaid(from.atStartOfDay(), to.atStartOfDay());
-        List<RevenueReportView.Row> rows = rows(p, from, to, paid);
+        List<Object[]> refundedRows = revenueRepository.findRefunded(from.atStartOfDay(), to.atStartOfDay());
+        List<RevenueReportView.Row> rows = rows(p, from, to, paid, refundedRows);
+        long refunded = sumAmount(refundedRows);
 
         int bills = 0;
         long cash = 0;
@@ -62,10 +65,10 @@ public class RevenueService {
             transfer += r.transfer();
         }
         long total = cash + transfer;
-        long previousTotal = revenueRepository.findPaid(previousFrom.atStartOfDay(), from.atStartOfDay()).stream()
-                .mapToLong(r -> ((Number) r[2]).longValue()).sum();
+        long previousTotal = sumAmount(revenueRepository.findPaid(previousFrom.atStartOfDay(), from.atStartOfDay()))
+                - sumAmount(revenueRepository.findRefunded(previousFrom.atStartOfDay(), from.atStartOfDay()));
         RevenueReportView.Summary summary = new RevenueReportView.Summary(bills, total, cash, transfer,
-                bills == 0 ? 0 : total / bills, previousTotal);
+                bills == 0 ? 0 : total / bills, previousTotal, refunded);
 
         List<RevenueReportView.TopItem> topItems = revenueRepository
                 .sumSoldItems(from.atStartOfDay(), to.atStartOfDay()).stream()
@@ -106,8 +109,16 @@ public class RevenueService {
         };
     }
 
-    /** Chia kỳ thành các dòng rỗng (giờ / ngày / tháng) rồi cộng từng hóa đơn vào đúng dòng. */
-    private static List<RevenueReportView.Row> rows(String period, LocalDate from, LocalDate to, List<Object[]> paid) {
+    private static long sumAmount(List<Object[]> rows) {
+        return rows.stream().mapToLong(r -> ((Number) r[2]).longValue()).sum();
+    }
+
+    /**
+     * Chia kỳ thành các dòng rỗng (giờ / ngày / tháng) rồi cộng từng hóa đơn vào đúng dòng.
+     * Tiền đã hoàn trả khách (refunded) trừ vào dòng theo giờ trả, đúng cách hoàn (không tính là 1 hóa đơn).
+     */
+    private static List<RevenueReportView.Row> rows(String period, LocalDate from, LocalDate to, List<Object[]> paid,
+                                                    List<Object[]> refunded) {
         List<String> labels = new ArrayList<>();
         switch (period) {
             case DAY -> {
@@ -129,16 +140,17 @@ public class RevenueService {
         long[] cash = new long[n];
         long[] transfer = new long[n];
         for (Object[] r : paid) {
-            LocalDateTime paidAt = (LocalDateTime) r[0];
             long amount = ((Number) r[2]).longValue();
-            int i = switch (period) {
-                case DAY -> paidAt.getHour();
-                case YEAR -> paidAt.getMonthValue() - 1;
-                default -> (int) ChronoUnit.DAYS.between(from, paidAt.toLocalDate());
-            };
+            int i = index(period, from, (LocalDateTime) r[0]);
             bills[i]++;
             if (Payment.CASH.equals(r[1])) cash[i] += amount;
             else transfer[i] += amount;
+        }
+        for (Object[] r : refunded) {
+            long amount = ((Number) r[2]).longValue();
+            int i = index(period, from, (LocalDateTime) r[0]);
+            if (Payment.CASH.equals(r[1])) cash[i] -= amount;
+            else transfer[i] -= amount;
         }
 
         List<RevenueReportView.Row> rows = new ArrayList<>(n);
@@ -148,12 +160,25 @@ public class RevenueService {
         return rows;
     }
 
-    /** Xem theo ngày: bỏ các giờ trống ở đầu và cuối (trước giờ mở cửa / sau giờ đóng cửa). */
+    /** Dòng của 1 thời điểm thu / hoàn tiền: DAY theo giờ, YEAR theo tháng, còn lại theo ngày. */
+    private static int index(String period, LocalDate from, LocalDateTime at) {
+        return switch (period) {
+            case DAY -> at.getHour();
+            case YEAR -> at.getMonthValue() - 1;
+            default -> (int) ChronoUnit.DAYS.between(from, at.toLocalDate());
+        };
+    }
+
+    /** Xem theo ngày: bỏ các giờ trống ở đầu và cuối (trước giờ mở cửa / sau giờ đóng cửa). Giờ chỉ có hoàn tiền vẫn giữ. */
     private static List<RevenueReportView.Row> trimEmptyHours(List<RevenueReportView.Row> rows) {
         int first = 0;
         int last = rows.size() - 1;
-        while (first <= last && rows.get(first).billCount() == 0) first++;
-        while (last >= first && rows.get(last).billCount() == 0) last--;
+        while (first <= last && isEmpty(rows.get(first))) first++;
+        while (last >= first && isEmpty(rows.get(last))) last--;
         return rows.subList(first, last + 1);
+    }
+
+    private static boolean isEmpty(RevenueReportView.Row row) {
+        return row.billCount() == 0 && row.cash() == 0 && row.transfer() == 0;
     }
 }
