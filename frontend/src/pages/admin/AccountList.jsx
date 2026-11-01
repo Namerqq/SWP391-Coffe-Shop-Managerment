@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import adminApi from '../../api/adminApi'
 import { errorMessage } from '../../api/axiosClient'
@@ -24,7 +24,8 @@ export default function AccountList() {
   const [error, setError] = useState('')
   const [form, setForm] = useState({ show: false, account: null })
 
-  const load = useCallback(async () => {
+  // Tải danh sách tài khoản theo bộ lọc đang chọn .
+  const load = async () => {
     setLoading(true)
     setError('')
     try {
@@ -35,13 +36,13 @@ export default function AccountList() {
     } finally {
       setLoading(false)
     }
-  }, [keyword, roleId, status])
+  }
 
-  // Gõ tìm kiếm -> đợi 300ms rồi mới gọi API.
+  // Mở trang hoặc đổi bộ lọc -> đợi 300ms rồi mới gọi API (gõ liên tục thì chỉ gọi 1 lần ở cuối).
   useEffect(() => {
     const t = setTimeout(load, 300)
     return () => clearTimeout(t)
-  }, [load])
+  }, [keyword, roleId, status])
 
   useEffect(() => {
     adminApi.getRoles().then((res) => setRoles(res.data)).catch(() => {})

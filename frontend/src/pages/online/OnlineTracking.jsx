@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import onlineOrderApi from '../../api/onlineOrderApi'
 import { errorMessage } from '../../api/axiosClient'
@@ -76,7 +76,8 @@ export default function OnlineTracking() {
     navigate(location.pathname + location.search, { replace: true, state: null }) // tải lại trang không hiện lại
   }, [location.state, location.pathname, location.search, navigate])
 
-  const fetchOrder = useCallback(async (showSpinner = false) => {
+  // Tải đơn đang xem theo mã. showSpinner = true khi mở / đổi mã đơn (hiện vòng xoay, báo lỗi nếu không thấy).
+  const fetchOrder = async (showSpinner = false) => {
     if (!activeCode) return
     if (showSpinner) setLoading(true)
     try {
@@ -92,14 +93,16 @@ export default function OnlineTracking() {
     } finally {
       setLoading(false)
     }
-  }, [activeCode])
+  }
 
-  // Đổi mã đang xem -> tải lại ngay; sau đó tự làm mới trạng thái mỗi 10 giây.
+  // Mở trang hoặc đổi mã đang xem (activeCode đổi) -> xóa đơn cũ rồi tải lại ngay.
   useEffect(() => {
     setOrder(null)
     setError('')
     fetchOrder(true)
-  }, [fetchOrder])
+  }, [activeCode])
+
+  // Tự làm mới trạng thái mỗi 10 giây. usePolling luôn gọi bản fetchOrder mới nhất nên không cần useCallback.
   usePolling(fetchOrder, 10000)
 
   const lookup = (e) => {
