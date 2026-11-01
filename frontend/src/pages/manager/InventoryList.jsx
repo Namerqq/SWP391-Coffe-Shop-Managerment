@@ -95,8 +95,11 @@ export default function InventoryList() {
           <h1 className="page-title">Kho nguyên liệu</h1>
           <p className="page-subtitle mb-0">Quản lý số tồn, định mức cảnh báo và lịch sử nhập/xuất/cân chỉnh kho minh bạch</p>
         </div>
-        <div className="d-flex gap-2">
-          <Link to="/manager/stock-receipts" className="btn btn-outline-primary d-flex align-items-center gap-2">
+        <div className="d-flex gap-2 flex-wrap">
+          <Link to="/manager/stock-history" className="btn btn-outline-secondary d-flex align-items-center gap-2 shadow-xs">
+            <i className="bi bi-clock-history" /> Sổ biến động kho
+          </Link>
+          <Link to="/manager/stock-receipts" className="btn btn-outline-primary d-flex align-items-center gap-2 shadow-xs">
             <i className="bi bi-file-earmark-arrow-down" /> Quản lý phiếu nhập kho
           </Link>
           <button 

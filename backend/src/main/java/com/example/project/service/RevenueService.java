@@ -27,6 +27,7 @@ public class RevenueService {
     public static final String WEEK = "WEEK";
     public static final String MONTH = "MONTH";
     public static final String YEAR = "YEAR";
+    public static final String CUSTOM = "CUSTOM";
 
     private static final int TOP_ITEMS = 10;
     private static final String[] WEEKDAYS = {"T2", "T3", "T4", "T5", "T6", "T7", "CN"};
@@ -40,16 +41,49 @@ public class RevenueService {
     /** period bỏ trống = DAY; date = 1 ngày bất kỳ trong kỳ muốn xem, bỏ trống = hôm nay. */
     @Transactional(readOnly = true)
     public RevenueReportView report(String period, LocalDate date) {
+        return report(period, date, null, null);
+    }
+
+    /**
+     * Báo cáo doanh thu hỗ trợ cả kỳ cố định (DAY, WEEK, MONTH, YEAR) và khoảng tùy chọn (CUSTOM).
+     */
+    @Transactional(readOnly = true)
+    public RevenueReportView report(String period, LocalDate date, LocalDate fromDate, LocalDate toDate) {
         String p = period == null || period.isBlank() ? DAY : period.trim().toUpperCase();
         LocalDate today = LocalDate.now();
-        LocalDate day = date == null ? today : date;
-        if (day.isAfter(today)) {
-            throw ApiException.badRequest("Không xem được ngày trong tương lai.");
-        }
 
-        LocalDate from = startOf(p, day);
-        LocalDate to = next(p, from);
-        LocalDate previousFrom = previous(p, from);
+        LocalDate from;
+        LocalDate to;
+        LocalDate previousFrom;
+
+        if (CUSTOM.equals(p)) {
+            LocalDate f = fromDate != null ? fromDate : today.minusDays(6);
+            LocalDate t = toDate != null ? toDate : today;
+
+            if (f.isAfter(t)) {
+                throw ApiException.badRequest("Ngày bắt đầu không được lớn hơn ngày kết thúc.");
+            }
+            if (t.isAfter(today)) {
+                throw ApiException.badRequest("Không xem được ngày trong tương lai.");
+            }
+            long span = ChronoUnit.DAYS.between(f, t) + 1;
+            if (span > 366) {
+                throw ApiException.badRequest("Khoảng thời gian tùy chọn tối đa 366 ngày.");
+            }
+
+            from = f;
+            to = t.plusDays(1);
+            previousFrom = f.minusDays(span);
+        } else {
+            LocalDate day = date == null ? today : date;
+            if (day.isAfter(today)) {
+                throw ApiException.badRequest("Không xem được ngày trong tương lai.");
+            }
+
+            from = startOf(p, day);
+            to = next(p, from);
+            previousFrom = previous(p, from);
+        }
 
         List<Object[]> paid = revenueRepository.findPaid(from.atStartOfDay(), to.atStartOfDay());
         List<Object[]> refundedRows = revenueRepository.findRefunded(from.atStartOfDay(), to.atStartOfDay());
@@ -142,15 +176,19 @@ public class RevenueService {
         for (Object[] r : paid) {
             long amount = ((Number) r[2]).longValue();
             int i = index(period, from, (LocalDateTime) r[0]);
-            bills[i]++;
-            if (Payment.CASH.equals(r[1])) cash[i] += amount;
-            else transfer[i] += amount;
+            if (i >= 0 && i < n) {
+                bills[i]++;
+                if (Payment.CASH.equals(r[1])) cash[i] += amount;
+                else transfer[i] += amount;
+            }
         }
         for (Object[] r : refunded) {
             long amount = ((Number) r[2]).longValue();
             int i = index(period, from, (LocalDateTime) r[0]);
-            if (Payment.CASH.equals(r[1])) cash[i] -= amount;
-            else transfer[i] -= amount;
+            if (i >= 0 && i < n) {
+                if (Payment.CASH.equals(r[1])) cash[i] -= amount;
+                else transfer[i] -= amount;
+            }
         }
 
         List<RevenueReportView.Row> rows = new ArrayList<>(n);

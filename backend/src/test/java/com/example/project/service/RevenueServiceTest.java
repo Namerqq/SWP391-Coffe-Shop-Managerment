@@ -110,6 +110,42 @@ class RevenueServiceTest {
     }
 
     @Test
+    void customDateRangeReturnsCorrectRowsAndDates() {
+        LocalDate from = LocalDate.of(2026, 10, 20);
+        LocalDate to = LocalDate.of(2026, 10, 25); // 6 ngày
+
+        when(repository.findPaid(eq(from.atStartOfDay()), eq(to.plusDays(1).atStartOfDay())))
+                .thenReturn(List.of(
+                        new Object[]{LocalDateTime.of(2026, 10, 21, 14, 0), Payment.CASH, 45000L},
+                        new Object[]{LocalDateTime.of(2026, 10, 24, 16, 30), Payment.BANK_TRANSFER, 55000L}
+                ));
+
+        RevenueReportView v = service.report("CUSTOM", null, from, to);
+
+        assertEquals("CUSTOM", v.period());
+        assertEquals(from, v.from());
+        assertEquals(to, v.to());
+        assertEquals(6, v.rows().size());
+        assertEquals("20/10", v.rows().get(0).label());
+        assertEquals("25/10", v.rows().get(5).label());
+        assertEquals(2, v.summary().billCount());
+        assertEquals(100000L, v.summary().total());
+        assertEquals(45000L, v.summary().cash());
+        assertEquals(55000L, v.summary().transfer());
+    }
+
+    @Test
+    void customDateRangeRejectsInvalidDates() {
+        // from > to
+        assertThrows(ApiException.class, () ->
+                service.report("CUSTOM", null, LocalDate.of(2026, 10, 25), LocalDate.of(2026, 10, 20)));
+
+        // to in future
+        assertThrows(ApiException.class, () ->
+                service.report("CUSTOM", null, LocalDate.now().minusDays(2), LocalDate.now().plusDays(1)));
+    }
+
+    @Test
     void futureDateAndUnknownPeriodAreRejected() {
         assertThrows(ApiException.class, () -> service.report("DAY", LocalDate.now().plusDays(1)));
         assertThrows(ApiException.class, () -> service.report("QUARTER", null));
