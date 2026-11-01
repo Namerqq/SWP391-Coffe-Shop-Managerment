@@ -61,7 +61,7 @@ export const newRequestKey = () =>
   (window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`).replace(/[^A-Za-z0-9-]/g, '')
 
 /** Cùng món + cùng lựa chọn thì gộp số lượng. */
-export const sameOptions = (a, b) => a.menuItemId === b.menuItemId && a.sizeId === b.sizeId
+export const sameOptions = (a, b) => a.menuItemId === b.menuItemId && (a.sizeCode ?? a.sizeName ?? null) === (b.sizeCode ?? b.sizeName ?? null)
   && [...(a.toppingIds || [])].sort().join(',') === [...(b.toppingIds || [])].sort().join(',')
   && a.sugarLevel === b.sugarLevel && a.iceLevel === b.iceLevel && (a.note || '') === (b.note || '')
 

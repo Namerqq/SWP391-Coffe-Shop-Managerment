@@ -110,3 +110,6 @@
 .waiter-bell-item { display: flex; align-items: flex-start; padding: 0.7rem 1rem; font-size: 0.85rem; border-bottom: 1px solid var(--cf-border); }
 .waiter-bell-item:last-child { border-bottom: 0; }
 .waiter-bell-item.is-new { background: #fdf0f0; }
+
+.waiter-bell-menu { max-height: min(70vh, 560px); overflow-y: auto; }
+.waiter-call-note { overflow-wrap: anywhere; white-space: pre-wrap; }

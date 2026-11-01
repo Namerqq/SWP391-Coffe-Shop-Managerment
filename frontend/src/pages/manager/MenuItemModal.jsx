@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import ItemCustomizationFields from './ItemCustomizationFields'
+import { defaultCustomization } from '../../utils/orderOptions'
 import Modal from '../../components/Modal'
 import api from '../../api/menuManagementApi'
 import { errorMessage } from '../../api/axiosClient'
@@ -12,9 +14,10 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
     categoryId: item?.categoryId || initialCategory || categories[0]?.id || '',
     basePrice: item?.basePrice ?? '',
     description: item?.description || '',
-    allowedItemIds: item?.allowedItemIds || [],
+    allowedToppingIds: item?.allowedToppingIds || [],
   })
 
+  const [customization, setCustomization] = useState(item ? item.customization || null : defaultCustomization())
   const [image, setImage] = useState(item?.imageUrl || '')
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState('')
@@ -41,19 +44,9 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
   }
 
   const type = categories.find((c) => c.id === Number(form.categoryId))?.categoryType
-  const [itemSearch, setItemSearch] = useState('')
-  const eligibleItems = items.filter((candidate) => {
-    const categoryType = categories.find((c) => c.id === candidate.categoryId)?.categoryType
-    return candidate.id !== item?.id && ['DRINK', 'FOOD'].includes(categoryType)
-  })
-  const matchingItems = eligibleItems.filter((candidate) =>
-    candidate.name.toLocaleLowerCase('vi').includes(itemSearch.trim().toLocaleLowerCase('vi')))
-  const toggleAllowedItem = (id) => setForm((current) => ({
-    ...current,
-    allowedItemIds: current.allowedItemIds.includes(id)
-      ? current.allowedItemIds.filter((value) => value !== id)
-      : [...current.allowedItemIds, id],
-  }))
+  const availableToppings = items.filter((candidate) =>
+    categories.find((category) => category.id === candidate.categoryId)?.categoryType === 'TOPPING')
+  const setAllowedToppings = (ids) => setForm((current) => ({ ...current, allowedToppingIds: ids }))
 
   /** Nhận file ảnh và kiểm tra định dạng, dung lượng trước khi cho xem trước hoặc tải lên. */
   function choose(e) {
@@ -117,7 +110,8 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
         categoryId: Number(form.categoryId),
         basePrice: Number(form.basePrice),
         imageUrl: url || null,
-        allowedItemIds: type === 'TOPPING' ? form.allowedItemIds : [],
+        allowedToppingIds: type === 'TOPPING' ? [] : form.allowedToppingIds,
+        customization: type === 'TOPPING' || customization?.legacy ? null : customization,
       })
 
       onSaved()
@@ -213,27 +207,14 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
           />
         </label>
 
-        {type === 'TOPPING' && (
-          <fieldset className="border rounded p-3">
-            <legend className="fs-6 float-none w-auto px-1">Các món được dùng topping này</legend>
-            <p className="cf-muted">Chọn món được phép thêm topping. Không chọn món nào thì topping chỉ bán riêng.</p>
-            <input className="form-control mb-2" aria-label="Tìm món đi kèm"
-              placeholder="Tìm món…" value={itemSearch}
-              onChange={(e) => setItemSearch(e.target.value)} disabled={busy} />
-            <small className="cf-muted">Đã chọn {form.allowedItemIds.filter((id) => eligibleItems.some((m) => m.id === id)).length} món</small>
-            <div className="d-flex flex-column gap-2 mt-2" style={{ maxHeight: 240, overflowY: 'auto' }}>
-              {matchingItems.map((candidate) => (
-                <label key={candidate.id} className="d-flex flex-row align-items-center gap-2">
-                  <input type="checkbox" className="form-check-input m-0"
-                    checked={form.allowedItemIds.includes(candidate.id)}
-                    onChange={() => toggleAllowedItem(candidate.id)} disabled={busy} />
-                  <span>{candidate.name}{candidate.availabilityStatus === 'UNAVAILABLE' ? ' (Tạm hết)' : ''}</span>
-                </label>
-              ))}
-              {matchingItems.length === 0 && <span className="cf-muted">Không có món phù hợp.</span>}
-            </div>
-          </fieldset>
+        {['DRINK', 'FOOD'].includes(type) && (
+          <ItemCustomizationFields value={customization} onChange={setCustomization} disabled={busy}
+            toppings={availableToppings} allowedToppingIds={form.allowedToppingIds} onToppingsChange={setAllowedToppings} />
         )}
+
+        {type === 'TOPPING' && <small className="cf-muted">
+          Topping này có thể bán riêng. Để chọn món đi kèm, mở sửa món đó trong menu và chọn topping.
+        </small>}
 
         {/* Xem trước ảnh hiện có hoặc ảnh mới chọn; file chỉ được upload khi lưu món. */}
         <div className="mm-upload">

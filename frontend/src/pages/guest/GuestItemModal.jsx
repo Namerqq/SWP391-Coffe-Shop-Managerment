@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Modal from '../../components/Modal'
 import { assetUrl } from '../../utils/assetUrl'
 import { formatMoney } from '../../utils/orderFormat'
-import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS, toppingsForItem, isSizeItem, isToppingItem } from '../../utils/orderOptions'
+import { customizationForItem, sizesForItem, allowedValue, toppingsForItem, isSizeItem, isToppingItem } from '../../utils/orderOptions'
 import '../../styles/guest.css'
 
 const LEVEL_LABEL = { '100%': 'Bình thường', '70%': '70%', '50%': '50%', '30%': '30%', '0%': 'Không' }
@@ -15,7 +15,9 @@ const LEVEL_LABEL = { '100%': 'Bình thường', '70%': '70%', '50%': '50%', '30
 export default function GuestItemModal({ show, item, options, initial, confirmText = 'Thêm vào giỏ', onClose, onConfirm }) {
   const sizeItem = isSizeItem(item, options)
   const standaloneTopping = isToppingItem(item, options)
-  const sizes = standaloneTopping ? [] : options?.sizes || []
+  const config = customizationForItem(item, options)
+  const configKey = JSON.stringify(config)
+  const sizes = sizesForItem(item, options)
   const toppings = toppingsForItem(item, options)
   const [form, setForm] = useState(null)
 
@@ -23,17 +25,17 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
     if (!show || !item || sizeItem) return
     setForm({
       quantity: initial?.quantity || 1,
-      sizeId: standaloneTopping ? null : initial ? initial.sizeId ?? null : sizes[0]?.id ?? null,
+      sizeCode: allowedValue(initial?.sizeCode ?? initial?.sizeName, config.sizes, config.defaultSize),
       toppingIds: standaloneTopping ? [] : initial?.toppingIds || [],
-      sugarLevel: standaloneTopping ? null : initial?.sugarLevel || DEFAULT_LEVEL,
-      iceLevel: standaloneTopping ? null : initial?.iceLevel || DEFAULT_LEVEL,
+      sugarLevel: allowedValue(initial?.sugarLevel, config.sugarLevels, config.defaultSugar),
+      iceLevel: allowedValue(initial?.iceLevel, config.iceLevels, config.defaultIce),
       note: initial?.note || '',
     })
-  }, [show, item?.id, sizeItem, standaloneTopping]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [show, item?.id, sizeItem, standaloneTopping, configKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!show || !item || sizeItem || !form) return null
 
-  const size = sizes.find((s) => s.id === form.sizeId) || null
+  const size = sizes.find((s) => s.id === form.sizeCode) || null
   const chosen = toppings.filter((t) => form.toppingIds.includes(t.id))
   const unit = item.price + (size?.price || 0) + chosen.reduce((s, t) => s + t.price, 0)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
@@ -46,7 +48,7 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
     itemName: item.name,
     unitPrice: item.price,
     quantity: form.quantity,
-    sizeId: size?.id ?? null,
+    sizeCode: size?.id ?? null,
     sizeName: size?.name ?? null,
     sizePrice: size?.price ?? 0,
     toppingIds: chosen.map((t) => t.id),
@@ -59,9 +61,10 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
   const levels = (label, list, value, key) => (
     <fieldset className="gx-opt">
       <legend>{label}</legend>
+      {list.length === 0 && <span className="gx-muted">Không áp dụng</span>}
       <div className="gx-pills">
         {list.map((v) => (
-          <button type="button" key={v} className={value === v ? 'active' : ''} aria-pressed={value === v}
+          <button type="button" key={v} className={value === v ? 'active' : ''} aria-pressed={value === v} disabled={list.length === 1}
                   onClick={() => set({ [key]: v })}>{LEVEL_LABEL[v] || v}</button>
         ))}
       </div>
@@ -102,16 +105,16 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
           <legend>Size</legend>
           <div className="gx-pills">
             {sizes.map((s) => (
-              <button type="button" key={s.id} className={form.sizeId === s.id ? 'active' : ''} aria-pressed={form.sizeId === s.id}
-                      onClick={() => set({ sizeId: s.id })}>
+              <button type="button" key={s.id} className={form.sizeCode === s.id ? 'active' : ''} aria-pressed={form.sizeCode === s.id} disabled={sizes.length === 1}
+                      onClick={() => set({ sizeCode: s.id })}>
                 {s.name}{s.price > 0 && <small>+{formatMoney(s.price)}</small>}
               </button>
             ))}
           </div>
         </fieldset>
       )}
-      {!standaloneTopping && levels('Đường', SUGAR_LEVELS, form.sugarLevel, 'sugarLevel')}
-      {!standaloneTopping && levels('Đá', ICE_LEVELS, form.iceLevel, 'iceLevel')}
+      {!standaloneTopping && levels('Đường', config.sugarLevels, form.sugarLevel, 'sugarLevel')}
+      {!standaloneTopping && levels('Đá', config.iceLevels, form.iceLevel, 'iceLevel')}
       {toppings.length > 0 && (
         <fieldset className="gx-opt">
           <legend>Topping</legend>

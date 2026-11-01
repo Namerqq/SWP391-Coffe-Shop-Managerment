@@ -9,6 +9,9 @@ const waiterApi = {
   changeTable: (currentTableId, targetTableId) =>
     axiosClient.put(`/waiter/tables/${currentTableId}/change-table`, { targetTableId }),
   // Chuông thông báo: món bị pha chế hủy vì hết nguyên liệu
+  getAssistance: () => axiosClient.get('/waiter/assistance-requests'),
+  acceptAssistance: (id) => axiosClient.patch(`/waiter/assistance-requests/${id}/accept`),
+  completeAssistance: (id) => axiosClient.patch(`/waiter/assistance-requests/${id}/complete`),
   getNotifications: () => axiosClient.get('/waiter/notifications'),
 }
 

@@ -5,6 +5,8 @@ import { guestHeaders } from '../utils/guestSession'
 const guestTableApi = {
   openTable: (qrCode) => axiosClient.post('/public/order/table', { qrCode }, { headers: guestHeaders() }),
   getContext: () => axiosClient.get('/public/order/context', { headers: guestHeaders() }), // 204 = chưa quét QR
+  getAssistance: () => axiosClient.get('/public/order/assistance', { headers: guestHeaders() }),
+  callAssistance: (note) => axiosClient.post('/public/order/assistance', { note }, { headers: guestHeaders() }),
   getMenu: () => axiosClient.get('/public/order/menu'), // { categories, sizes, toppings }
 }
 

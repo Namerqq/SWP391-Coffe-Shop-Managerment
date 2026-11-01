@@ -175,3 +175,14 @@
 .gx-steps li.done::before, .gx-steps li.current::before { background: var(--cf-primary); }
 .gx-steps li.current { color: var(--cf-text); font-weight: 700; }
 .gx-steps li.current span { box-shadow: 0 0 0 4px var(--cf-primary-soft); }
+
+/* Guest support call, alongside the QR table label. */
+.gx-header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .5rem; }
+.gx-assistance { display: flex; flex-direction: column; align-items: flex-end; max-width: 230px; }
+.gx-assistance-button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; border: 1px solid currentColor; border-radius: 999px; padding: .55rem .8rem; color: #8f5836; background: #fff; font: inherit; font-size: .85rem; cursor: pointer; }
+.gx-assistance-button:disabled { opacity: .7; cursor: default; }
+.gx-assistance-button:focus-visible { outline: 2px solid #8f5836; outline-offset: 3px; }
+@media (max-width: 480px) {
+  .gx-header-actions { gap: .35rem; max-width: 60%; }
+  .gx-assistance-button { font-size: .75rem; padding: .4rem .65rem; }
+}
