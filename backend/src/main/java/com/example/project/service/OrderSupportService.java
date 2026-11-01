@@ -43,6 +43,8 @@ public class OrderSupportService {
 
     private final MenuItemRepository menuItemRepository;
     private final ToppingCompatibilityService toppingCompatibility;
+    @org.springframework.beans.factory.annotation.Autowired
+    private ItemCustomizationService customizations;
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
     private final TableSessionRepository sessionRepository;
@@ -87,7 +89,7 @@ public class OrderSupportService {
             throw ApiException.badRequest("\"" + item.getName() + "\" là lựa chọn Size, không bán riêng.");
         }
         if (!item.isSellable()) throw ApiException.badRequest("Món \"" + item.getName() + "\" hiện đang ngừng bán.");
-        if (item.getCategory().isType("TOPPING") && (req.sizeId() != null
+        if (item.getCategory().isType("TOPPING") && (req.sizeId() != null || blankToNull(req.sizeCode()) != null
                 || (req.toppingIds() != null && !req.toppingIds().isEmpty())
                 || blankToNull(req.sugarLevel()) != null || blankToNull(req.iceLevel()) != null)) {
             throw ApiException.badRequest("Topping bán lẻ chỉ chọn số lượng và ghi chú, không chọn size hay topping thêm kèm.");
@@ -99,11 +101,13 @@ public class OrderSupportService {
         line.setMenuItem(item);
         line.setQuantity(qty);
         line.setUnitPrice(item.getBasePrice());
-        if (req.sizeId() != null) {
-            MenuItem size = option(req.sizeId(), Category.SIZE);
-            line.setSizeName(size.getName());
-            line.setSizePrice(size.getBasePrice());
-        }
+        if (req.sizeId() != null) throw ApiException.badRequest("Vui lòng tải lại menu và chọn size theo mã S/M/L.");
+        var config = customizations.get(item);
+        String size = ItemCustomizationService.select(req.sizeCode(), config.sizes(), config.defaultSize(), "size");
+        line.setSizeName(size);
+        line.setSizePrice(ItemCustomizationService.price(size, config.legacy()));
+        line.setSugarLevel(ItemCustomizationService.select(req.sugarLevel(), config.sugarLevels(), config.defaultSugar(), "đường"));
+        line.setIceLevel(ItemCustomizationService.select(req.iceLevel(), config.iceLevels(), config.defaultIce(), "đá"));
         List<ToppingView> toppings = new ArrayList<>();
         if (req.toppingIds() != null) {
             for (Long id : new LinkedHashSet<>(req.toppingIds())) {
@@ -116,8 +120,7 @@ public class OrderSupportService {
         }
         line.setToppingPrice(toppings.stream().mapToLong(ToppingView::price).sum());
         line.setToppingDetails(toppings.isEmpty() ? null : writeJson(toppings));
-        line.setSugarLevel(blankToNull(req.sugarLevel()));
-        line.setIceLevel(blankToNull(req.iceLevel()));
+
         line.setNote(blankToNull(req.note()));
         line.setItemStatus(OrderItem.PENDING);
         line.recalcSubtotal();

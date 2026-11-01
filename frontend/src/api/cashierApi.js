@@ -42,6 +42,21 @@ const cashierApi = {
   getDeliveryOrder: (id) => axiosClient.get(`/cashier/delivery-orders/${id}`),
   getWaiters: () => axiosClient.get('/cashier/waiters'),
   assignWaiter: (id, waiterId) => axiosClient.put(`/cashier/delivery-orders/${id}/assign`, { waiterId }),
+
+  // Iter3 Hoàn tiền (ThangNN). Đơn tại quầy đã thanh toán: xem trước rồi hoàn các món chưa mang ra.
+  // preview data: { orderId, itemIds }. refund data: { itemIds, reason, method: 'CASH' | 'BANK_TRANSFER', expectedAmount }
+  previewRefund: (data) => axiosClient.post('/cashier/refunds/preview', data),
+  refundOrderItems: (orderId, data) => axiosClient.post(`/cashier/refunds/orders/${orderId}/items`, data),
+  // Đơn online đã trả QR: hủy (phục vụ chưa lấy hàng) + tạo phiếu hoàn chuyển khoản
+  cancelDeliveryWithRefund: (orderId, reason) => axiosClient.post(`/cashier/refunds/delivery-orders/${orderId}/cancel`, { reason }),
+  // Đơn online đã trả QR nhưng đã bị hủy (giao không thành công): tạo phiếu hoàn chuyển khoản
+  refundCancelledDelivery: (orderId, reason) => axiosClient.post(`/cashier/refunds/delivery-orders/${orderId}`, { reason }),
+  // Đã chuyển khoản trả khách: data = { bankReference }
+  completeRefund: (id, data) => axiosClient.post(`/cashier/refunds/${id}/complete`, data),
+  getPendingRefunds: () => axiosClient.get('/cashier/refunds/pending'),
+  getOrdersToRefund: () => axiosClient.get('/cashier/refunds/to-refund'),
+  // Phiếu hoàn tạo trong 1 ngày (yyyy-mm-dd, bỏ trống = hôm nay)
+  getRefunds: (date) => axiosClient.get('/cashier/refunds', { params: date ? { date } : {} }),
 }
 
 export default cashierApi

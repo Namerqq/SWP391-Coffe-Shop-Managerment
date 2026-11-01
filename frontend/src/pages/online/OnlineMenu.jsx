@@ -30,6 +30,7 @@ export default function OnlineMenu() {
             price: item.price,
             imageUrl: item.imageUrl,
             categoryType: item.categoryType,
+            customization: item.customization,
           })),
         }))
         setMenu(formatted)

@@ -7,6 +7,7 @@ import usePolling from '../utils/usePolling'
 import { useToast } from '../context/ToastContext'
 import { BrandLogo } from './HomeLayout'
 import { DEFAULT_HOME } from '../pages/home/homeDefaults'
+import GuestAssistanceButton from '../components/order/GuestAssistanceButton'
 import GuestItemModal from '../pages/guest/GuestItemModal'
 import {
   clearAllCarts, getGuestQr, getGuestToken, loadCart, markEndedHandled, newRequestKey, sameOptions, saveCart,
@@ -301,9 +302,12 @@ export default function GuestLayout() {
               <BrandLogo content={brand} size="sm" />
             </Link>
             {table ? (
-              <span className="gx-table-chip">
-                <i className="bi bi-geo-alt-fill" />{table.tableNumber}
-              </span>
+              <div className="gx-header-actions">
+                <span className="gx-table-chip">
+                  <i className="bi bi-geo-alt-fill" />{table.tableNumber}
+                </span>
+                <GuestAssistanceButton key={table.tableId} table={table} onExpired={expire} />
+              </div>
             ) : (
               <span className="gx-table-chip muted">
                 <i className="bi bi-qr-code-scan" />Chưa quét QR

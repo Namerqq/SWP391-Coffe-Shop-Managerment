@@ -19,7 +19,7 @@ import '../../styles/cashier.css'
 // hoặc thu cách khác thì hủy mã trước); "Bán đơn khác" để bán tiếp, mã cũ vẫn chờ ở danh sách phía trên.
 const plain = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase()
 
-const sameOptions = (a, b) => a.menuItemId === b.menuItemId && a.sizeId === b.sizeId
+const sameOptions = (a, b) => a.menuItemId === b.menuItemId && (a.sizeCode ?? a.sizeName ?? null) === (b.sizeCode ?? b.sizeName ?? null)
   && [...a.toppingIds].sort().join(',') === [...b.toppingIds].sort().join(',')
   && a.sugarLevel === b.sugarLevel && a.iceLevel === b.iceLevel && (a.note || '') === (b.note || '')
 

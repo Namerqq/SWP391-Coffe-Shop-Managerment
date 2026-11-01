@@ -71,6 +71,38 @@ public class ToppingCompatibilityService {
             settings.save(row);
         }
     }
+    /** Update only this item's incoming links; other dishes using these toppings are untouched. */
+    public void replaceForItem(Long itemId, List<Long> requested) {
+        MenuItem main = items.findById(itemId)
+                .orElseThrow(() -> ApiException.badRequest("Món không tồn tại."));
+        if (!(main.getCategory().isType("DRINK") || main.getCategory().isType("FOOD"))) {
+            throw ApiException.badRequest("Chỉ cấu hình topping đi kèm đồ uống hoặc đồ ăn.");
+        }
+        Set<Long> ids = new LinkedHashSet<>(requested == null ? List.of() : requested);
+        for (Long id : ids) {
+            if (id == null) throw ApiException.badRequest("Topping không hợp lệ.");
+            MenuItem topping = items.findById(id)
+                    .orElseThrow(() -> ApiException.badRequest("Topping không tồn tại."));
+            if (!topping.getCategory().isType("TOPPING") || MenuItem.INACTIVE.equals(topping.getAvailabilityStatus())
+                    || !"ACTIVE".equals(topping.getCategory().getStatus())) {
+                throw ApiException.badRequest("Chỉ chọn topping chưa xoá thuộc danh mục đang hoạt động.");
+            }
+        }
+        List<SystemSetting> old = settings.findByKeyStartingWith(PREFIX).stream().filter(row -> {
+            var match = KEY.matcher(row.getKey());
+            return match.matches() && match.group(2).equals(itemId.toString());
+        }).toList();
+        Set<String> wanted = new HashSet<>();
+        for (Long id : ids) wanted.add(prefix(id) + itemId);
+        settings.deleteAll(old.stream().filter(row -> !wanted.contains(row.getKey())).toList());
+        Map<String, SystemSetting> existing = new HashMap<>();
+        old.forEach(row -> existing.put(row.getKey(), row));
+        for (String key : wanted) {
+            SystemSetting row = existing.getOrDefault(key, SystemSetting.menuRule(key));
+            row.setValue("true"); settings.save(row);
+        }
+    }
+
     /** Remove both incoming and outgoing links when deleting/changing the type of an item. */
     public void removeForItem(Long id) {
         settings.deleteAll(settings.findByKeyStartingWith(PREFIX).stream().filter(row -> {

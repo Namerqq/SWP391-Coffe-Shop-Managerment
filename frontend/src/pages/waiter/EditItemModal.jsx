@@ -4,7 +4,7 @@ import waiterApi from '../../api/waiterApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 import { formatMoney } from '../../utils/orderFormat'
-import { DEFAULT_LEVEL, ICE_LEVELS, SUGAR_LEVELS, toppingsForItem } from '../../utils/orderOptions'
+import { DEFAULT_LEVEL, customizationForItem, sizesForItem, allowedValue, toppingsForItem } from '../../utils/orderOptions'
 
 /**
  * UC-W06: Change item details (Chỉnh sửa chi tiết món khi đơn còn chờ pha).
@@ -17,12 +17,14 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
   const toast = useToast()
 
   // Danh sách các lựa chọn size và topping lấy từ menu hệ thống
-  const sizes = menuOptions?.sizes || []
+  const config = customizationForItem(item, menuOptions)
+  const configKey = JSON.stringify(config)
+  const sizes = sizesForItem(item, menuOptions)
   const toppings = toppingsForItem(item, menuOptions)
 
   // State lưu trữ dữ liệu form đang chỉnh sửa
   const [quantity, setQuantity] = useState(1)
-  const [sizeId, setSizeId] = useState(null)
+  const [sizeCode, setSizeCode] = useState(null)
   const [toppingIds, setToppingIds] = useState([])
   const [sugarLevel, setSugarLevel] = useState(DEFAULT_LEVEL)
   const [iceLevel, setIceLevel] = useState(DEFAULT_LEVEL)
@@ -37,19 +39,19 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
       setError('')
       setQuantity(item.quantity || 1)
 
-      // Tìm sizeId tương ứng với sizeName hiện tại của món
+      // Tìm sizeCode tương ứng với sizeName hiện tại của món
       const currentSize = sizes.find((s) => s.name === item.sizeName)
-      setSizeId(currentSize?.id || null)
+      setSizeCode(allowedValue(currentSize?.id, config.sizes, config.defaultSize))
 
       // Lấy danh sách ID topping hiện tại
       const currentToppingIds = (item.toppings || []).map((t) => t.id)
       setToppingIds(currentToppingIds)
 
-      setSugarLevel(item.sugarLevel || DEFAULT_LEVEL)
-      setIceLevel(item.iceLevel || DEFAULT_LEVEL)
+      setSugarLevel(allowedValue(item.sugarLevel, config.sugarLevels, config.defaultSugar))
+      setIceLevel(allowedValue(item.iceLevel, config.iceLevels, config.defaultIce))
       setNote(item.note || '')
     }
-  }, [show, item, sizes])
+  }, [show, item, configKey])
 
   if (!show || !order || !item) return null
 
@@ -61,7 +63,7 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
   }
 
   // Tính trước đơn giá và tổng tiền tạm tính để nhân viên dễ quan sát
-  const selectedSize = sizes.find((s) => s.id === sizeId)
+  const selectedSize = sizes.find((s) => s.id === sizeCode)
   const sizeExtraPrice = selectedSize ? selectedSize.price : 0
   const toppingExtraPrice = toppings
     .filter((t) => toppingIds.includes(t.id))
@@ -78,7 +80,7 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
     const requestData = {
       menuItemId: item.menuItemId,
       quantity,
-      sizeId,
+      sizeCode,
       toppingIds: toppingIds.filter((id) => toppings.some((t) => t.id === id)),
       sugarLevel,
       iceLevel,
@@ -148,9 +150,9 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
               <button
                 type="button"
                 key={s.id}
-                className={`btn btn-sm ${sizeId === s.id ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => setSizeId(s.id)}
-                disabled={loading}
+                className={`btn btn-sm ${sizeCode === s.id ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => setSizeCode(s.id)}
+                disabled={loading || sizes.length === 1}
               >
                 {s.name} {s.price > 0 && `(+${formatMoney(s.price)})`}
               </button>
@@ -162,14 +164,15 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
       {/* 3. Mức đường */}
       <div className="mb-3">
         <label className="form-label fw-semibold">Mức đường</label>
+        {!config.sugarLevels.length && <span className="cf-muted">Không áp dụng</span>}
         <div className="d-flex flex-wrap gap-2">
-          {SUGAR_LEVELS.map((level) => (
+          {config.sugarLevels.map((level) => (
             <button
               type="button"
               key={level}
               className={`btn btn-sm ${sugarLevel === level ? 'btn-primary' : 'btn-outline-secondary'}`}
               onClick={() => setSugarLevel(level)}
-              disabled={loading}
+              disabled={loading || config.sugarLevels.length === 1}
             >
               {level}
             </button>
@@ -180,14 +183,15 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
       {/* 4. Mức đá */}
       <div className="mb-3">
         <label className="form-label fw-semibold">Mức đá</label>
+        {!config.iceLevels.length && <span className="cf-muted">Không áp dụng</span>}
         <div className="d-flex flex-wrap gap-2">
-          {ICE_LEVELS.map((level) => (
+          {config.iceLevels.map((level) => (
             <button
               type="button"
               key={level}
               className={`btn btn-sm ${iceLevel === level ? 'btn-primary' : 'btn-outline-secondary'}`}
               onClick={() => setIceLevel(level)}
-              disabled={loading}
+              disabled={loading || config.iceLevels.length === 1}
             >
               {level}
             </button>

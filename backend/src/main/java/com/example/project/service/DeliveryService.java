@@ -5,12 +5,14 @@ import com.example.project.dto.online.OnlineOrderView;
 import com.example.project.entity.Delivery;
 import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
+import com.example.project.entity.Payment;
 import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
 import com.example.project.repository.DeliveryRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
 import com.example.project.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +22,7 @@ import java.util.List;
 
 /**
  * Giao hàng đơn online (Iter 3): thu ngân xem chi tiết đơn, chọn phục vụ và gán đi giao;
- * phục vụ được gán bấm qua từng bước giao: nhận hàng đi giao, đã giao, giao không thành công.
+ * phục vụ được gán bấm qua từng bước giao: nhận hàng đi giao, đã thu tiền COD, đã giao, giao không thành công.
  */
 @Service
 public class DeliveryService {
@@ -40,6 +42,7 @@ public class DeliveryService {
     private final DeliveryRepository deliveryRepository;
     private final UserRepository userRepository;
     private final OnlineOrderService onlineOrderService;
+    private CashierService cashierService;
 
     public DeliveryService(OrderRepository orderRepository, OrderLockRepository lockRepository,
                            DeliveryRepository deliveryRepository, UserRepository userRepository,
@@ -49,6 +52,12 @@ public class DeliveryService {
         this.deliveryRepository = deliveryRepository;
         this.userRepository = userRepository;
         this.onlineOrderService = onlineOrderService;
+    }
+
+    /** Ghi hóa đơn khi phục vụ xác nhận thu tiền COD (dùng chung cách ghi hóa đơn của thu ngân). */
+    @Autowired
+    void setCashierService(CashierService cashierService) {
+        this.cashierService = cashierService;
     }
 
     /** Chi tiết 1 đơn giao hàng cho thu ngân (thông tin khách đầy đủ, không che). */
@@ -151,6 +160,11 @@ public class DeliveryService {
                     ? "Đơn " + no + " đã giao xong rồi."
                     : "Đơn " + no + " chưa lấy hàng, chưa giao xong được.");
         }
+        // Đơn COD: phải xác nhận đã thu tiền (UC-W10) rồi mới giao xong. Đơn QR đã trả trước nên qua luôn.
+        if (!order.isPaid()) {
+            throw ApiException.conflict("Đơn " + no + " chưa xác nhận thu tiền COD. Thu tiền của khách và bấm "
+                    + "\"Đã thu tiền COD\" trước khi bấm Đã giao.");
+        }
 
         LocalDateTime now = LocalDateTime.now();
         delivery.setDeliveredAt(now);
@@ -158,6 +172,34 @@ public class DeliveryService {
         deliveryRepository.save(delivery);
         order.moveTo(Order.SERVED, OrderItem.SERVED);
         order.setCompletedAt(now);
+        orderRepository.save(order);
+        return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
+    }
+
+    /**
+     * UC-W10 Xác nhận thu tiền COD: phục vụ đang giao đơn trả tiền mặt, nhận đủ tiền của khách thì bấm xác nhận.
+     * Chỉ đúng người được gán, đơn đang giao và chưa thanh toán (đơn QR đã trả trước thì không cần thu).
+     * Ghi 1 hóa đơn tiền mặt (PAID) gắn với đơn, người xác nhận = phục vụ, từ đây khách xem được hóa đơn điện tử.
+     * Hóa đơn chỉ gồm tiền món (giống đơn QR online); phí ship phục vụ thu thêm và nộp lại quán.
+     * Đơn online không gắn khách thân thiết nên không cộng / trừ điểm.
+     */
+    @Transactional
+    public OnlineOrderView confirmCod(Long orderId, User waiter) {
+        Order order = lockedDeliveryOrder(orderId);
+        String no = OrderSupportService.displayNumber(order.getOrderNumber());
+        Delivery delivery = myDelivery(order, waiter.getId(), no);
+
+        if (order.isPaid()) {
+            throw ApiException.conflict("Đơn " + no + " đã thanh toán rồi, không cần thu tiền.");
+        }
+        if (!Delivery.STATUS_OUT_FOR_DELIVERY.equals(delivery.getDeliveryStatus())) {
+            throw ApiException.conflict("Đơn " + no + " không còn đang giao, không xác nhận thu tiền được.");
+        }
+
+        Payment p = new Payment();
+        p.setOrder(order);
+        cashierService.record(p, order.activeTotal(), 0, 0, Payment.CASH, null, waiter, null);
+        order.markPaid(p);
         orderRepository.save(order);
         return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
     }

@@ -42,6 +42,8 @@ public class MenuManagementService {
     private final CategoryRepository categoryRepository;
     private final MenuItemRepository menuItemRepository;
     private final ToppingCompatibilityService toppingCompatibility;
+    @org.springframework.beans.factory.annotation.Autowired
+    private ItemCustomizationService customizations;
 
     public MenuManagementService(
             CategoryRepository categoryRepository,
@@ -65,8 +67,9 @@ public class MenuManagementService {
                 .filter(this::isManagedCategory)
                 .toList();
 
+        var toppingRules = toppingCompatibility.rules();
         return Map.of(
-                "items", visibleItems.stream().map(this::toManagedItemView).toList(),
+                "items", visibleItems.stream().map(item -> toManagedItemView(item, toppingRules)).toList(),
                 "categories", buildCategoryViews(visibleCategories, visibleItems),
                 "stats", buildStatistics(visibleItems, visibleCategories)
         );
@@ -93,7 +96,10 @@ public class MenuManagementService {
         if (!category.getCategoryType().equals(request.categoryType()) && categoryId != null) {
             menuItemRepository.findAll().stream()
                     .filter(item -> categoryId.equals(item.getCategory().getId()))
-                    .forEach(item -> toppingCompatibility.removeForItem(item.getId()));
+                    .forEach(item -> {
+                        toppingCompatibility.removeForItem(item.getId());
+                        customizations.remove(item.getId());
+                    });
         }
         category.setStatus(Category.ACTIVE);
         category.setName(name);
@@ -132,6 +138,7 @@ public class MenuManagementService {
         String imageUrl = normalizeImageUrl(request.imageUrl());
 
         if (id != null && !item.getCategory().getCategoryType().equals(category.getCategoryType())) {
+            customizations.remove(id);
             toppingCompatibility.removeForItem(id);
         }
         if (!category.isType("TOPPING") && request.allowedItemIds() != null && !request.allowedItemIds().isEmpty()) {
@@ -144,9 +151,16 @@ public class MenuManagementService {
         item.setImageUrl(imageUrl);
         item.setSellStandalone(true);
 
+        if (category.isOptionGroup() && request.allowedToppingIds() != null && !request.allowedToppingIds().isEmpty()) {
+            throw ApiException.badRequest("Topping bán riêng không được thêm topping đi kèm.");
+        }
         MenuItem saved = menuItemRepository.save(item);
+        if (!category.isOptionGroup()) customizations.save(saved, request.customization());
         if (category.isType("TOPPING") && request.allowedItemIds() != null) {
             toppingCompatibility.replace(saved.getId(), request.allowedItemIds());
+        }
+        if (!category.isOptionGroup() && request.allowedToppingIds() != null) {
+            toppingCompatibility.replaceForItem(saved.getId(), request.allowedToppingIds());
         }
         return toManagedItemView(saved);
     }
@@ -161,6 +175,7 @@ public class MenuManagementService {
     /** Ẩn món bằng trạng thái INACTIVE, giữ bản ghi để đơn cũ tiếp tục tham chiếu. */
     public void deleteItem(Long id) {
         MenuItem item = requireManagedItem(id);
+        customizations.remove(id);
         toppingCompatibility.removeForItem(id);
         item.setAvailabilityStatus(MenuItem.INACTIVE);
         menuItemRepository.save(item);
@@ -170,6 +185,10 @@ public class MenuManagementService {
 
     /** Chuyển entity món sang dữ liệu trả cho giao diện quản lý. */
     private ManagedItemView toManagedItemView(MenuItem item) {
+        return toManagedItemView(item, toppingCompatibility.rules());
+    }
+
+    private ManagedItemView toManagedItemView(MenuItem item, Map<Long, List<Long>> toppingRules) {
         return new ManagedItemView(
                 item.getId(),
                 item.getCategory().getId(),
@@ -179,7 +198,11 @@ public class MenuManagementService {
                 item.getImageUrl(),
                 item.getAvailabilityStatus(),
                 item.isSellStandalone(),
-                item.getCategory().isType("TOPPING") ? toppingCompatibility.allowedItemIds(item.getId()) : List.of()
+                item.getCategory().isType("TOPPING") ? toppingRules.getOrDefault(item.getId(), List.of()) : List.of(),
+                customizations.get(item),
+                item.getCategory().isOptionGroup() ? List.of() : toppingRules.entrySet().stream()
+                        .filter(entry -> entry.getValue().contains(item.getId()))
+                        .map(Map.Entry::getKey).sorted().toList()
         );
     }
 

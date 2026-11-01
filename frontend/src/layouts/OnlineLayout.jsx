@@ -32,6 +32,7 @@ export default function OnlineLayout() {
       .then((res) => {
         if (res?.data) {
           setOptions({
+            categories: res.data.categories || [],
             sizes: res.data.sizes || [],
             toppings: res.data.toppings || [],
           })
