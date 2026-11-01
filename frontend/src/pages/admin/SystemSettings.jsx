@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import adminApi from '../../api/adminApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
@@ -92,10 +92,12 @@ export default function SystemSettings() {
       .finally(() => setLoading(false))
   }, [])
 
-  const changed = useMemo(
-    () => Object.fromEntries(settings.filter((s) => values[s.key] !== s.value).map((s) => [s.key, values[s.key]])),
-    [settings, values]
-  )
+  // Các cài đặt Admin đã sửa so với giá trị đang lưu: { key: giá trị mới }. Bấm Lưu chỉ gửi những cái này.
+  // Danh sách chỉ vài chục dòng nên tính lại mỗi lần render, không cần useMemo.
+  const changed = {}
+  settings.forEach((s) => {
+    if (values[s.key] !== s.value) changed[s.key] = values[s.key]
+  })
   const dirtyCount = Object.keys(changed).length
   const dirtyIn = (group) => settings.some((s) => s.groupName === group && s.key in changed)
 

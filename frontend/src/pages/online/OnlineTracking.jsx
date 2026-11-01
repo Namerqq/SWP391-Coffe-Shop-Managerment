@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import onlineOrderApi from '../../api/onlineOrderApi'
 import { errorMessage } from '../../api/axiosClient'
@@ -24,6 +24,9 @@ function getStepIndex(order) {
 
 /** Nhãn và màu badge theo từng trạng thái */
 function getStatusBadge(order, currentStep) {
+  if (order.deliveryStatus === 'FAILED') {
+    return { label: 'Giao không thành công', className: 'badge bg-danger text-white' }
+  }
   if (order.status === 'CANCELLED' || order.deliveryStatus === 'CANCELLED') {
     return { label: 'Đã hủy', className: 'badge bg-danger text-white' }
   }
@@ -73,7 +76,8 @@ export default function OnlineTracking() {
     navigate(location.pathname + location.search, { replace: true, state: null }) // tải lại trang không hiện lại
   }, [location.state, location.pathname, location.search, navigate])
 
-  const fetchOrder = useCallback(async (showSpinner = false) => {
+  // Tải đơn đang xem theo mã. showSpinner = true khi mở / đổi mã đơn (hiện vòng xoay, báo lỗi nếu không thấy).
+  const fetchOrder = async (showSpinner = false) => {
     if (!activeCode) return
     if (showSpinner) setLoading(true)
     try {
@@ -89,14 +93,16 @@ export default function OnlineTracking() {
     } finally {
       setLoading(false)
     }
-  }, [activeCode])
+  }
 
-  // Đổi mã đang xem -> tải lại ngay; sau đó tự làm mới trạng thái mỗi 10 giây.
+  // Mở trang hoặc đổi mã đang xem (activeCode đổi) -> xóa đơn cũ rồi tải lại ngay.
   useEffect(() => {
     setOrder(null)
     setError('')
     fetchOrder(true)
-  }, [fetchOrder])
+  }, [activeCode])
+
+  // Tự làm mới trạng thái mỗi 10 giây. usePolling luôn gọi bản fetchOrder mới nhất nên không cần useCallback.
   usePolling(fetchOrder, 10000)
 
   const lookup = (e) => {
@@ -229,8 +235,19 @@ export default function OnlineTracking() {
           </ol>
         ) : (
           <div className="alert alert-danger py-2 my-3 text-center" style={{ fontSize: '0.9rem' }}>
-            <strong>Đơn hàng đã bị hủy.</strong>
-            {order.cancelReason && <div className="small mt-1">Lý do: {order.cancelReason}</div>}
+            {order.deliveryStatus === 'FAILED' ? (
+              <>
+                {/* Phục vụ đã đi giao nhưng không giao được: đơn hủy, khách cần đặt lại nếu vẫn muốn mua */}
+                <strong>Giao hàng không thành công, đơn đã hủy.</strong>
+                {order.failureReason && <div className="small mt-1">Lý do: {order.failureReason}</div>}
+                <div className="small mt-1">Bạn có thể đặt lại đơn mới nếu vẫn muốn mua.</div>
+              </>
+            ) : (
+              <>
+                <strong>Đơn hàng đã bị hủy.</strong>
+                {order.cancelReason && <div className="small mt-1">Lý do: {order.cancelReason}</div>}
+              </>
+            )}
           </div>
         )}
 
