@@ -4,14 +4,37 @@ export const DEFAULT_LEVEL = '100%'
 export const SUGAR_LEVELS = ['100%', '70%', '50%', '30%', '0%']
 export const ICE_LEVELS = ['100%', '70%', '50%', '30%', '0%']
 
+export const SIZE_OPTIONS = [
+  { id: 'S', name: 'S', price: 0 },
+  { id: 'M', name: 'M', price: 5000 },
+  { id: 'L', name: 'L', price: 15000 },
+]
+export const defaultCustomization = () => ({ sizes: ['S', 'M', 'L'], defaultSize: 'S',
+  sugarLevels: [...SUGAR_LEVELS], defaultSugar: '100%', iceLevels: [...ICE_LEVELS], defaultIce: '100%', legacy: false })
+export const customizationForItem = (item, options) => {
+  const menuItem = (options?.categories || []).flatMap((c) => c.items)
+    .find((m) => m.id === (item?.menuItemId ?? item?.id)) || item
+  if (isToppingItem(menuItem, options) || isSizeItem(menuItem, options)) {
+    return { sizes: [], defaultSize: null, sugarLevels: [], defaultSugar: null, iceLevels: [], defaultIce: null, legacy: false }
+  }
+  return menuItem?.customization || { sizes: ['M', 'L'], defaultSize: 'M', sugarLevels: SUGAR_LEVELS,
+    defaultSugar: '100%', iceLevels: ICE_LEVELS, defaultIce: '100%', legacy: true }
+}
+export const sizesForItem = (item, options) => {
+  const config = customizationForItem(item, options)
+  return SIZE_OPTIONS.filter((size) => config.sizes.includes(size.id))
+    .map((size) => ({ ...size, price: config.legacy ? (size.id === 'L' ? 10000 : 0) : size.price }))
+}
+export const allowedValue = (value, levels, fallback) => levels.includes(value) ? value : fallback
+
 // Dùng danh sách options để nhận diện cả dữ liệu giỏ cũ chưa có categoryType.
 export const isSizeItem = (item, menu) => item?.categoryType
   ? item.categoryType === 'SIZE'
-  : (menu?.sizes || []).some((s) => s.id === (item?.id ?? item?.menuItemId))
+  : (menu?.sizes || []).some((s) => s.id === (item?.menuItemId ?? item?.id))
 
 export const isToppingItem = (item, menu) => item?.categoryType
   ? item.categoryType === 'TOPPING'
-  : (menu?.toppings || []).some((t) => t.id === (item?.id ?? item?.menuItemId))
+  : (menu?.toppings || []).some((t) => t.id === (item?.menuItemId ?? item?.id))
 
 export const standaloneCategories = (menu) => (menu?.categories || [])
   .map((c) => ({ ...c, items: c.items.filter((item) => !isSizeItem(item, menu)) }))
@@ -32,7 +55,7 @@ export const unitTotal = (l) =>
 export const toItemRequest = (l) => ({
   menuItemId: l.menuItemId,
   quantity: l.quantity,
-  sizeId: l.sizeId ?? null,
+  sizeCode: l.sizeCode ?? l.sizeName ?? null,
   toppingIds: l.toppingIds || [],
   sugarLevel: l.sugarLevel || null,
   iceLevel: l.iceLevel || null,

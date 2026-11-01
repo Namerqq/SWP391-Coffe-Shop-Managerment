@@ -88,7 +88,7 @@ public class WaiterService {
         OrderItem line = findLine(o, itemId);
         Long targetItemId = req.menuItemId() != null ? req.menuItemId() : line.getMenuItem().getId();
         OrderItem fresh = support.buildItem(new OrderItemRequest(targetItemId, req.quantity(),
-                req.sizeId(), req.toppingIds(), req.sugarLevel(), req.iceLevel(), req.note()));
+                req.sizeId(), req.toppingIds(), req.sugarLevel(), req.iceLevel(), req.note(), req.sizeCode()));
         line.setMenuItem(fresh.getMenuItem());
         line.setQuantity(fresh.getQuantity());
         line.setUnitPrice(fresh.getUnitPrice());

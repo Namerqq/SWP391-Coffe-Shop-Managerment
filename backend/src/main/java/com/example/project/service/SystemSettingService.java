@@ -34,7 +34,7 @@ public class SystemSettingService {
 
     public List<SettingResponse> getAll() {
         return repository.findAllByOrderByGroupNameAscSortOrderAsc().stream()
-                .filter(s -> !s.getKey().startsWith(ToppingCompatibilityService.PREFIX)).map(SettingResponse::from).toList();
+                .filter(s -> !s.getKey().startsWith(ToppingCompatibilityService.PREFIX) && !s.getKey().startsWith(ItemCustomizationService.PREFIX)).map(SettingResponse::from).toList();
     }
 
     /** Lưu nhiều cấu hình một lần; sai 1 giá trị thì không lưu gì cả. */
@@ -42,7 +42,7 @@ public class SystemSettingService {
     public List<SettingResponse> update(Map<String, String> values, String updatedBy) {
         if (values == null || values.isEmpty()) throw ApiException.badRequest("Không có cấu hình nào để lưu.");
         values.forEach((key, raw) -> {
-            if (key.startsWith(ToppingCompatibilityService.PREFIX)) {
+            if (key.startsWith(ToppingCompatibilityService.PREFIX) || key.startsWith(ItemCustomizationService.PREFIX)) {
                 throw ApiException.badRequest("Hãy chỉnh món đi kèm tại form quản lý topping.");
             }
             SystemSetting s = repository.findById(key)

@@ -16,5 +16,11 @@ public record OrderItemRequest(
         List<Long> toppingIds,
         @Size(max = 30) String sugarLevel,
         @Size(max = 30) String iceLevel,
-        @Size(max = 300, message = "Ghi chú tối đa 300 ký tự") String note
-) {}
+        @Size(max = 300, message = "Ghi chú tối đa 300 ký tự") String note,
+        @Size(max = 1) String sizeCode
+) {
+    public OrderItemRequest(Long menuItemId, Integer quantity, Long sizeId, List<Long> toppingIds,
+                            String sugarLevel, String iceLevel, String note) {
+        this(menuItemId, quantity, sizeId, toppingIds, sugarLevel, iceLevel, note, null);
+    }
+}

@@ -61,6 +61,13 @@ public class SystemSetting {
         return setting;
     }
 
+    public static SystemSetting itemCustomization(String key) {
+        SystemSetting setting = menuRule(key);
+        setting.dataType = "TEXT";
+        setting.label = "Lựa chọn size, đường, đá theo món";
+        return setting;
+    }
+
     public String getKey() { return key; }
     public String getValue() { return value; }
     public void setValue(String value) { this.value = value; }

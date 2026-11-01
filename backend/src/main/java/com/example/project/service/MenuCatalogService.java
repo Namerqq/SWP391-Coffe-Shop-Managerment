@@ -26,6 +26,8 @@ public class MenuCatalogService {
     private final CategoryRepository categoryRepository;
     private final MenuItemRepository menuItemRepository;
     private final ToppingCompatibilityService toppingCompatibility;
+    @org.springframework.beans.factory.annotation.Autowired
+    private ItemCustomizationService customizations;
 
     public MenuCatalogService(
             CategoryRepository categoryRepository,
@@ -52,7 +54,8 @@ public class MenuCatalogService {
         // Dùng chung dữ liệu món cho cả ba phần, tránh truy vấn lại toàn bộ menu.
         return new StaffMenuResponse(
                 buildSellableMenu(allItems),
-                buildOptions(allItems, Category.SIZE),
+                ItemCustomizationService.SIZES.stream().map(size -> new MenuOptionView(null, size,
+                        ItemCustomizationService.price(size, false))).toList(),
                 buildOptions(allItems, Category.TOPPING)
         );
     }
@@ -95,7 +98,8 @@ public class MenuCatalogService {
                         item.getDescription(),
                         item.getBasePrice(),
                         item.getImageUrl(),
-                        category.getCategoryType()
+                        category.getCategoryType(),
+                        customizations.get(item)
                 ))
                 .toList();
     }
