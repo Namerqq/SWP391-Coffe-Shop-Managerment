@@ -17,6 +17,10 @@ const FILTER_TABS = [
 
 /** Nhãn và màu sắc badge trạng thái */
 function getStatusBadge(order) {
+  // Phục vụ báo giao không thành công: đơn đã hủy nhưng hiện riêng để thu ngân biết hủy vì giao lỗi
+  if (order.deliveryStatus === 'FAILED') {
+    return { label: 'Giao lỗi', pillClass: 'status-pill tone-cancelled' }
+  }
   if (order.status === 'CANCELLED' || order.deliveryStatus === 'CANCELLED') {
     return { label: 'Đã hủy', pillClass: 'status-pill tone-cancelled' }
   }
