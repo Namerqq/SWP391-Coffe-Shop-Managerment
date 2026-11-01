@@ -24,6 +24,9 @@ function getStepIndex(order) {
 
 /** Nhãn và màu badge theo từng trạng thái */
 function getStatusBadge(order, currentStep) {
+  if (order.deliveryStatus === 'FAILED') {
+    return { label: 'Giao không thành công', className: 'badge bg-danger text-white' }
+  }
   if (order.status === 'CANCELLED' || order.deliveryStatus === 'CANCELLED') {
     return { label: 'Đã hủy', className: 'badge bg-danger text-white' }
   }
@@ -229,8 +232,19 @@ export default function OnlineTracking() {
           </ol>
         ) : (
           <div className="alert alert-danger py-2 my-3 text-center" style={{ fontSize: '0.9rem' }}>
-            <strong>Đơn hàng đã bị hủy.</strong>
-            {order.cancelReason && <div className="small mt-1">Lý do: {order.cancelReason}</div>}
+            {order.deliveryStatus === 'FAILED' ? (
+              <>
+                {/* Phục vụ đã đi giao nhưng không giao được: đơn hủy, khách cần đặt lại nếu vẫn muốn mua */}
+                <strong>Giao hàng không thành công, đơn đã hủy.</strong>
+                {order.failureReason && <div className="small mt-1">Lý do: {order.failureReason}</div>}
+                <div className="small mt-1">Bạn có thể đặt lại đơn mới nếu vẫn muốn mua.</div>
+              </>
+            ) : (
+              <>
+                <strong>Đơn hàng đã bị hủy.</strong>
+                {order.cancelReason && <div className="small mt-1">Lý do: {order.cancelReason}</div>}
+              </>
+            )}
           </div>
         )}
 
