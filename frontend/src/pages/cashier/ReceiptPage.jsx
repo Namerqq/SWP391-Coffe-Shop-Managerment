@@ -113,6 +113,9 @@ export default function ReceiptPage() {
         </div>
 
         <div className="receipt-row"><span>Tạm tính</span><span>{formatMoney(r.subtotal)}</span></div>
+        {r.shippingFee > 0 && (
+          <div className="receipt-row"><span>Phí ship</span><span>{formatMoney(r.shippingFee)}</span></div>
+        )}
         {r.discount > 0 && (
           <div className="receipt-row"><span>Giảm giá ({r.pointsRedeemed} điểm)</span><span>-{formatMoney(r.discount)}</span></div>
         )}

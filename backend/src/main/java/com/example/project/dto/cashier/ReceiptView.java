@@ -15,6 +15,8 @@ import java.util.List;
  * refunds (ThangNN Iter3): các phiếu hoàn tiền của hóa đơn này (chờ chuyển khoản / đã hoàn), cũ trước.
  * refundedAmount = tổng tiền các phiếu hoàn. Hóa đơn đã có hoàn tiền: orders chỉ còn món chưa hoàn,
  * món đã hoàn ghi trong note của từng phiếu; subtotal / discount / total vẫn là số lúc thu tiền.
+ * shippingFee: phí ship trong hóa đơn của đơn giao hàng online (0 với đơn tại bàn / mang đi).
+ * total = subtotal + shippingFee - discount.
  */
 public record ReceiptView(
         String shopName, String shopAddress, String shopPhone,
@@ -22,5 +24,5 @@ public record ReceiptView(
         String place, boolean takeaway, String sessionCode, List<OrderView> orders,
         long subtotal, long discount, long total, int pointsRedeemed, int pointsEarned, CustomerView customer,
         Long tableId, boolean tableStillOpen, boolean qrAutoConfirmed,
-        List<RefundView> refunds, long refundedAmount
+        List<RefundView> refunds, long refundedAmount, long shippingFee
 ) {}

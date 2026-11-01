@@ -154,8 +154,9 @@ class DeliveryStepsTest {
 
         var view = service.confirmCod(8L, waiter);
 
+        // Hóa đơn COD = tiền món 60.000đ + phí ship 25.000đ (đơn chưa chốt phí ship -> phí ship mặc định).
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
-        verify(cashier).record(captor.capture(), eq(60_000L), eq(0L), eq(0), eq(Payment.CASH),
+        verify(cashier).record(captor.capture(), eq(85_000L), eq(0L), eq(0), eq(Payment.CASH),
                 isNull(), eq(waiter), isNull());
         assertSame(order, captor.getValue().getOrder());
         assertTrue(order.isPaid());

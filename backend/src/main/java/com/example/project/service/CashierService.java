@@ -18,6 +18,7 @@ import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.payos.PayosClient;
 import com.example.project.repository.CustomerRepository;
+import com.example.project.repository.DeliveryRepository;
 import com.example.project.repository.LoyaltyTransactionRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
@@ -62,12 +63,14 @@ public class CashierService {
     private final QrPaymentRequestRepository qrRepository;
     private final PayosClient payos;
     private final RefundService refundService;
+    private final DeliveryRepository deliveryRepository;
 
     public CashierService(CustomerRepository customerRepository, TableSessionRepository sessionRepository,
                           OrderRepository orderRepository, OrderLockRepository lockRepository,
                           PaymentRepository paymentRepository, LoyaltyTransactionRepository loyaltyRepository,
                           OrderSupportService support, SystemSettingService settings,
-                          QrPaymentRequestRepository qrRepository, PayosClient payos, RefundService refundService) {
+                          QrPaymentRequestRepository qrRepository, PayosClient payos, RefundService refundService,
+                          DeliveryRepository deliveryRepository) {
         this.customerRepository = customerRepository;
         this.sessionRepository = sessionRepository;
         this.orderRepository = orderRepository;
@@ -79,6 +82,7 @@ public class CashierService {
         this.qrRepository = qrRepository;
         this.payos = payos;
         this.refundService = refundService;
+        this.deliveryRepository = deliveryRepository;
     }
 
     // ===== UC-C10 / UC-C13: khách thân thiết =====
@@ -217,8 +221,13 @@ public class CashierService {
         // theo lúc thu tiền = tiền khách trả + giảm giá bằng điểm đã dùng (giá trị 1 điểm theo cài đặt hiện tại).
         List<RefundView> refunds = refundService.refundsOf(p.getId());
         long refundedAmount = refunds.stream().mapToLong(RefundView::amount).sum();
-        long discount = refunds.isEmpty() ? Math.max(0, subtotal - p.getTotalAmount()) : redeemed * pointValue();
-        if (!refunds.isEmpty()) subtotal = p.getTotalAmount() + discount;
+        // Đơn giao hàng online: hóa đơn gồm cả phí ship.
+        long shipping = single != null && Order.DELIVERY.equals(single.getFulfillmentType())
+                ? OnlineOrderService.shippingPaid(deliveryRepository.findByOrder_Id(single.getId()).orElse(null),
+                        p.getTotalAmount(), subtotal, !refunds.isEmpty())
+                : 0;
+        long discount = refunds.isEmpty() ? Math.max(0, subtotal + shipping - p.getTotalAmount()) : redeemed * pointValue();
+        if (!refunds.isEmpty()) subtotal = Math.max(0, p.getTotalAmount() - shipping + discount);
 
         User cashier = p.getConfirmedBy();
         return new ReceiptView(
@@ -229,7 +238,7 @@ public class CashierService {
                 subtotal, discount, p.getTotalAmount(),
                 redeemed, earned, CustomerView.from(customer),
                 s == null ? null : s.getTable().getId(), s != null && s.isActive(),
-                qrRepository.existsByPayment_Id(p.getId()), refunds, refundedAmount);
+                qrRepository.existsByPayment_Id(p.getId()), refunds, refundedAmount, shipping);
     }
 
     // ===== Dùng chung =====

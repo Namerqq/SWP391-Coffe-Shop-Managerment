@@ -11,11 +11,12 @@ import java.util.List;
  * discount chỉ còn khác 0 ở các đơn cũ trước khi bỏ tích điểm cho khách online; total = số tiền đã trả.
  * Hoàn tiền (ThangNN Iter3): refundedAmount = quán đã chuyển trả (refundedAt = lần trả gần nhất),
  * refundPendingAmount = quán đang chuẩn bị chuyển trả. 0 nếu không hoàn.
+ * shippingFee: phí ship đã gồm trong số tiền khách trả. total = subtotal + shippingFee - discount.
  */
 public record OnlineReceiptView(
         String shopName, String shopAddress, String shopPhone,
         String orderNumber, String paymentCode, LocalDateTime paidAt, String paymentMethod,
         String customerName, List<OrderItemView> items,
         long subtotal, long discount, long total,
-        long refundedAmount, long refundPendingAmount, LocalDateTime refundedAt
+        long refundedAmount, long refundPendingAmount, LocalDateTime refundedAt, long shippingFee
 ) {}
