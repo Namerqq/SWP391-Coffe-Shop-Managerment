@@ -3,7 +3,6 @@ package com.example.project.service;
 import com.example.project.entity.Delivery;
 import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
-import com.example.project.entity.Payment;
 import com.example.project.entity.Role;
 import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
@@ -13,20 +12,18 @@ import com.example.project.repository.OrderRepository;
 import com.example.project.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Iter 3: các bước phục vụ bấm khi đi giao (lấy hàng, thu tiền COD, giao xong, giao lỗi).
+ * Iter 3: các bước phục vụ bấm khi đi giao (lấy hàng, giao xong, giao lỗi).
  * Chạy riêng: mvn test -Dtest=DeliveryStepsTest
  */
 class DeliveryStepsTest {
@@ -34,8 +31,6 @@ class DeliveryStepsTest {
     private DeliveryRepository deliveryRepository;
     private OrderRepository orderRepository;
     private DeliveryService service;
-    private CashierService cashier;
-    private User waiter;
     private Order order;
     private Delivery delivery;
 
@@ -48,8 +43,6 @@ class DeliveryStepsTest {
         orderRepository = mock(OrderRepository.class);
         service = new DeliveryService(orderRepository, lockRepository, deliveryRepository,
                 mock(UserRepository.class), online);
-        cashier = mock(CashierService.class);
-        service.setCashierService(cashier);
 
         order = new Order();
         ReflectionTestUtils.setField(order, "id", 8L);
@@ -60,7 +53,7 @@ class DeliveryStepsTest {
 
         Role role = new Role();
         role.setName("WAITER");
-        waiter = new User();
+        User waiter = new User();
         ReflectionTestUtils.setField(waiter, "id", 5L);
         waiter.setFullName("Trần Bình");
         waiter.setRole(role);
@@ -117,9 +110,8 @@ class DeliveryStepsTest {
     }
 
     @Test
-    void deliver_paidOrder_marksDeliveredAndCompletes() {
+    void deliver_marksDeliveredAndCompletes_withoutPayment() {
         outForDelivery();
-        order.setPaymentStatus(Order.PAID); // đơn QR đã trả trước
         service.deliver(8L, 5L);
 
         assertEquals(Delivery.STATUS_DELIVERED, delivery.getDeliveryStatus());
@@ -127,91 +119,7 @@ class DeliveryStepsTest {
         assertEquals(Order.SERVED, order.getStatus());
         assertEquals(OrderItem.SERVED, order.getItems().get(0).getItemStatus());
         assertNotNull(order.getCompletedAt());
-        verifyNoInteractions(cashier); // giao xong không tự ghi thanh toán
-    }
-
-    @Test
-    void deliver_codNotCollectedYet_isRejected() {
-        outForDelivery();
-        ApiException ex = assertThrows(ApiException.class, () -> service.deliver(8L, 5L));
-        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
-        assertTrue(ex.getMessage().contains("chưa xác nhận thu tiền COD"));
-        assertEquals(Delivery.STATUS_OUT_FOR_DELIVERY, delivery.getDeliveryStatus());
-    }
-
-    // ===== UC-W10 Xác nhận thu tiền COD =====
-
-    @Test
-    void confirmCod_recordsCashPaymentByWaiter() {
-        outForDelivery();
-        doAnswer(inv -> {
-            Payment p = inv.getArgument(0);
-            p.setPaymentMethod(Payment.CASH);
-            p.setPaymentStatus(Payment.PAID);
-            p.setPaidAt(LocalDateTime.now());
-            return null;
-        }).when(cashier).record(any(), anyLong(), anyLong(), anyInt(), any(), any(), any(), any());
-
-        var view = service.confirmCod(8L, waiter);
-
-        // Hóa đơn COD = tiền món 60.000đ + phí ship 25.000đ (đơn chưa chốt phí ship -> phí ship mặc định).
-        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
-        verify(cashier).record(captor.capture(), eq(85_000L), eq(0L), eq(0), eq(Payment.CASH),
-                isNull(), eq(waiter), isNull());
-        assertSame(order, captor.getValue().getOrder());
-        assertTrue(order.isPaid());
-        assertSame(captor.getValue(), order.getPayment());
-        assertNotNull(order.getPaidAt());
-        assertEquals(Delivery.STATUS_OUT_FOR_DELIVERY, delivery.getDeliveryStatus()); // còn phải bấm Đã giao
-        assertEquals(Payment.CASH, view.paymentMethod());
-        verify(orderRepository).save(order);
-    }
-
-    @Test
-    void confirmCod_thenDeliver_completesOrder() {
-        outForDelivery();
-        service.confirmCod(8L, waiter);
-        service.deliver(8L, 5L);
-        assertEquals(Order.SERVED, order.getStatus());
-        assertTrue(order.isPaid());
-    }
-
-    @Test
-    void confirmCod_alreadyPaid_isRejected() {
-        outForDelivery();
-        order.setPaymentStatus(Order.PAID);
-        ApiException ex = assertThrows(ApiException.class, () -> service.confirmCod(8L, waiter));
-        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
-        assertTrue(ex.getMessage().contains("đã thanh toán"));
-        verifyNoInteractions(cashier);
-    }
-
-    @Test
-    void confirmCod_twice_isRejected() {
-        outForDelivery();
-        service.confirmCod(8L, waiter);
-        ApiException ex = assertThrows(ApiException.class, () -> service.confirmCod(8L, waiter));
-        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
-        verify(cashier, times(1)).record(any(), anyLong(), anyLong(), anyInt(), any(), any(), any(), any());
-    }
-
-    @Test
-    void confirmCod_beforePickup_isRejected() {
-        ApiException ex = assertThrows(ApiException.class, () -> service.confirmCod(8L, waiter));
-        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
-        assertFalse(order.isPaid());
-        verifyNoInteractions(cashier);
-    }
-
-    @Test
-    void confirmCod_byAnotherWaiter_isForbidden() {
-        outForDelivery();
-        User other = new User();
-        ReflectionTestUtils.setField(other, "id", 6L);
-        ApiException ex = assertThrows(ApiException.class, () -> service.confirmCod(8L, other));
-        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
-        assertFalse(order.isPaid());
-        verifyNoInteractions(cashier);
+        assertFalse(order.isPaid()); // không ghi thanh toán
     }
 
     @Test
@@ -231,7 +139,6 @@ class DeliveryStepsTest {
     @Test
     void deliver_twice_isRejected() {
         outForDelivery();
-        order.setPaymentStatus(Order.PAID);
         service.deliver(8L, 5L);
         ApiException ex = assertThrows(ApiException.class, () -> service.deliver(8L, 5L));
         assertTrue(ex.getMessage().contains("đã giao xong"));
@@ -276,7 +183,6 @@ class DeliveryStepsTest {
     @Test
     void fail_afterDelivered_isRejected() {
         outForDelivery();
-        order.setPaymentStatus(Order.PAID);
         service.deliver(8L, 5L);
         ApiException ex = assertThrows(ApiException.class, () -> service.fail(8L, 5L, "Sai địa chỉ"));
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
