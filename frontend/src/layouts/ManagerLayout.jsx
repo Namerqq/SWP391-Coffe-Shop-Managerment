@@ -11,6 +11,7 @@ const NAV = [
   { to: '/manager/inventory', label: 'Kho nguyên liệu', icon: 'bi-box-seam' },
   { to: '/manager/stock-receipts', label: 'Phiếu nhập kho', icon: 'bi-file-earmark-arrow-down' },
   { to: '/manager/incidents', label: 'Sự cố đổ / vỡ', icon: 'bi-exclamation-triangle' },
+  { to: '/manager/refunds', label: 'Hoàn tiền', icon: 'bi-arrow-counterclockwise' }, // ThangNN Iter3: hậu kiểm hoàn tiền
 ]
 
 /** Khung chung cho màn hình Quản lý (Manager). Menu trái theo thiết kế reference. */

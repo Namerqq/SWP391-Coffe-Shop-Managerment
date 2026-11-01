@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import onlineOrderApi from '../../api/onlineOrderApi'
 import { errorMessage } from '../../api/axiosClient'
@@ -24,6 +24,9 @@ function getStepIndex(order) {
 
 /** Nhãn và màu badge theo từng trạng thái */
 function getStatusBadge(order, currentStep) {
+  if (order.deliveryStatus === 'FAILED') {
+    return { label: 'Giao không thành công', className: 'badge bg-danger text-white' }
+  }
   if (order.status === 'CANCELLED' || order.deliveryStatus === 'CANCELLED') {
     return { label: 'Đã hủy', className: 'badge bg-danger text-white' }
   }
@@ -73,7 +76,8 @@ export default function OnlineTracking() {
     navigate(location.pathname + location.search, { replace: true, state: null }) // tải lại trang không hiện lại
   }, [location.state, location.pathname, location.search, navigate])
 
-  const fetchOrder = useCallback(async (showSpinner = false) => {
+  // Tải đơn đang xem theo mã. showSpinner = true khi mở / đổi mã đơn (hiện vòng xoay, báo lỗi nếu không thấy).
+  const fetchOrder = async (showSpinner = false) => {
     if (!activeCode) return
     if (showSpinner) setLoading(true)
     try {
@@ -81,7 +85,7 @@ export default function OnlineTracking() {
       setOrder(res.data)
       setError('')
     } catch (err) {
-      // Lỗi lúc tự làm mới 30 giây thì giữ nguyên đơn đang hiện; chỉ báo lỗi khi mở / đổi mã đơn.
+      // Lỗi lúc tự làm mới 10 giây thì giữ nguyên đơn đang hiện; chỉ báo lỗi khi mở / đổi mã đơn.
       if (showSpinner) {
         setOrder(null)
         setError(errorMessage(err, 'Không tìm thấy đơn hàng với mã ' + activeCode + '.'))
@@ -89,15 +93,17 @@ export default function OnlineTracking() {
     } finally {
       setLoading(false)
     }
-  }, [activeCode])
+  }
 
-  // Đổi mã đang xem -> tải lại ngay; sau đó tự làm mới trạng thái mỗi 30 giây.
+  // Mở trang hoặc đổi mã đang xem (activeCode đổi) -> xóa đơn cũ rồi tải lại ngay.
   useEffect(() => {
     setOrder(null)
     setError('')
     fetchOrder(true)
-  }, [fetchOrder])
-  usePolling(fetchOrder, 30000)
+  }, [activeCode])
+
+  // Tự làm mới trạng thái mỗi 10 giây. usePolling luôn gọi bản fetchOrder mới nhất nên không cần useCallback.
+  usePolling(fetchOrder, 10000)
 
   const lookup = (e) => {
     e.preventDefault()
@@ -112,15 +118,25 @@ export default function OnlineTracking() {
   }
 
   // Xử lý khách bấm nút "Hủy đơn hàng"
+  // Trang chỉ tự làm mới 10 giây/lần nên đơn đang hiện có thể đã cũ (thu ngân vừa xác nhận):
+  // hỏi lại trạng thái mới nhất trước khi hỏi khách, và tải lại đơn nếu hủy không thành công.
   const handleCancel = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return
     setCancelling(true)
     try {
+      const latest = (await onlineOrderApi.getOrderByCode(order.orderNumber)).data
+      setOrder(latest)
+      const step = getStepIndex(latest)
+      if (step !== 0) {
+        alert(step === -1 ? 'Đơn hàng này đã được hủy.' : 'Quán đã xác nhận đơn hàng này nên không thể hủy nữa.')
+        return
+      }
+      if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return
       const res = await onlineOrderApi.cancelOrder(order.orderNumber, 'Khách hàng tự hủy trên website')
       setOrder(res.data)
       alert('Đã hủy đơn hàng thành công.')
     } catch (err) {
       alert(errorMessage(err, 'Không thể hủy đơn hàng vào lúc này.'))
+      fetchOrder()
     } finally {
       setCancelling(false)
     }
@@ -219,8 +235,19 @@ export default function OnlineTracking() {
           </ol>
         ) : (
           <div className="alert alert-danger py-2 my-3 text-center" style={{ fontSize: '0.9rem' }}>
-            <strong>Đơn hàng đã bị hủy.</strong>
-            {order.cancelReason && <div className="small mt-1">Lý do: {order.cancelReason}</div>}
+            {order.deliveryStatus === 'FAILED' ? (
+              <>
+                {/* Phục vụ đã đi giao nhưng không giao được: đơn hủy, khách cần đặt lại nếu vẫn muốn mua */}
+                <strong>Giao hàng không thành công, đơn đã hủy.</strong>
+                {order.failureReason && <div className="small mt-1">Lý do: {order.failureReason}</div>}
+                <div className="small mt-1">Bạn có thể đặt lại đơn mới nếu vẫn muốn mua.</div>
+              </>
+            ) : (
+              <>
+                <strong>Đơn hàng đã bị hủy.</strong>
+                {order.cancelReason && <div className="small mt-1">Lý do: {order.cancelReason}</div>}
+              </>
+            )}
           </div>
         )}
 
@@ -252,10 +279,17 @@ export default function OnlineTracking() {
         ))}
 
         {/* Tổng tiền */}
+        <div className="d-flex justify-content-between mt-2">
+          <span>Phí ship:</span>
+          <span className="gx-price">{formatMoney(order.shippingFee || 0)}</span>
+        </div>
         <footer>
           <span>Tổng tiền:</span>
-          <span className="gx-price fs-5">{formatMoney(order.totalAmount)}</span>
+          <span className="gx-price fs-5">{formatMoney(order.totalAmount + (order.shippingFee || 0))}</span>
         </footer>
+        {order.paymentStatus === 'PAID' && order.shippingFee > 0 && (
+          <div className="gx-muted small">Đã trả tiền món. Phí ship trả tiền mặt khi nhận hàng.</div>
+        )}
 
         <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top gap-2">
           {/* Hóa đơn chỉ có khi đơn đã thanh toán */}

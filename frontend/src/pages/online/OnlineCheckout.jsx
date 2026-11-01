@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useOnline } from '../../layouts/OnlineLayout'
 import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
@@ -17,6 +17,14 @@ export default function OnlineCheckout() {
   const [form, setForm] = useState({ name: '', phone: '', address: '', note: '' })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [shippingFee, setShippingFee] = useState(0)
+
+  // Phí ship lấy từ backend 
+  useEffect(() => {
+    onlineOrderApi.getShippingFee()
+      .then((res) => setShippingFee(res.data?.shippingFee || 0))
+      .catch(() => setShippingFee(0))
+  }, [])
 
   // Giỏ trống thì quay về thực đơn
   if (cart.length === 0) {
@@ -168,10 +176,23 @@ export default function OnlineCheckout() {
               <span className="gx-price">{formatMoney(unitTotal(item) * item.quantity)}</span>
             </div>
           ))}
+          <div className="d-flex justify-content-between mt-2">
+            <span>Tiền món</span>
+            <span className="gx-price">{formatMoney(totalPrice)}</span>
+          </div>
+          <div className="d-flex justify-content-between">
+            <span>Phí ship</span>
+            <span className="gx-price">{formatMoney(shippingFee)}</span>
+          </div>
           <div className="gx-order-foot">
             <span>Tổng cộng</span>
-            <span className="gx-price fs-5"> {formatMoney(totalPrice)}</span>
+            <span className="gx-price fs-5"> {formatMoney(totalPrice + shippingFee)}</span>
           </div>
+          {paymentMethod === 'PAYOS_QR' && shippingFee > 0 && (
+            <div className="gx-muted small mt-1">
+              QR chỉ thanh toán tiền món. Phí ship {formatMoney(shippingFee)} trả tiền mặt cho nhân viên khi nhận hàng.
+            </div>
+          )}
         </div>
 
         {error && <div className="alert alert-danger py-2">{error}</div>}
@@ -183,7 +204,7 @@ export default function OnlineCheckout() {
           </Link>
           <button type="submit" className="btn btn-primary flex-grow-1 py-2" disabled={submitting}>
             {submitting && <span className="spinner-border spinner-border-sm me-2" />}
-            Xác nhận đặt hàng · {formatMoney(totalPrice)}
+            Xác nhận đặt hàng · {formatMoney(totalPrice + shippingFee)}
           </button>
         </div>
       </form>

@@ -11,6 +11,7 @@
 -- Includes 20 sellable items (13 drinks, 3 cakes, 4 toppings) plus 2 size options.
 -- No demo users, customers, orders, payments or table sessions are included.
 -- Merged V8__incident_reports.sql (2026-10-26): + table incident_reports (20 application tables in total).
+-- Merged V9__refund_note.sql (2026-10-31): + payments.note (hoàn tiền dùng dòng payments REFUND_PENDING / REFUNDED).
 
 CREATE DATABASE IF NOT EXISTS cafe_management
     CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
@@ -242,6 +243,7 @@ CREATE TABLE payments (
     total_amount BIGINT UNSIGNED NOT NULL,
     payment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     paid_at DATETIME NULL,
+    note VARCHAR(500) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_payments_code UNIQUE (payment_code),
     CONSTRAINT fk_payments_confirmer FOREIGN KEY (confirmed_by_user_id) REFERENCES users(user_id)
@@ -483,6 +485,7 @@ VALUES
 
     ('loyalty.vnd_per_point', '10000', 'NUMBER', 'SALES', 'Số tiền đổi 1 điểm (VND)', 'Ví dụ 10000: mỗi 10.000đ thanh toán được 1 điểm.', 2),
     ('payment.qr_timeout_minutes', '15', 'NUMBER', 'SALES', 'Hết hạn QR thanh toán (phút)', 'Quá thời gian này đơn online chưa thanh toán sẽ bị hủy.', 3),
+    ('delivery.shipping_fee', '25000', 'NUMBER', 'SALES', 'Phí ship mỗi đơn giao hàng (VND)', 'Cộng vào tiền phục vụ thu khi giao đơn online. Quán giữ khoản này.', 8),
 
     ('security.max_login_attempts', '5', 'NUMBER', 'SECURITY', 'Số lần đăng nhập sai tối đa', 'Vượt quá sẽ khóa tài khoản (LOCKED). 0 = không giới hạn.', 1),
     ('security.session_timeout_minutes', '120', 'NUMBER', 'SECURITY', 'Thời gian hết phiên (phút)', 'Không thao tác quá thời gian này phải đăng nhập lại.', 2),

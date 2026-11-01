@@ -163,7 +163,7 @@ export default function RevenueReport() {
             <StatCard label="Doanh thu" icon="bi-cash-stack" value={formatMoney(sum.total)}
                       sub={<Compare total={sum.total} previous={sum.previousTotal} label={cfg.prev} finished={!isCurrent} />} />
             <StatCard label="Số hóa đơn" icon="bi-receipt" value={sum.billCount.toLocaleString('vi-VN')}
-                      sub="Hóa đơn đã thu tiền" />
+                      sub={sum.refunded > 0 ? `Doanh thu đã trừ ${formatMoney(sum.refunded)} hoàn trả khách` : 'Hóa đơn đã thu tiền'} />
             <StatCard label="Trung bình / hóa đơn" icon="bi-calculator" value={formatMoney(sum.averagePerBill)}
                       sub="Doanh thu ÷ số hóa đơn" />
             <StatCard label="Tiền mặt / Chuyển khoản" icon="bi-wallet2"

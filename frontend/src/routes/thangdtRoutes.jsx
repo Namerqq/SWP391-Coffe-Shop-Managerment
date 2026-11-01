@@ -7,8 +7,9 @@ import OnlineCart from '../pages/online/OnlineCart'
 import OnlineCheckout from '../pages/online/OnlineCheckout'
 import OnlineTracking from '../pages/online/OnlineTracking'
 import ShipOrderList from '../pages/cashier/ShipOrderList'
+import WaiterDeliveries from '../pages/waiter/WaiterDeliveries'
 
-// ThangDT: route các màn ThangDT (Online Order & Ship Order List cho Thu ngân).
+// ThangDT: route các màn ThangDT (Online Order, Ship Order List cho Thu ngân, Đơn giao hàng của Phục vụ).
 export const thangdtRoutes = (
   <>
     <Route path="/online-order" element={<OnlineLayout />}>
@@ -27,6 +28,17 @@ export const thangdtRoutes = (
       }
     >
       <Route index element={<ShipOrderList />} />
+    </Route>
+
+    <Route
+      path="/waiter/deliveries"
+      element={
+        <ProtectedRoute roles={['WAITER']}>
+          <StaffLayout />
+        </ProtectedRoute>
+      }
+    >
+      <Route index element={<WaiterDeliveries />} />
     </Route>
   </>
 )

@@ -96,4 +96,38 @@ class CashierHistoryServiceTest {
         assertEquals(90000L, s.transfer());
         assertEquals(210000L, s.total());
     }
+
+    @Test
+    void refundsGivenBackTodayAreTakenOutOfTheSameMethod() {
+        when(repository.sumPaidByMethod(any(), any())).thenReturn(List.of(
+                new Object[]{Payment.CASH, 3L, 120000L},
+                new Object[]{Payment.BANK_TRANSFER, 2L, 90000L}));
+        when(repository.sumRefundedByMethod(any(), any())).thenReturn(List.<Object[]>of(
+                new Object[]{Payment.CASH, 1L, 27000L}));
+
+        OrderHistoryView.Summary s = service.history(null).summary();
+
+        assertEquals(5, s.billCount());
+        assertEquals(93000L, s.cash());
+        assertEquals(90000L, s.transfer());
+        assertEquals(183000L, s.total());
+        assertEquals(1, s.refundCount());
+        assertEquals(27000L, s.refunded());
+    }
+
+    @Test
+    void eachOrderCarriesItsRefundedAndPendingAmounts() {
+        Order order = new Order();
+        ReflectionTestUtils.setField(order, "id", 7L);
+        when(repository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(any(), any()))
+                .thenReturn(List.of(order));
+        when(repository.sumRefundsByOrder(any())).thenReturn(List.of(
+                new Object[]{7L, Payment.REFUNDED, 27000L},
+                new Object[]{7L, Payment.REFUND_PENDING, 30000L}));
+
+        OrderHistoryView.Row row = service.history(null).orders().get(0);
+
+        assertEquals(27000L, row.refundedAmount());
+        assertEquals(30000L, row.refundPendingAmount());
+    }
 }

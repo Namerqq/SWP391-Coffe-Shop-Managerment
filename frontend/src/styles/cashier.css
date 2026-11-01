@@ -191,3 +191,15 @@
 .item-flag.is-ready { background: #e5f4ec; color: #2f8f5b; }
 .order-line.is-dropped { color: var(--cf-muted); }
 .order-line.is-dropped .line-name { text-decoration: line-through; }
+
+/* Iter3 Hoàn tiền (ThangNN): chọn món hoàn, tóm tắt số tiền, phần hoàn trên hóa đơn */
+.refund-lines { border: 1px solid var(--cf-border); border-radius: 0.7rem; overflow: hidden; }
+.refund-line { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem; margin: 0; cursor: pointer; }
+.refund-line + .refund-line { border-top: 1px solid var(--cf-border); }
+.refund-line:hover { background: var(--cf-primary-soft); }
+.refund-line.is-disabled { cursor: default; opacity: 0.55; }
+.refund-line.is-disabled:hover { background: transparent; }
+.refund-summary { background: var(--cf-primary-soft); border-radius: 0.7rem; padding: 0.75rem 0.9rem; }
+.refund-grand { font-size: 1.15rem; font-weight: 700; margin-top: 0.25rem; }
+.receipt-refunds { border-top: 1px dashed var(--cf-border); margin-top: 0.6rem; padding-top: 0.5rem; }
+.refund-section + .refund-section { border-top: 1px solid var(--cf-border); margin-top: 1.25rem; padding-top: 1rem; }

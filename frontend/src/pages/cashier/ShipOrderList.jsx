@@ -1,8 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
 import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderFormat'
 import usePolling from '../../utils/usePolling'
+import ShipAssignModal, { canAssign } from './ShipAssignModal'
+import CancelRefundModal from './CancelRefundModal' // ThangNN Iter3: hủy đơn đã trả QR + hoàn tiền
+import { canCancelPaidDelivery } from './refundFormat'
 
 // Trạng thái đơn giao hàng
 const FILTER_TABS = [
@@ -16,6 +20,10 @@ const FILTER_TABS = [
 
 /** Nhãn và màu sắc badge trạng thái */
 function getStatusBadge(order) {
+  // Phục vụ báo giao không thành công: đơn đã hủy nhưng hiện riêng để thu ngân biết hủy vì giao lỗi
+  if (order.deliveryStatus === 'FAILED') {
+    return { label: 'Giao lỗi', pillClass: 'status-pill tone-cancelled' }
+  }
   if (order.status === 'CANCELLED' || order.deliveryStatus === 'CANCELLED') {
     return { label: 'Đã hủy', pillClass: 'status-pill tone-cancelled' }
   }
@@ -26,9 +34,32 @@ function getStatusBadge(order) {
     return { label: 'Đang giao', pillClass: 'status-pill tone-pending' }
   }
   if (order.status === 'CONFIRMED' || order.status === 'PREPARING' || order.status === 'READY') {
+    if (order.deliveryStatus === 'ASSIGNED') return { label: 'Đã gán', pillClass: 'status-pill tone-preparing' }
     return { label: 'Đã xác nhận', pillClass: 'status-pill tone-preparing' }
   }
   return { label: 'Chờ duyệt', pillClass: 'status-pill tone-pending' }
+}
+
+const EMPTY_SEARCH = { date: '', code: '' }
+
+/** "2026-10-26" -> "2026-10-27": backend lọc [from, to) nên "đến" là 00:00 ngày hôm sau. */
+function nextDay(date) {
+  const [y, m, d] = date.split('-').map(Number)
+  const t = new Date(y, m - 1, d + 1)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`
+}
+
+/** Tham số gửi lên GET /cashier/delivery-orders . Chọn 1 ngày = cả ngày đó. */
+function toSearchParams(search) {
+  const params = {}
+  if (search.date) {
+    params.from = `${search.date}T00:00`
+    params.to = `${nextDay(search.date)}T00:00`
+  }
+  const code = search.code.replace(/[\s#]/g, '')
+  if (code) params.code = code
+  return params
 }
 
 export default function ShipOrderList() {
@@ -38,12 +69,18 @@ export default function ShipOrderList() {
   const [feedback, setFeedback] = useState(null)
   const [processingId, setProcessingId] = useState(null)
   const [activeTab, setActiveTab] = useState('ALL')
-  const [keyword, setKeyword] = useState('')
+  const [detailId, setDetailId] = useState(null) // đơn đang mở popup chi tiết / gán người giao
+  const [refundTarget, setRefundTarget] = useState(null) // ThangNN Iter3: đơn đã trả QR đang mở hộp Hủy & hoàn tiền
+  // Tìm đơn theo ngày đặt / mã đơn: searchForm = đang nhập, search = đang áp dụng (gửi lên server)
+  const [searchForm, setSearchForm] = useState(EMPTY_SEARCH)
+  const [search, setSearch] = useState(EMPTY_SEARCH)
+  const [searchError, setSearchError] = useState('')
+  const isSearching = Boolean(search.date || search.code)
 
-  // Tải danh sách đơn giao hàng từ API
-  const loadOrders = async () => {
+  // Tải danh sách đơn giao hàng từ API (kèm điều kiện tìm đang áp dụng)
+  const loadOrders = async (current = search) => {
     try {
-      const res = await cashierApi.getDeliveryOrders()
+      const res = await cashierApi.getDeliveryOrders(toSearchParams(current))
       setOrders(res.data || [])
       setError('')
     } catch (err) {
@@ -56,6 +93,29 @@ export default function ShipOrderList() {
   // Tự động cập nhật ngầm mỗi 10 giây
   usePolling(loadOrders, 10000)
 
+  const changeSearch = (field) => (e) => setSearchForm((f) => ({ ...f, [field]: e.target.value }))
+
+  // Bấm "Tìm": kiểm tra rồi tải lại danh sách theo điều kiện mới
+  const applySearch = (e) => {
+    e.preventDefault()
+    if (!/^[\d\s#-]*$/.test(searchForm.code)) {
+      setSearchError('Mã đơn chỉ gồm số và dấu gạch, ví dụ 261026-0012 hoặc 0012.')
+      return
+    }
+    setSearchError('')
+    setSearch(searchForm)
+    setLoading(true)
+    loadOrders(searchForm)
+  }
+
+  const clearSearch = () => {
+    setSearchForm(EMPTY_SEARCH)
+    setSearch(EMPTY_SEARCH)
+    setSearchError('')
+    setLoading(true)
+    loadOrders(EMPTY_SEARCH)
+  }
+
   // Xác nhận đơn giao hàng (chuyển sang Barista chế biến)
   const handleConfirm = async (order) => {
     try {
@@ -64,7 +124,7 @@ export default function ShipOrderList() {
       await cashierApi.confirmDeliveryOrder(order.orderId)
       setFeedback({
         type: 'success',
-        message: `Đã xác nhận đơn ${order.displayNumber || '#' + order.orderId}. Đơn đã chuyển sang quầy Barista!`,
+        message: `Đã xác nhận đơn ${order.orderNumber || order.displayNumber}. Đơn đã chuyển sang quầy Barista!`,
       })
       await loadOrders()
     } catch (err) {
@@ -82,7 +142,7 @@ export default function ShipOrderList() {
   // Hủy đơn giao hàng do hết nguyên liệu
   const handleCancel = async (order) => {
     const ok = window.confirm(
-      `Xác nhận hủy đơn ${order.displayNumber || '#' + order.orderId} do hết nguyên liệu?`
+      `Xác nhận hủy đơn ${order.orderNumber || order.displayNumber} do hết nguyên liệu?`
     )
     if (!ok) return
 
@@ -92,7 +152,7 @@ export default function ShipOrderList() {
       await cashierApi.cancelDeliveryOrder(order.orderId, 'Hết nguyên liệu')
       setFeedback({
         type: 'success',
-        message: `Đã hủy đơn ${order.displayNumber || '#' + order.orderId} (Hết nguyên liệu).`,
+        message: `Đã hủy đơn ${order.orderNumber || order.displayNumber} (Hết nguyên liệu).`,
       })
       await loadOrders()
     } catch (err) {
@@ -107,17 +167,8 @@ export default function ShipOrderList() {
     }
   }
 
-  // Lọc danh sách đơn theo từ khóa và tab
+  // Lọc danh sách đơn theo tab
   const filteredOrders = orders.filter((o) => {
-    if (keyword.trim()) {
-      const kw = keyword.trim().toLowerCase()
-      const matchName = o.customerName?.toLowerCase().includes(kw)
-      const matchPhone = o.customerPhone?.toLowerCase().includes(kw)
-      const matchAddr = o.deliveryAddress?.toLowerCase().includes(kw)
-      const matchNo = (o.displayNumber || o.orderNumber || '').toLowerCase().includes(kw)
-      if (!matchName && !matchPhone && !matchAddr && !matchNo) return false
-    }
-
     if (activeTab === 'ALL') return true
     if (activeTab === 'CANCELLED') return o.status === 'CANCELLED' || o.deliveryStatus === 'CANCELLED'
     if (activeTab === 'COMPLETED') return o.status === 'COMPLETED' || o.deliveryStatus === 'DELIVERED'
@@ -147,7 +198,7 @@ export default function ShipOrderList() {
         </div>
       )}
 
-      {/* Bộ lọc Tab + Thanh tìm kiếm */}
+      {/* Bộ lọc Tab */}
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div className="chip-tabs">
           {FILTER_TABS.map((tab) => (
@@ -162,27 +213,47 @@ export default function ShipOrderList() {
             </button>
           ))}
         </div>
+      </div>
 
-        <div style={{ maxWidth: '280px', width: '100%' }}>
-          <div className="input-group input-group-sm">
-            <span className="input-group-text bg-white">
-              <i className="bi bi-search text-muted" />
-            </span>
+      {/* Tìm đơn theo ngày đặt và mã đơn  */}
+      <form className="card border-0 shadow-sm p-3 mb-3" onSubmit={applySearch} noValidate>
+        <div className="row g-2 align-items-end">
+          <div className="col-12 col-sm-6 col-lg-4">
+            <label htmlFor="so-date" className="form-label small mb-1">Ngày đặt</label>
             <input
-              type="text"
-              className="form-control"
-              placeholder="Tìm theo tên, SĐT, địa chỉ..."
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              id="so-date"
+              type="date"
+              className="form-control form-control-sm"
+              value={searchForm.date}
+              onChange={changeSearch('date')}
             />
-            {keyword && (
-              <button className="btn btn-outline-secondary" onClick={() => setKeyword('')}>
-                ✕
+          </div>
+          <div className="col-12 col-sm-6 col-lg-4">
+            <label htmlFor="so-code" className="form-label small mb-1">Mã đơn</label>
+            <input
+              id="so-code"
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="Ví dụ 261026-0012 hoặc 0012"
+              value={searchForm.code}
+              onChange={changeSearch('code')}
+              maxLength={20}
+            />
+          </div>
+          <div className="col-12 col-lg-4 d-flex gap-2">
+            <button type="submit" className="btn btn-primary btn-sm flex-fill">
+              <i className="bi bi-search me-1" />
+              Tìm
+            </button>
+            {isSearching && (
+              <button type="button" className="btn btn-outline-secondary btn-sm flex-fill" onClick={clearSearch}>
+                Xóa lọc
               </button>
             )}
           </div>
         </div>
-      </div>
+        {searchError && <div className="text-danger small mt-2">{searchError}</div>}
+      </form>
 
       {/* Danh sách đơn hàng giao tận nơi */}
       {loading ? (
@@ -195,7 +266,9 @@ export default function ShipOrderList() {
           <div className="fs-1 mb-2">📦</div>
           <h6 className="fw-bold">Không có đơn giao hàng nào</h6>
           <p className="small mb-0">
-            {keyword ? 'Không tìm thấy kết quả phù hợp với từ khóa.' : 'Chưa có đơn hàng nào ở trạng thái này.'}
+            {isSearching
+              ? 'Không tìm thấy đơn phù hợp với điều kiện tìm.'
+              : 'Chưa có đơn hàng nào ở trạng thái này.'}
           </p>
         </div>
       ) : (
@@ -220,7 +293,7 @@ export default function ShipOrderList() {
                   {/* Mã đơn và Trạng thái */}
                   <div className="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
                     <div>
-                      <span className="fw-bold text-dark me-2">{o.displayNumber || `#ONL-${o.orderId}`}</span>
+                      <span className="fw-bold text-dark me-2">{o.orderNumber || o.displayNumber}</span>
                       <small className="text-muted">{formatTime(o.createdAt)}</small>
                     </div>
                     <span className={badge.pillClass}>{badge.label}</span>
@@ -246,11 +319,22 @@ export default function ShipOrderList() {
                           "{o.customerNote}"
                         </div>
                       )}
+                      {o.assignedWaiterName && (
+                        <div className="small mt-1">
+                          <i className="bi bi-bicycle me-1 text-primary" />
+                          Người giao: <strong>{o.assignedWaiterName}</strong>
+                        </div>
+                      )}
                       {o.cancelReason && (
                         <div className="small text-danger fst-italic mt-1">
                           <i className="bi bi-info-circle me-1" />
                           Lý do hủy: {o.cancelReason}
                         </div>
+                      )}
+                      {o.cancelReason && isPaid && (
+                        <Link to="/cashier/history?refunds=1" className="small d-inline-block mt-1">
+                          <i className="bi bi-arrow-counterclockwise me-1" />Khách đã trả QR: xem hoàn tiền
+                        </Link>
                       )}
                     </div>
 
@@ -299,8 +383,13 @@ export default function ShipOrderList() {
                         </span>
                       </div>
                       <div className="text-end">
-                        <div className="small text-muted">Tổng tiền</div>
-                        <span className="fw-bold text-primary fs-6">{formatMoney(o.totalAmount)}</span>
+                        <div className="small text-muted">
+                          Tiền món {formatMoney(o.totalAmount)} + ship {formatMoney(o.shippingFee || 0)}
+                        </div>
+                        <div className="small text-muted">Cần thu khi giao</div>
+                        <span className="fw-bold text-primary fs-6">
+                          {formatMoney((isPaid ? 0 : o.totalAmount) + (o.shippingFee || 0))}
+                        </span>
                       </div>
                     </div>
 
@@ -335,12 +424,67 @@ export default function ShipOrderList() {
                         </button>
                       </div>
                     )}
+
+                    {/* Chi tiết + gán / đổi người giao (đơn đã xác nhận, phục vụ chưa lấy hàng) */}
+                    {!isPending && (
+                      <div className="pt-2 border-top">
+                        <button
+                          type="button"
+                          className={`btn btn-sm w-100 ${canAssign(o) && !o.assignedWaiterName ? 'btn-primary' : 'btn-outline-secondary'}`}
+                          onClick={() => setDetailId(o.orderId)}
+                        >
+                          <i className="bi bi-person-check me-1" />
+                          {!canAssign(o) ? 'Xem chi tiết' : o.assignedWaiterName ? 'Chi tiết / Đổi người giao' : 'Gán người giao'}
+                        </button>
+                        {canCancelPaidDelivery(o) && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger btn-sm w-100 mt-2"
+                            onClick={() => setRefundTarget({
+                              orderId: o.orderId,
+                              label: o.orderNumber || o.displayNumber,
+                              amount: o.totalAmount,
+                              customerName: o.customerName,
+                              customerPhone: o.customerPhone,
+                            })}
+                          >
+                            <i className="bi bi-arrow-counterclockwise me-1" />
+                            Hủy & hoàn tiền
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             )
           })}
         </div>
+      )}
+
+      <CancelRefundModal
+        mode="cancel"
+        target={refundTarget}
+        onClose={() => setRefundTarget(null)}
+        onDone={(r) => {
+          setFeedback({
+            type: 'success',
+            message: `Đã hủy đơn ${refundTarget?.label}. Phiếu hoàn ${r.refundCode} ${formatMoney(r.amount)} chờ chuyển khoản trả khách (nút Hoàn tiền ở Lịch sử đơn).`,
+          })
+          setRefundTarget(null)
+          loadOrders()
+        }}
+      />
+
+      {detailId && (
+        <ShipAssignModal
+          orderId={detailId}
+          onClose={() => setDetailId(null)}
+          onChanged={(message) => {
+            if (message) setFeedback({ type: 'success', message })
+            loadOrders()
+          }}
+        />
       )}
     </div>
   )

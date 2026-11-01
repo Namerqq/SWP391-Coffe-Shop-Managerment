@@ -127,7 +127,18 @@ export default function OnlineEReceipt() {
               <div><span>Tạm tính</span><span>{formatMoney(r.subtotal)}</span></div>
               {r.discount > 0 && <div><span>Giảm giá</span><span>−{formatMoney(r.discount)}</span></div>}
               <div className="op-total"><span>Đã thanh toán</span><span>{formatMoney(r.total)}</span></div>
+              {r.refundedAmount > 0 && (
+                <div><span>Quán đã hoàn lại{r.refundedAt ? ` (${formatDateTime(r.refundedAt)})` : ''}</span><span>−{formatMoney(r.refundedAmount)}</span></div>
+              )}
+              {r.refundPendingAmount > 0 && (
+                <div><span>Quán đang hoàn lại</span><span>{formatMoney(r.refundPendingAmount)}</span></div>
+              )}
             </div>
+            {r.refundPendingAmount > 0 && (
+              <p className="gx-muted small mt-2 mb-0">
+                Đơn đã hủy. Quán sẽ chuyển khoản trả lại vào tài khoản bạn đã dùng để thanh toán.
+              </p>
+            )}
           </article>
           <button type="button" className="btn btn-light-soft w-100 op-no-print" onClick={() => window.print()}>
             In hoặc lưu hóa đơn
