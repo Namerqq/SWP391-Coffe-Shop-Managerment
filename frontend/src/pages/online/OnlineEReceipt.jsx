@@ -125,6 +125,7 @@ export default function OnlineEReceipt() {
             ))}
             <div className="op-sum">
               <div><span>Tạm tính</span><span>{formatMoney(r.subtotal)}</span></div>
+              {r.shippingFee > 0 && <div><span>Phí ship</span><span>{formatMoney(r.shippingFee)}</span></div>}
               {r.discount > 0 && <div><span>Giảm giá</span><span>−{formatMoney(r.discount)}</span></div>}
               <div className="op-total"><span>Đã thanh toán</span><span>{formatMoney(r.total)}</span></div>
               {r.refundedAmount > 0 && (

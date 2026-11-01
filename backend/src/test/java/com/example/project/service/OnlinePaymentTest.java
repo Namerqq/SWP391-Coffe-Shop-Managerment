@@ -139,7 +139,7 @@ class OnlinePaymentTest {
         r.setAmount(58000L);
         r.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         r.setCartJson(objectMapper.writeValueAsString(new QrOnlineCart("An", "0901111111", "12 Cầu Giấy", "gọi trước",
-                List.of(QrTakeawayCart.Line.of(line(2))))));
+                List.of(QrTakeawayCart.Line.of(line(2))), null)));
         when(qrRepository.findWithLockById(7L)).thenReturn(Optional.of(r));
         when(menuItemRepository.findById(1L)).thenReturn(Optional.of(bacXiu));
         when(support.nextOrderNumber()).thenReturn("261017-0001");
@@ -163,6 +163,33 @@ class OnlinePaymentTest {
         verify(deliveryRepository).save(delivery.capture());
         assertEquals("12 Cầu Giấy", delivery.getValue().getDeliveryAddress());
         assertEquals(Delivery.STATUS_PENDING_ASSIGNMENT, delivery.getValue().getDeliveryStatus());
+    }
+
+    @Test
+    void applyPaid_onlineRequestWithShipping_paysItemsPlusShippingOnce() throws Exception {
+        QrPaymentRequest r = new QrPaymentRequest();
+        ReflectionTestUtils.setField(r, "id", 8L);
+        r.setTargetType(QrPaymentRequest.ONLINE);
+        r.setSubtotal(83000L); // 58.000đ tiền món + 25.000đ ship
+        r.setAmount(83000L);
+        r.setExpiresAt(LocalDateTime.now().plusMinutes(10));
+        r.setCartJson(objectMapper.writeValueAsString(new QrOnlineCart("An", "0901111111", "12 Cầu Giấy", null,
+                List.of(QrTakeawayCart.Line.of(line(2))), 25000L)));
+        when(qrRepository.findWithLockById(8L)).thenReturn(Optional.of(r));
+        when(menuItemRepository.findById(1L)).thenReturn(Optional.of(bacXiu));
+        when(support.nextOrderNumber()).thenReturn("261101-0001");
+
+        QrPaymentView view = service.applyPaid(8L, "WEBHOOK", "FT124");
+
+        assertEquals(QrPaymentRequest.PAID, view.status());
+        ArgumentCaptor<Order> order = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository, atLeastOnce()).save(order.capture());
+        assertEquals(58000L, (long) order.getValue().getTotalAmount()); // đơn chỉ gồm tiền món
+        verify(cashier).record(any(Payment.class), eq(83000L), eq(0L), eq(0), eq(Payment.BANK_TRANSFER),
+                isNull(), isNull(), isNull()); // hóa đơn = món + ship
+        ArgumentCaptor<Delivery> delivery = ArgumentCaptor.forClass(Delivery.class);
+        verify(deliveryRepository).save(delivery.capture());
+        assertEquals(25000L, delivery.getValue().getShippingFee());
     }
 
     // ===== Màn Thu ngân (Q2-A, D5-A) =====

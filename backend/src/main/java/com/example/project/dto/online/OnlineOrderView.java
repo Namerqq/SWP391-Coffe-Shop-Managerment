@@ -33,6 +33,9 @@ public record OnlineOrderView(
         LocalDateTime deliveredAt,
         LocalDateTime failedAt,
         String failureReason,
-        // Phí ship mỗi đơn, quán thu (cấu hình delivery.shipping_fee trong Cài đặt hệ thống).
-        long shippingFee
+        // Phí ship của đơn (chốt lúc đặt theo cài đặt delivery.shipping_fee), quán thu.
+        long shippingFee,
+        // Số tiền phục vụ còn phải thu khi giao: chưa trả = tiền món + ship; đã trả QR (mã gồm cả ship) = 0;
+        // đơn trả QR từ trước khi mã gồm ship thì còn thu tiền ship. Đơn đã hủy = 0.
+        long amountToCollect
 ) {}

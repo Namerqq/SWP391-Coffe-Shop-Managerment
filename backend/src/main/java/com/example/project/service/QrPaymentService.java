@@ -190,7 +190,8 @@ public class QrPaymentService {
     // ===== Khách đặt online (ThangNN Iter2, BF-03-2) =====
 
     /**
-     * Khách đặt online chọn trả QR: tính giá ở server, tạo mã payOS đúng bằng tiền giỏ hàng.
+     * Khách đặt online chọn trả QR: tính giá ở server, tạo mã payOS = tiền giỏ hàng + phí ship (cài đặt
+     * delivery.shipping_fee, chốt lúc tạo mã và lưu trong giỏ). Khách trả 1 lần cho cả món và ship.
      * Khách online không tích điểm và không dùng điểm: mã không gắn khách thân thiết, không giảm giá.
      * Đơn CHƯA được tạo (giống mang đi): giỏ hàng + thông tin giao hàng lưu kèm mã, khách trả xong mới tạo đơn.
      * Trả về paymentLinkId (chuỗi ngẫu nhiên do payOS cấp) để trang của khách hỏi trạng thái mã.
@@ -214,9 +215,12 @@ public class QrPaymentService {
             subtotal += built.getSubtotal();
         }
 
-        QrPaymentRequest r = newRequest(QrPaymentRequest.ONLINE, subtotal, 0, null, 0, null);
+        // Phí ship cộng vào mã: subtotal / amount của mã = tiền món + ship (DB yêu cầu amount <= subtotal).
+        long shippingFee = Math.max(0, settings.getLong(OnlineOrderService.SHIPPING_FEE_KEY,
+                OnlineOrderService.DEFAULT_SHIPPING_FEE));
+        QrPaymentRequest r = newRequest(QrPaymentRequest.ONLINE, subtotal + shippingFee, 0, null, 0, null);
         r.setCartJson(writeOnlineCart(new QrOnlineCart(name, phone, address,
-                OrderSupportService.blankToNull(req.note()), lines)));
+                OrderSupportService.blankToNull(req.note()), lines, shippingFee)));
         open(r);
         if (r.getPaymentLinkId() == null || r.getPaymentLinkId().isBlank()) {
             throw new ApiException(HttpStatus.BAD_GATEWAY, "payOS không trả về mã link thanh toán, vui lòng thử lại.");
@@ -303,7 +307,7 @@ public class QrPaymentService {
         return new OnlineQrView(r.getPaymentLinkId(), r.getStatus(), r.getAmount(),
                 r.getQrCode(), r.getCheckoutUrl(), r.getDescription(),
                 r.getExpiresAt(), secondsLeft, cart.itemCount(), cart.customerPhone(),
-                o == null ? null : o.getOrderNumber(), r.getPaidAt());
+                o == null ? null : o.getOrderNumber(), r.getPaidAt(), cart.shippingFeeOrZero());
     }
 
     /**
@@ -518,18 +522,22 @@ public class QrPaymentService {
             o.addItem(line.toOrderItem(item));
         }
         o.recalcTotal();
-        if (o.getTotalAmount() == null || o.getTotalAmount() != r.getSubtotal()) {
+        long shippingFee = cart.shippingFeeOrZero();
+        if (o.getTotalAmount() == null || o.getTotalAmount() + shippingFee != r.getSubtotal()) {
             return "tiền giỏ hàng không khớp số tiền trong mã QR.";
         }
         orderRepository.save(o);
 
+        // Hóa đơn = số tiền của mã (tiền món + phí ship).
         Payment p = new Payment();
         p.setOrder(o);
         cashier.record(p, r.getSubtotal(), r.getSubtotal() - r.getAmount(), r.getPointsToRedeem(),
                 Payment.BANK_TRANSFER, customer, null, null);
         o.markPaid(p);
         orderRepository.save(o);
-        deliveryRepository.save(new Delivery(o, cart.deliveryAddress()));
+        Delivery delivery = new Delivery(o, cart.deliveryAddress());
+        delivery.setShippingFee(shippingFee); // khách đã trả ship trong mã QR, phục vụ không thu thêm
+        deliveryRepository.save(delivery);
         r.setPayment(p);
         return null;
     }

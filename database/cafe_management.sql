@@ -1,17 +1,30 @@
--- CAFE MANAGEMENT DATABASE FREEZE 1.0
--- Snapshot: V1 through V7__qr_payment_payos.sql, 2026-10-15.
--- 19 application tables. Requires MySQL 8.0.16+ (CHECK enforcement).
--- Install ONCE into an EMPTY cafe_management database.
--- Existing installations must continue using migrations; do not apply this snapshot.
--- Local demo edition: final DDL, reference roles/settings, Menu Iter 2 columns and menu sample data.
--- No DROP/TRUNCATE, no disabled foreign keys, no application-data backfill.
--- All identifiers follow the V1 BIGINT UNSIGNED baseline.
--- Menu Iter 2 category_type and sell_standalone are included in this local demo edition.
--- Base team snapshot is backed up separately. This local demo edition was updated at user request on 2026-10-16.
--- Includes 20 sellable items (13 drinks, 3 cakes, 4 toppings) plus 2 size options.
--- No demo users, customers, orders, payments or table sessions are included.
--- Merged V8__incident_reports.sql (2026-10-26): + table incident_reports (20 application tables in total).
--- Merged V9__refund_note.sql (2026-10-31): + payments.note (hoàn tiền dùng dòng payments REFUND_PENDING / REFUNDED).
+-- =====================================================================================
+-- CAFE MANAGEMENT SYSTEM (Gạch Coffee) - DATABASE ĐẦY ĐỦ, 1 FILE DUY NHẤT
+-- Cập nhật: 2026-11-01. Gộp toàn bộ: V1 -> V7 (FREEZE 1.0), V8 biên bản sự cố, V9 hoàn tiền,
+-- V10 phí ship chốt theo đơn. Không còn file migration riêng.
+--
+-- Cài mới: MySQL 8.0.16+ (cần CHECK), chạy cả file 1 lần. File tự tạo và chọn schema cafe_management.
+-- Database đang có dữ liệu: KHÔNG chạy file này, xem phần "Nâng cấp database đang chạy" trong database/README.md.
+--
+-- Gồm:
+--   20 bảng: roles, users, customers, categories, menu_items, cafe_tables, table_sessions, orders,
+--            order_items, deliveries, payments, loyalty_transactions, inventory_items, stock_receipts,
+--            stock_receipt_items, stock_transactions, system_settings, qr_payment_requests,
+--            qr_payment_request_orders, incident_reports.
+--   Dữ liệu mặc định: 5 role, cài đặt hệ thống (cửa hàng, bán hàng, phí ship, bảo mật, trang chủ),
+--   menu demo 7 danh mục / 20 món bán riêng (13 đồ uống, 3 bánh, 4 topping) + 2 size.
+--   Không có tài khoản, bàn, khách, đơn, thanh toán: backend tự tạo Admin mặc định nếu chưa có.
+--
+-- Quy ước chính:
+--   - Mọi khóa chính / khóa ngoại BIGINT UNSIGNED. Tiền lưu VND, kiểu BIGINT UNSIGNED.
+--   - Hoàn tiền (V9): mỗi lần hoàn = 1 dòng payments có payment_status REFUND_PENDING / REFUNDED, mã RF...,
+--     gắn order_id của đơn được hoàn; payments.note ghi món hoàn, lý do, mã giao dịch trả khách.
+--     Query cộng tiền trên payments phải lọc theo payment_status.
+--   - Phí ship (V10): deliveries.shipping_fee chốt lúc tạo đơn giao hàng theo cài đặt delivery.shipping_fee.
+--     Trả QR: mã QR = tiền món + phí ship. Trả khi nhận hàng: phục vụ thu tiền món + phí ship.
+--     Hóa đơn (payments.total_amount) của đơn giao hàng gồm cả phí ship.
+-- Không có DROP / TRUNCATE, không tắt khóa ngoại.
+-- =====================================================================================
 
 CREATE DATABASE IF NOT EXISTS cafe_management
     CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
@@ -215,6 +228,8 @@ CREATE TABLE deliveries (
     delivered_at DATETIME NULL,
     failed_at DATETIME NULL,
     failure_reason VARCHAR(500) NULL,
+    -- V10: phí ship của đơn, chốt lúc tạo theo cài đặt delivery.shipping_fee. NULL = đơn tạo trước V10.
+    shipping_fee BIGINT UNSIGNED NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT uq_deliveries_order UNIQUE (order_id),
@@ -243,6 +258,7 @@ CREATE TABLE payments (
     total_amount BIGINT UNSIGNED NOT NULL,
     payment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     paid_at DATETIME NULL,
+    -- V9: ghi chú của dòng hoàn tiền (món hoàn, lý do, mã giao dịch trả khách). Hóa đơn thường để trống.
     note VARCHAR(500) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_payments_code UNIQUE (payment_code),
@@ -485,7 +501,7 @@ VALUES
 
     ('loyalty.vnd_per_point', '10000', 'NUMBER', 'SALES', 'Số tiền đổi 1 điểm (VND)', 'Ví dụ 10000: mỗi 10.000đ thanh toán được 1 điểm.', 2),
     ('payment.qr_timeout_minutes', '15', 'NUMBER', 'SALES', 'Hết hạn QR thanh toán (phút)', 'Quá thời gian này đơn online chưa thanh toán sẽ bị hủy.', 3),
-    ('delivery.shipping_fee', '25000', 'NUMBER', 'SALES', 'Phí ship mỗi đơn giao hàng (VND)', 'Cộng vào tiền phục vụ thu khi giao đơn online. Quán giữ khoản này.', 8),
+    ('delivery.shipping_fee', '25000', 'NUMBER', 'SALES', 'Phí ship mỗi đơn giao hàng (VND)', 'Cộng vào mỗi đơn giao hàng online: trả QR thì gồm trong mã QR, trả khi nhận hàng thì phục vụ thu cùng tiền món. Đổi giá trị chỉ áp dụng cho đơn đặt sau đó.', 8),
 
     ('security.max_login_attempts', '5', 'NUMBER', 'SECURITY', 'Số lần đăng nhập sai tối đa', 'Vượt quá sẽ khóa tài khoản (LOCKED). 0 = không giới hạn.', 1),
     ('security.session_timeout_minutes', '120', 'NUMBER', 'SECURITY', 'Thời gian hết phiên (phút)', 'Không thao tác quá thời gian này phải đăng nhập lại.', 2),

@@ -208,7 +208,7 @@ export default function OnlineCheckout() {
           </div>
           {paymentMethod === 'PAYOS_QR' && shippingFee > 0 && (
             <div className="gx-muted small mt-1">
-              QR chỉ thanh toán tiền món. Phí ship {formatMoney(shippingFee)} trả tiền mặt cho nhân viên khi nhận hàng.
+              Mã QR thanh toán luôn cả tiền món và phí ship, khi nhận hàng không phải trả thêm.
             </div>
           )}
         </div>

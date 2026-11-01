@@ -198,7 +198,9 @@ public class DeliveryService {
 
         Payment p = new Payment();
         p.setOrder(order);
-        cashierService.record(p, order.activeTotal(), 0, 0, Payment.CASH, null, waiter, null);
+        // Hóa đơn COD = tiền món + phí ship của đơn (phục vụ thu cả hai), giống đơn trả QR (mã gồm cả ship).
+        cashierService.record(p, order.activeTotal() + onlineOrderService.shippingFeeOf(delivery), 0, 0,
+                Payment.CASH, null, waiter, null);
         order.markPaid(p);
         orderRepository.save(order);
         return onlineOrderService.toView(order, delivery, paymentMethod(order), null);

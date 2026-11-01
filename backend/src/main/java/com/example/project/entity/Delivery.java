@@ -53,6 +53,14 @@ public class Delivery {
     @Column(name = "failure_reason", length = 500)
     private String failureReason;
 
+    /**
+     * Phí ship của đơn này (VND), chốt lúc tạo đơn theo cài đặt delivery.shipping_fee nên đổi cài đặt sau đó
+     * không làm đổi tiền của đơn cũ. Trả QR: đã gồm trong mã QR; trả khi nhận hàng: phục vụ thu cùng tiền món.
+     * NULL = đơn tạo trước khi có cột này (khi đó dùng phí ship hiện tại để hiển thị).
+     */
+    @Column(name = "shipping_fee")
+    private Long shippingFee;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -161,6 +169,14 @@ public class Delivery {
 
     public void setFailureReason(String failureReason) {
         this.failureReason = failureReason;
+    }
+
+    public Long getShippingFee() {
+        return shippingFee;
+    }
+
+    public void setShippingFee(Long shippingFee) {
+        this.shippingFee = shippingFee;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -201,9 +201,15 @@ public class RefundService {
         }
 
         Payment refund = newRefund(o, plan.amount(), Payment.BANK_TRANSFER, cashier,
-                "Hủy cả đơn: " + itemsText + ". Lý do: " + why + "." + pointsText(plan));
+                "Hủy cả đơn: " + itemsText + shippingText(delivery) + ". Lý do: " + why + "." + pointsText(plan));
         applyLoyalty(original, plan, refund.getPaymentCode());
         return toView(refund);
+    }
+
+    /** ", phí ship 25.000đ" khi phí ship đã gồm trong tiền khách trả (đơn có phí ship đã chốt). */
+    private static String shippingText(Delivery d) {
+        return d != null && d.getShippingFee() != null && d.getShippingFee() > 0
+                ? ", phí ship " + money(d.getShippingFee()) : "";
     }
 
     /**
@@ -228,7 +234,9 @@ public class RefundService {
         if (why == null) why = o.getCancelReason() == null ? "Đơn đã hủy" : o.getCancelReason();
         why = limit(why, 300);
         Payment refund = newRefund(o, plan.amount(), Payment.BANK_TRANSFER, cashier,
-                "Hủy cả đơn: " + itemsText(o.getItems()) + ". Lý do: " + why + "." + pointsText(plan));
+                "Hủy cả đơn: " + itemsText(o.getItems())
+                        + shippingText(deliveryRepository.findByOrder_Id(o.getId()).orElse(null))
+                        + ". Lý do: " + why + "." + pointsText(plan));
         applyLoyalty(original, plan, refund.getPaymentCode());
         return toView(refund);
     }
