@@ -9,12 +9,24 @@ import { setCurrentOrderCode } from '../../utils/onlineOrderCode'
 
 const PHONE_REGEX = /^0\d{9}$/
 
+// Nhớ thông tin khách đã nhập trong tab này: sang trang QR rồi bấm "Quay lại" không phải nhập lại.
+const SAVED_KEY = 'online_checkout_form'
+const EMPTY_FORM = { name: '', phone: '', address: '', note: '' }
+
+function loadSaved() {
+  try {
+    return JSON.parse(sessionStorage.getItem(SAVED_KEY)) || {}
+  } catch {
+    return {}
+  }
+}
+
 export default function OnlineCheckout() {
   const navigate = useNavigate()
   const { cart, totalCount, totalPrice, clearCart } = useOnline()
 
-  const [paymentMethod, setPaymentMethod] = useState('CASH')
-  const [form, setForm] = useState({ name: '', phone: '', address: '', note: '' })
+  const [paymentMethod, setPaymentMethod] = useState(() => loadSaved().paymentMethod || 'CASH')
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...loadSaved().form }))
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [shippingFee, setShippingFee] = useState(0)
@@ -25,6 +37,11 @@ export default function OnlineCheckout() {
       .then((res) => setShippingFee(res.data?.shippingFee || 0))
       .catch(() => setShippingFee(0))
   }, [])
+
+  // Mỗi lần khách gõ / đổi cách thanh toán thì lưu lại
+  useEffect(() => {
+    sessionStorage.setItem(SAVED_KEY, JSON.stringify({ form, paymentMethod }))
+  }, [form, paymentMethod])
 
   // Giỏ trống thì quay về thực đơn
   if (cart.length === 0) {
@@ -73,6 +90,7 @@ export default function OnlineCheckout() {
       if (code) setCurrentOrderCode(code)
       navigate('/online-order/orders', { state: code ? { newOrderCode: code } : undefined })
       if (clearCart) clearCart()
+      sessionStorage.removeItem(SAVED_KEY) // đặt xong thì xóa, đơn sau nhập mới
     } catch (err) {
       setError(errorMessage(err, 'Đặt hàng chưa thành công, vui lòng thử lại.'))
     } finally {
