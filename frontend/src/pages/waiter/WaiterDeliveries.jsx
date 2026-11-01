@@ -59,13 +59,6 @@ export default function WaiterDeliveries() {
   const handlePickUp = (o) =>
     runStep(o, () => waiterDeliveryApi.pickUp(o.orderId), `Đã nhận đơn ${o.orderNumber}, bắt đầu đi giao.`)
 
-  /** UC-W10: đơn COD, khách đưa đủ tiền (tiền món + phí ship) thì phục vụ xác nhận đã thu. */
-  const handleConfirmCod = (o) => {
-    const amount = formatMoney(o.amountToCollect ?? o.totalAmount + (o.shippingFee || 0))
-    if (!window.confirm(`Xác nhận đã thu đủ ${amount} tiền mặt của khách cho đơn ${o.orderNumber}?`)) return
-    runStep(o, () => waiterDeliveryApi.confirmCod(o.orderId), `Đã ghi nhận thu tiền COD đơn ${o.orderNumber}. Bấm Đã giao khi giao xong.`)
-  }
-
   const handleDeliver = (o) => {
     if (!window.confirm(`Xác nhận đã giao đơn ${o.orderNumber} cho khách?`)) return
     runStep(o, () => waiterDeliveryApi.deliver(o.orderId), `Đơn ${o.orderNumber} đã giao xong.`)
@@ -109,8 +102,6 @@ export default function WaiterDeliveries() {
           {orders.map((o) => {
             const badge = stepBadge(o)
             const isPaid = o.paymentStatus === 'PAID'
-            // COD đã thu: phục vụ đã nhận cả tiền món lẫn phí ship nên không còn gì phải thu.
-            const codCollected = isPaid && o.paymentMethod === 'CASH'
             // Tiền còn phải thu do backend tính (đơn trả QR đã gồm ship -> 0).
             const toCollect = o.amountToCollect ?? 0
             const busy = processingId === o.orderId
@@ -163,7 +154,7 @@ export default function WaiterDeliveries() {
                         className={`badge ${isPaid ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'} border`}
                         style={{ fontSize: '0.72rem' }}
                       >
-                        {codCollected ? 'Đã thu tiền COD' : isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                        {isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
                       </span>
                       <div className="text-end">
                         <div className="small text-muted">Cần thu khi giao</div>
@@ -188,28 +179,17 @@ export default function WaiterDeliveries() {
                       </div>
                     )}
 
-                    {/* Đang giao: đơn COD thu tiền trước (UC-W10), khách nhận hàng xong thì bấm Đã giao */}
+                    {/* Đang giao: khách nhận hàng xong thì bấm Đã giao */}
                     {isOut(o) && (
                       <div className="pt-2 mt-2 border-top">
-                        {!isPaid && (
-                          <button
-                            type="button"
-                            className="btn btn-warning btn-sm w-100 mb-2"
-                            disabled={busy}
-                            onClick={() => handleConfirmCod(o)}
-                          >
-                            {busy ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-cash-coin me-1" />}
-                            Đã thu tiền COD
-                          </button>
-                        )}
                         <button
                           type="button"
                           className="btn btn-success btn-sm w-100"
-                          disabled={busy || !isPaid}
+                          disabled={busy}
                           onClick={() => handleDeliver(o)}
                         >
                           {busy ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-check2-circle me-1" />}
-                          {isPaid ? 'Đã giao' : 'Thu tiền COD trước khi giao'}
+                          Đã giao
                         </button>
                         <button
                           type="button"
