@@ -9,6 +9,17 @@ import { setCurrentOrderCode } from '../../utils/onlineOrderCode'
 
 const PHONE_REGEX = /^0\d{9}$/
 
+/**
+ * Đưa số khách nhập về dạng 0xxxxxxxxx để lưu thống nhất.
+ * Chấp nhận: 0987654321, 0987 654 321, 0987.654.321, +84987654321, 84987654321.
+ */
+function normalizePhone(raw) {
+  const digits = raw.replace(/[\s.\-()]/g, '')
+  if (digits.startsWith('+84')) return '0' + digits.slice(3)
+  if (digits.startsWith('84') && digits.length === 11) return '0' + digits.slice(2)
+  return digits
+}
+
 // Nhớ thông tin khách đã nhập trong tab này: sang trang QR rồi bấm "Quay lại" không phải nhập lại.
 const SAVED_KEY = 'online_checkout_form'
 const EMPTY_FORM = { name: '', phone: '', address: '', note: '' }
@@ -53,7 +64,8 @@ export default function OnlineCheckout() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) return setError('Vui lòng nhập họ và tên.')
-    if (!PHONE_REGEX.test(form.phone.trim())) return setError('Số điện thoại phải gồm 10 số, bắt đầu bằng 0.')
+    const phone = normalizePhone(form.phone)
+    if (!PHONE_REGEX.test(phone)) return setError('Số điện thoại không hợp lệ. Ví dụ: 0987654321 hoặc +84987654321.')
     if (!form.address.trim()) return setError('Vui lòng nhập địa chỉ giao hàng.')
     setError('')
     if (paymentMethod === 'PAYOS_QR') {
@@ -61,7 +73,7 @@ export default function OnlineCheckout() {
       navigate('/online-pay', {
         state: {
           customerName: form.name.trim(),
-          customerPhone: form.phone.trim(),
+          customerPhone: phone,
           deliveryAddress: form.address.trim(),
           note: form.note.trim(),
           items: cart,
@@ -75,7 +87,7 @@ export default function OnlineCheckout() {
       // Chuẩn bị dữ liệu gửi lên backend
       const payload = {
         customerName: form.name.trim(),
-        customerPhone: form.phone.trim(),
+        customerPhone: phone,
         deliveryAddress: form.address.trim(),
         note: form.note.trim() || null,
         paymentMethod,
@@ -122,8 +134,7 @@ export default function OnlineCheckout() {
               placeholder="Số điện thoại nhận hàng *"
               value={form.phone}
               onChange={change('phone')}
-              maxLength={10}
-              inputMode="numeric"
+              maxLength={16}
             />
           </div>
 
