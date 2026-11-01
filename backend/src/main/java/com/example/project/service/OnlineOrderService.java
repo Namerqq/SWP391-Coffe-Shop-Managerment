@@ -20,8 +20,8 @@ import java.util.List;
  * Service xử lý đơn hàng online (UC-CU05 Place Online Order).
  * Quy tắc:
  * 1. Giá được tính lại 100% ở server qua OrderSupportService (chống sửa giá từ client).
- * 2. COD: Đơn ở trạng thái CONFIRMED (gửi thẳng cho Barista pha chế luôn).
- * 3. QR: Đơn ở trạng thái PENDING (chờ khách quét mã thanh toán, sau khi thanh toán mới gửi Barista).
+ * 2. COD: đơn tạo ở trạng thái PENDING_CONFIRMATION, thu ngân xác nhận (CONFIRMED) thì mới xuống Barista.
+ * 3. QR: đơn chỉ được tạo sau khi khách trả xong (QrPaymentService), vào thẳng CONFIRMED.
  * 4. Tạo kèm bản ghi trong bảng deliveries (địa chỉ giao, trạng thái PENDING_ASSIGNMENT).
  */
 @Service
@@ -76,7 +76,6 @@ public class OnlineOrderService {
 
         // 3. Đơn mới tạo online luôn bắt đầu ở trạng thái PENDING_CONFIRMATION (Bước 1: "Đã nhận đơn")
         // Ở bước này khách được phép hủy đơn trước khi quán duyệt/xác nhận
-        boolean isQr = "PAYOS_QR".equalsIgnoreCase(req.paymentMethodOrDefault());
         order.setStatus(Order.PENDING);
         order.setPaymentStatus(Order.UNPAID);
 
@@ -89,7 +88,7 @@ public class OnlineOrderService {
         delivery.setDeliveryStatus(Delivery.STATUS_PENDING_ASSIGNMENT);
         Delivery savedDelivery = deliveryRepository.save(delivery);
 
-        return toView(savedOrder, savedDelivery, isQr ? "PAYOS_QR" : "CASH", null);
+        return toView(savedOrder, savedDelivery, "CASH", null);
     }
 
     /**
@@ -100,8 +99,7 @@ public class OnlineOrderService {
     public OnlineOrderView getOrderByCode(String code) {
         Order order = findOnlineByCode(code);
         Delivery delivery = deliveryRepository.findByOrder_Id(order.getId()).orElse(null);
-        String paymentMethod = Order.PENDING.equals(order.getStatus()) ? "PAYOS_QR" : "CASH";
-        return toPublicView(toView(order, delivery, paymentMethod, null));
+        return toPublicView(toView(order, delivery, paymentMethodOf(order), null));
     }
 
     private Order findOnlineByCode(String code) {
@@ -177,9 +175,22 @@ public class OnlineOrderService {
                 : orderRepository.searchByFulfillmentType(Order.DELIVERY, from, to, c);
         return orders.stream().map(o -> {
             Delivery d = deliveryRepository.findByOrder_Id(o.getId()).orElse(null);
-            String pm = o.getPayment() != null ? o.getPayment().getPaymentMethod() : (Order.PENDING.equals(o.getStatus()) ? "PAYOS_QR" : "CASH");
-            return toView(o, d, pm, null);
+            return toView(o, d, paymentMethodOf(o), null);
         }).toList();
+    }
+
+    /**
+     * Cách trả tiền của đơn: đã có thanh toán thì lấy theo thanh toán (vd QR đã trả),
+     * chưa có thì là tiền mặt khi nhận hàng (COD). Đơn QR chỉ được tạo sau khi trả xong nên luôn có thanh toán.
+     */
+    static long itemsTotal(Order order) {
+        // Đơn đã hủy: mọi món đều bị hủy nên activeTotal() = 0. Vẫn hiện tiền món gốc để khớp với các dòng món.
+        if (!order.isCancelled()) return order.activeTotal();
+        return order.getItems().stream().mapToLong(i -> i.getSubtotal() == null ? 0 : i.getSubtotal()).sum();
+    }
+
+    static String paymentMethodOf(Order order) {
+        return order.getPayment() != null ? order.getPayment().getPaymentMethod() : "CASH";
     }
 
     /** Mã đơn để tìm: bỏ khoảng trắng và dấu #; rỗng = không lọc. Chỉ nhận số và dấu gạch. */
@@ -206,8 +217,7 @@ public class OnlineOrderService {
         orderRepository.save(order);
 
         Delivery delivery = deliveryRepository.findByOrder_Id(order.getId()).orElse(null);
-        String pm = order.getPayment() != null ? order.getPayment().getPaymentMethod() : "CASH";
-        return toView(order, delivery, pm, null);
+        return toView(order, delivery, paymentMethodOf(order), null);
     }
 
     /**
@@ -231,8 +241,7 @@ public class OnlineOrderService {
             deliveryRepository.save(delivery);
         }
 
-        String pm = order.getPayment() != null ? order.getPayment().getPaymentMethod() : "CASH";
-        return toView(order, delivery, pm, null);
+        return toView(order, delivery, paymentMethodOf(order), null);
     }
 
     /** Đọc đơn kèm khóa dòng (SELECT ... FOR UPDATE): thao tác cùng lúc trên 1 đơn phải chờ nhau. */
@@ -327,7 +336,7 @@ public class OnlineOrderService {
                 order.getCancelReason(),
                 paymentMethod,
                 order.getPaymentStatus(),
-                order.activeTotal(),
+                itemsTotal(order),
                 order.getCreatedAt(),
                 order.getItems().stream().map(orderSupport::toItemView).toList(),
                 qrUrl,
