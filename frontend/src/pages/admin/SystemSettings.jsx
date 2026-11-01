@@ -21,6 +21,9 @@ const HOME_SECTIONS = {
   services: 'Dịch vụ', service1: 'Dịch vụ 1', service2: 'Dịch vụ 2', service3: 'Dịch vụ 3',
   store: 'Địa chỉ quán', contact: 'Liên hệ hỗ trợ',
 }
+// Cài đặt còn trong database nhưng hệ thống chưa dùng tới: ẩn khỏi trang để Admin không sửa nhầm.
+const HIDDEN_KEYS = ['inventory.default_min_stock']
+
 const homeSection = (s) => (s?.groupName === 'HOME' ? s.key.split('.')[1] : null)
 
 /** Ô chọn ảnh: tải ảnh lên server rồi gán đường dẫn vào cấu hình (bấm Lưu thay đổi để áp dụng). */
@@ -80,7 +83,8 @@ export default function SystemSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const apply = (list) => {
+  const apply = (all) => {
+    const list = all.filter((s) => !HIDDEN_KEYS.includes(s.key))
     setSettings(list)
     setValues(Object.fromEntries(list.map((s) => [s.key, s.value])))
   }
