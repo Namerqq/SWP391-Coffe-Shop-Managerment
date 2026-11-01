@@ -162,7 +162,7 @@ export default function ShipAssignModal({ orderId, onClose, onChanged }) {
             <div className="small text-muted">
               {order.status === 'PENDING_CONFIRMATION'
                 ? 'Xác nhận đơn trước rồi mới gán người giao.'
-                : 'Đơn này không còn gán / đổi người giao được.'}
+                : ''}
             </div>
           )}
         </>

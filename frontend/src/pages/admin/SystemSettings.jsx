@@ -21,6 +21,12 @@ const HOME_SECTIONS = {
   services: 'Dịch vụ', service1: 'Dịch vụ 1', service2: 'Dịch vụ 2', service3: 'Dịch vụ 3',
   store: 'Địa chỉ quán', contact: 'Liên hệ hỗ trợ',
 }
+// Cài đặt còn trong database nhưng hệ thống chưa dùng tới: ẩn khỏi trang để Admin không sửa nhầm.
+const HIDDEN_KEYS = ['inventory.default_min_stock', 'shop.email', 'shop.open_time', 'shop.close_time']
+
+// Mô tả trong database ghi chưa đúng chỗ dùng thật -> hiện mô tả đúng.
+const DESCRIPTION_FIX = { 'shop.name': 'In trên hóa đơn.' }
+
 const homeSection = (s) => (s?.groupName === 'HOME' ? s.key.split('.')[1] : null)
 
 /** Ô chọn ảnh: tải ảnh lên server rồi gán đường dẫn vào cấu hình (bấm Lưu thay đổi để áp dụng). */
@@ -80,7 +86,8 @@ export default function SystemSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const apply = (list) => {
+  const apply = (all) => {
+    const list = all.filter((s) => !HIDDEN_KEYS.includes(s.key))
     setSettings(list)
     setValues(Object.fromEntries(list.map((s) => [s.key, s.value])))
   }
@@ -205,7 +212,7 @@ export default function SystemSettings() {
                       {s.label}
                       {s.key in changed && <span className="cf-badge badge-role ms-2" style={{ fontSize: '0.7rem' }}>Đã sửa</span>}
                     </label>
-                    {s.description && <div className="form-text mt-1">{s.description}</div>}
+                    {(DESCRIPTION_FIX[s.key] || s.description) && <div className="form-text mt-1">{DESCRIPTION_FIX[s.key] || s.description}</div>}
                     {s.updatedBy && (
                       <div className="form-text mt-1" style={{ fontSize: '0.75rem' }}>
                         Cập nhật bởi {s.updatedBy} · {formatDateTime(s.updatedAt)}

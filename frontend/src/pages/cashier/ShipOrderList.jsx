@@ -278,6 +278,18 @@ export default function ShipOrderList() {
             const isPending = o.status === 'PENDING_CONFIRMATION' || o.status === 'PENDING'
             const isProcessing = processingId === o.orderId
             const isPaid = o.paymentStatus === 'PAID'
+            // Giao xong: phục vụ đã thu tiền của khách. Đơn hủy / giao lỗi: không thu gì.
+            const isDelivered = o.deliveryStatus === 'DELIVERED'
+            const isCancelled = o.status === 'CANCELLED'
+            const moneyBadge = isPaid
+              ? { text: 'Đã thanh toán', paid: true }
+              : isDelivered
+                ? { text: 'Đã thu khi giao', paid: true }
+                : isCancelled
+                  ? { text: 'Không thu', paid: false }
+                  : { text: 'Chưa thanh toán', paid: false }
+            const moneyLabel = isDelivered ? 'Đã thu khi giao' : isCancelled ? 'Không cần thu' : 'Cần thu khi giao'
+            const moneyAmount = isCancelled ? 0 : (isPaid ? 0 : o.totalAmount) + (o.shippingFee || 0)
             const PAYMENT_METHOD_LABEL = {
               CASH: 'Tiền mặt (COD)',
               BANK_TRANSFER: 'Chuyển khoản QR',
@@ -375,20 +387,20 @@ export default function ShipOrderList() {
                       <div>
                         <div className="small text-muted">{paymentMethodText}</div>
                         <span
-                          className={`badge ${isPaid ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'
+                          className={`badge ${moneyBadge.paid ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'
                             } border`}
                           style={{ fontSize: '0.72rem' }}
                         >
-                          {isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                          {moneyBadge.text}
                         </span>
                       </div>
                       <div className="text-end">
                         <div className="small text-muted">
                           Tiền món {formatMoney(o.totalAmount)} + ship {formatMoney(o.shippingFee || 0)}
                         </div>
-                        <div className="small text-muted">Cần thu khi giao</div>
+                        <div className="small text-muted">{moneyLabel}</div>
                         <span className="fw-bold text-primary fs-6">
-                          {formatMoney(o.amountToCollect ?? 0)}
+                          {formatMoney(moneyAmount)}
                         </span>
                       </div>
                     </div>
