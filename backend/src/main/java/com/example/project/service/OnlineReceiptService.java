@@ -5,6 +5,7 @@ import com.example.project.dto.refund.RefundView;
 import com.example.project.entity.Order;
 import com.example.project.entity.Payment;
 import com.example.project.exception.ApiException;
+import com.example.project.repository.DeliveryRepository;
 import com.example.project.repository.OnlineReceiptRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,13 +24,16 @@ public class OnlineReceiptService {
     private final OrderSupportService support;
     private final SystemSettingService settings;
     private final RefundService refundService;
+    private final DeliveryRepository deliveryRepository;
 
     public OnlineReceiptService(OnlineReceiptRepository receiptRepository, OrderSupportService support,
-                                SystemSettingService settings, RefundService refundService) {
+                                SystemSettingService settings, RefundService refundService,
+                                DeliveryRepository deliveryRepository) {
         this.receiptRepository = receiptRepository;
         this.support = support;
         this.settings = settings;
         this.refundService = refundService;
+        this.deliveryRepository = deliveryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -51,6 +55,8 @@ public class OnlineReceiptService {
         // Đơn online hoàn tiền là hủy cả đơn (mọi món bị hủy sau khi trả tiền): tạm tính lấy theo mọi món của đơn.
         long subtotal = refunds.isEmpty() ? o.activeTotal()
                 : o.getItems().stream().mapToLong(i -> i.getSubtotal() == null ? 0 : i.getSubtotal()).sum();
+        long shipping = OnlineOrderService.shippingPaid(deliveryRepository.findByOrder_Id(o.getId()).orElse(null),
+                total, o.activeTotal(), !refunds.isEmpty());
         long refunded = 0;
         long pending = 0;
         LocalDateTime refundedAt = null;
@@ -68,6 +74,6 @@ public class OnlineReceiptService {
                 settings.get("shop.phone", ""),
                 o.getOrderNumber(), pay.getPaymentCode(), pay.getPaidAt(), pay.getPaymentMethod(), o.getCustomerName(),
                 o.getItems().stream().map(support::toItemView).toList(),
-                subtotal, Math.max(0, subtotal - total), total, refunded, pending, refundedAt);
+                subtotal, Math.max(0, subtotal + shipping - total), total, refunded, pending, refundedAt, shipping);
     }
 }

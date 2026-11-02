@@ -124,8 +124,8 @@ export default function ShipAssignModal({ orderId, onClose, onChanged }) {
             <div className="d-flex justify-content-between small border-top pt-1 mt-1">
               <span>Tiền món {formatMoney(order.totalAmount)} + ship {formatMoney(order.shippingFee || 0)}</span>
               <span>
-                {isPaid ? 'Đã trả tiền món · ' : ''}Cần thu khi giao:{' '}
-                <strong>{formatMoney((isPaid ? 0 : order.totalAmount) + (order.shippingFee || 0))}</strong>
+                {isPaid ? 'Đã thanh toán · ' : ''}Cần thu khi giao:{' '}
+                <strong>{formatMoney(order.amountToCollect ?? 0)}</strong>
               </span>
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function ShipAssignModal({ orderId, onClose, onChanged }) {
             <div className="small text-muted">
               {order.status === 'PENDING_CONFIRMATION'
                 ? 'Xác nhận đơn trước rồi mới gán người giao.'
-                : 'Đơn này không còn gán / đổi người giao được.'}
+                : ''}
             </div>
           )}
         </>

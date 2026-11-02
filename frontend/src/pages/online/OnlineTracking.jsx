@@ -22,6 +22,19 @@ function getStepIndex(order) {
   return 0
 }
 
+/**
+ * Tổng tiền = tiền món + phí ship.
+ * Đơn đã hủy: backend trả totalAmount = 0 (các món đều bị hủy), nên cộng lại từ danh sách món
+ * để tổng khớp với các dòng đang hiện.
+ */
+function orderTotal(order) {
+  const isCancelled = order.status === 'CANCELLED'
+  const itemsTotal = isCancelled
+    ? (order.items || []).reduce((sum, i) => sum + (i.subtotal || i.unitPrice * i.quantity), 0)
+    : order.totalAmount
+  return itemsTotal + (order.shippingFee || 0)
+}
+
 /** Nhãn và màu badge theo từng trạng thái */
 function getStatusBadge(order, currentStep) {
   if (order.deliveryStatus === 'FAILED') {
@@ -285,10 +298,16 @@ export default function OnlineTracking() {
         </div>
         <footer>
           <span>Tổng tiền:</span>
-          <span className="gx-price fs-5">{formatMoney(order.totalAmount + (order.shippingFee || 0))}</span>
+          <span className="gx-price fs-5">{formatMoney(orderTotal(order))}</span>
         </footer>
-        {order.paymentStatus === 'PAID' && order.shippingFee > 0 && (
-          <div className="gx-muted small">Đã trả tiền món. Phí ship trả tiền mặt khi nhận hàng.</div>
+        {/* amountToCollect do backend tính: đơn trả QR gồm cả ship thì 0; đơn trả QR cũ (chỉ tiền món) thì còn ship. */}
+        {order.paymentStatus === 'PAID' && order.amountToCollect > 0 && (
+          <div className="gx-muted small">
+            Đã trả tiền món. Còn {formatMoney(order.amountToCollect)} phí ship trả tiền mặt khi nhận hàng.
+          </div>
+        )}
+        {order.paymentStatus === 'PAID' && !order.amountToCollect && order.status !== 'CANCELLED' && (
+          <div className="gx-muted small">Đã thanh toán đủ, khi nhận hàng không phải trả thêm.</div>
         )}
 
         <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top gap-2">

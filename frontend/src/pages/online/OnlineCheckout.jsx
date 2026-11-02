@@ -9,12 +9,35 @@ import { setCurrentOrderCode } from '../../utils/onlineOrderCode'
 
 const PHONE_REGEX = /^0\d{9}$/
 
+/**
+ * Đưa số khách nhập về dạng 0xxxxxxxxx để lưu thống nhất.
+ * Chấp nhận: 0987654321, 0987 654 321, 0987.654.321, +84987654321, 84987654321.
+ */
+function normalizePhone(raw) {
+  const digits = raw.replace(/[\s.\-()]/g, '')
+  if (digits.startsWith('+84')) return '0' + digits.slice(3)
+  if (digits.startsWith('84') && digits.length === 11) return '0' + digits.slice(2)
+  return digits
+}
+
+// Nhớ thông tin khách đã nhập trong tab này: sang trang QR rồi bấm "Quay lại" không phải nhập lại.
+const SAVED_KEY = 'online_checkout_form'
+const EMPTY_FORM = { name: '', phone: '', address: '', note: '' }
+
+function loadSaved() {
+  try {
+    return JSON.parse(sessionStorage.getItem(SAVED_KEY)) || {}
+  } catch {
+    return {}
+  }
+}
+
 export default function OnlineCheckout() {
   const navigate = useNavigate()
   const { cart, totalCount, totalPrice, clearCart } = useOnline()
 
-  const [paymentMethod, setPaymentMethod] = useState('CASH')
-  const [form, setForm] = useState({ name: '', phone: '', address: '', note: '' })
+  const [paymentMethod, setPaymentMethod] = useState(() => loadSaved().paymentMethod || 'CASH')
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...loadSaved().form }))
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [shippingFee, setShippingFee] = useState(0)
@@ -26,6 +49,11 @@ export default function OnlineCheckout() {
       .catch(() => setShippingFee(0))
   }, [])
 
+  // Mỗi lần khách gõ / đổi cách thanh toán thì lưu lại
+  useEffect(() => {
+    sessionStorage.setItem(SAVED_KEY, JSON.stringify({ form, paymentMethod }))
+  }, [form, paymentMethod])
+
   // Giỏ trống thì quay về thực đơn
   if (cart.length === 0) {
     return <Navigate to="/online-order" replace />
@@ -36,7 +64,8 @@ export default function OnlineCheckout() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) return setError('Vui lòng nhập họ và tên.')
-    if (!PHONE_REGEX.test(form.phone.trim())) return setError('Số điện thoại phải gồm 10 số, bắt đầu bằng 0.')
+    const phone = normalizePhone(form.phone)
+    if (!PHONE_REGEX.test(phone)) return setError('Số điện thoại không hợp lệ. Ví dụ: 0987654321 hoặc +84987654321.')
     if (!form.address.trim()) return setError('Vui lòng nhập địa chỉ giao hàng.')
     setError('')
     if (paymentMethod === 'PAYOS_QR') {
@@ -44,7 +73,7 @@ export default function OnlineCheckout() {
       navigate('/online-pay', {
         state: {
           customerName: form.name.trim(),
-          customerPhone: form.phone.trim(),
+          customerPhone: phone,
           deliveryAddress: form.address.trim(),
           note: form.note.trim(),
           items: cart,
@@ -58,7 +87,7 @@ export default function OnlineCheckout() {
       // Chuẩn bị dữ liệu gửi lên backend
       const payload = {
         customerName: form.name.trim(),
-        customerPhone: form.phone.trim(),
+        customerPhone: phone,
         deliveryAddress: form.address.trim(),
         note: form.note.trim() || null,
         paymentMethod,
@@ -73,6 +102,7 @@ export default function OnlineCheckout() {
       if (code) setCurrentOrderCode(code)
       navigate('/online-order/orders', { state: code ? { newOrderCode: code } : undefined })
       if (clearCart) clearCart()
+      sessionStorage.removeItem(SAVED_KEY) // đặt xong thì xóa, đơn sau nhập mới
     } catch (err) {
       setError(errorMessage(err, 'Đặt hàng chưa thành công, vui lòng thử lại.'))
     } finally {
@@ -104,8 +134,7 @@ export default function OnlineCheckout() {
               placeholder="Số điện thoại nhận hàng *"
               value={form.phone}
               onChange={change('phone')}
-              maxLength={10}
-              inputMode="numeric"
+              maxLength={16}
             />
           </div>
 
@@ -190,7 +219,7 @@ export default function OnlineCheckout() {
           </div>
           {paymentMethod === 'PAYOS_QR' && shippingFee > 0 && (
             <div className="gx-muted small mt-1">
-              QR chỉ thanh toán tiền món. Phí ship {formatMoney(shippingFee)} trả tiền mặt cho nhân viên khi nhận hàng.
+              Mã QR thanh toán luôn cả tiền món và phí ship, khi nhận hàng không phải trả thêm.
             </div>
           )}
         </div>

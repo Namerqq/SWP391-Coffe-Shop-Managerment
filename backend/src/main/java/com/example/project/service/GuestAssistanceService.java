@@ -1,24 +1,17 @@
 package com.example.project.service;
 
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.example.project.dto.assistance.AssistanceView;
 import com.example.project.entity.CafeTable;
 import com.example.project.entity.User;
 import com.example.project.exception.ApiException;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.CafeTableRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.*;
 
 /** One latest call per table, in memory. Restarting the backend clears all calls. */
 @Service

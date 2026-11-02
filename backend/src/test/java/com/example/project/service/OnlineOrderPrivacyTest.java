@@ -64,6 +64,28 @@ class OnlineOrderPrivacyTest {
     }
 
     @Test
+    void pendingCodOrder_isShownAsCash_notQr() {
+        // Đơn COD vừa đặt: còn chờ duyệt, chưa có thanh toán -> phải là tiền mặt (trước đây bị đoán là QR)
+        assertEquals(Order.PENDING, order.getStatus());
+        assertEquals("CASH", service.getOrderByCode("261026-0008").paymentMethod());
+        when(orderRepository.findByFulfillmentTypeOrderByCreatedAtDesc(Order.DELIVERY)).thenReturn(java.util.List.of(order));
+        assertEquals("CASH", service.listDeliveryOrders(null, null, null).get(0).paymentMethod());
+    }
+
+    @Test
+    void cancelledOrder_keepsOriginalItemsTotal() {
+        // 1 món 32.000đ; sau khi hủy, món bị đánh dấu hủy nhưng tiền món hiển thị vẫn là 32.000đ (trước đây ra 0đ)
+        com.example.project.entity.OrderItem item = new com.example.project.entity.OrderItem();
+        ReflectionTestUtils.setField(item, "subtotal", 32_000L);
+        ReflectionTestUtils.setField(item, "itemStatus", com.example.project.entity.OrderItem.PENDING);
+        order.getItems().add(item);
+        assertEquals(32_000, service.getOrderByCode("261026-0008").totalAmount());
+        OnlineOrderView v = service.cancelOrder("261026-0008", "Đặt nhầm");
+        assertEquals(com.example.project.entity.OrderItem.CANCELLED, item.getItemStatus());
+        assertEquals(32_000, v.totalAmount());
+    }
+
+    @Test
     void cancel_stillHidesInfo() {
         OnlineOrderView v = service.cancelOrder("261026-0008", "Đặt nhầm");
         assertEquals(Order.CANCELLED, order.getStatus());

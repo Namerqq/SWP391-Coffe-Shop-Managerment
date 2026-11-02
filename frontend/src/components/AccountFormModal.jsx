@@ -54,6 +54,7 @@ export default function AccountFormModal({ show, account, roles, onClose, onSave
       const res = isEdit
         ? await adminApi.updateUser(account.id, {
           fullName: form.fullName, username: form.username, email: form.email, newPassword: form.password,
+          confirmPassword: form.confirmPassword,
         })
         : await adminApi.createUser({ ...form, roleId: Number(form.roleId) })
       onSaved(res.data)

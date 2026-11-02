@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import onlinePaymentApi from '../../api/onlinePaymentApi'
+import onlineOrderApi from '../../api/onlineOrderApi'
 import { errorMessage } from '../../api/axiosClient'
 import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import { toItemRequest, unitTotal } from '../../utils/orderOptions'
@@ -11,6 +12,8 @@ import { toItemRequest, unitTotal } from '../../utils/orderOptions'
  *   { customerName, customerPhone, deliveryAddress, note, items }   (items = các dòng trong giỏ online)
  * Khách xem lại đơn, tổng tiền rồi tạo mã QR. Khách online không tích điểm và không dùng điểm.
  * Đơn CHƯA được tạo ở đây: khách trả xong hệ thống mới tạo đơn.
+ * Mã QR gồm tiền món + phí ship (backend cộng phí ship theo cài đặt delivery.shipping_fee), nên trang này
+ * hiện cùng con số đó: lấy phí ship từ backend như trang đặt hàng.
  */
 export default function OnlinePayment() {
   const navigate = useNavigate()
@@ -18,9 +21,17 @@ export default function OnlinePayment() {
   const items = useMemo(() => order?.items || [], [order])
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [shippingFee, setShippingFee] = useState(null) // null = đang tải
+
+  useEffect(() => {
+    onlineOrderApi.getShippingFee()
+      .then((res) => setShippingFee(res.data?.shippingFee || 0))
+      .catch(() => setShippingFee(0))
+  }, [])
 
   const total = useMemo(() => items.reduce((s, l) => s + unitTotal(l) * l.quantity, 0), [items])
   const itemCount = items.reduce((s, l) => s + l.quantity, 0)
+  const grandTotal = total + (shippingFee || 0)
 
   if (!order || items.length === 0) {
     return (
@@ -74,8 +85,15 @@ export default function OnlinePayment() {
       </section>
 
       <div className="gx-summary">
-        <div><span>Cần thanh toán</span><strong>{formatMoney(total)}</strong></div>
-        <p>Thanh toán bằng chuyển khoản QR. Đơn được tạo và gửi pha chế ngay khi quán nhận được tiền.</p>
+        <div className="d-flex justify-content-between gx-muted"><span>Tiền món</span><span>{formatMoney(total)}</span></div>
+        <div className="d-flex justify-content-between gx-muted mb-1">
+          <span>Phí ship</span><span>{shippingFee === null ? '…' : formatMoney(shippingFee)}</span>
+        </div>
+        <div><span>Cần thanh toán</span><strong>{formatMoney(grandTotal)}</strong></div>
+        <p>
+          Thanh toán bằng chuyển khoản QR, gồm cả tiền món và phí ship, khi nhận hàng không phải trả thêm.
+          Đơn được tạo và gửi pha chế ngay khi quán nhận được tiền.
+        </p>
       </div>
 
       {error && (
@@ -87,8 +105,9 @@ export default function OnlinePayment() {
 
       <div className="gx-actions">
         <Link to="/online-order/checkout" className="btn btn-light-soft">Quay lại</Link>
-        <button type="button" className="btn btn-primary flex-grow-1 py-2" disabled={submitting} onClick={submit}>
-          {submitting ? 'Đang tạo mã QR…' : `Tạo mã QR thanh toán ${formatMoney(total)}`}
+        <button type="button" className="btn btn-primary flex-grow-1 py-2" disabled={submitting || shippingFee === null}
+                onClick={submit}>
+          {submitting ? 'Đang tạo mã QR…' : `Tạo mã QR thanh toán ${formatMoney(grandTotal)}`}
         </button>
       </div>
     </>

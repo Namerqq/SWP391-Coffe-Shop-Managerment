@@ -2,8 +2,8 @@
 
 ## Cài đặt
 
-1. Database đang chạy: chạy `database/V9__refund_note.sql` một lần (thêm cột `payments.note`). Cài mới từ FREEZE thì không cần.
-2. Backend dùng `ddl-auto=none`: chưa chạy V9 thì mọi chỗ đọc bảng `payments` sẽ lỗi thiếu cột.
+1. Cài mới: `database/cafe_management.sql` đã có cột `payments.note`. Database đang chạy: chạy đoạn V9 trong `database/README.md`.
+2. Backend dùng `ddl-auto=none`: thiếu cột `payments.note` thì mọi chỗ đọc bảng `payments` sẽ lỗi.
 3. Chạy test: `mvn test -Dtest=RefundServiceTest,CashierHistoryServiceTest,RevenueServiceTest`.
 
 ## Cách lưu (không thêm bảng)

@@ -130,6 +130,11 @@ export default function OnlineQrPayment() {
           <QRCodeSVG value={qr.qrCode} size={232} level="M" title={`Mã QR thanh toán ${formatMoney(qr.amount)}`} />
         </div>
         <div className="op-amount">{formatMoney(qr.amount)}</div>
+        {qr.shippingFee > 0 && (
+          <div className="gx-muted small text-center">
+            Gồm tiền món {formatMoney(qr.amount - qr.shippingFee)} và phí ship {formatMoney(qr.shippingFee)}
+          </div>
+        )}
         <dl className="op-facts">
           <div><dt>Nội dung chuyển khoản</dt><dd>{qr.description}</dd></div>
           <div><dt>Mã hết hạn sau</dt><dd aria-live="polite">{left > 0 ? mmss(left) : 'đang kiểm tra lần cuối'}</dd></div>
