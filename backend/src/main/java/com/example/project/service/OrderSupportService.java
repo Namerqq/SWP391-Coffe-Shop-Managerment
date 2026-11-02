@@ -263,7 +263,7 @@ public class OrderSupportService {
 //fix conflic
 
     /**
-     * Lượt khách xong khi mọi đơn chưa hủy đều ĐÃ THANH TOÁN -> đóng lượt (CLOSED),
+     * Lượt khách xong khi mọi đơn chưa hủy đều ĐÃ PHỤC VỤ và ĐÃ THANH TOÁN -> đóng lượt (CLOSED),
      * trả bàn về trống (GB-04). Gọi sau khi thu tiền, sau khi mang món ra và sau khi hủy đơn.
      * Đồng thời kết thúc phiên gọi món trên điện thoại khách của lượt này: khách sau không xem được đơn cũ.
      * Trả về true nếu vừa đóng.
@@ -273,7 +273,7 @@ public class OrderSupportService {
         List<Order> valid = orderRepository.findByTableSession_IdOrderByCreatedAtAsc(session.getId()).stream()
                 .filter(o -> !o.isCancelled())
                 .toList();
-        if (valid.isEmpty() || !valid.stream().allMatch(Order::isPaid)) return false;
+        if (valid.isEmpty() || !valid.stream().allMatch(Order::isSettled)) return false;
         session.setStatus(TableSession.CLOSED);
         session.setClosedAt(LocalDateTime.now());
         session.getTable().setStatus(CafeTable.AVAILABLE);
