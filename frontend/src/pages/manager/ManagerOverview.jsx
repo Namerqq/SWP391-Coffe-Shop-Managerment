@@ -287,7 +287,7 @@ export default function ManagerOverview() {
                 </h5>
                 <p className="text-muted small mb-0">Các phiếu báo thiếu nguyên liệu đang chờ Quản lý duyệt</p>
               </div>
-              <Link to="/manager/stock-receipts" className="btn btn-sm btn-light-soft">
+              <Link to="/manager/stock-receipts" className="btn btn-sm btn-light-soft text-nowrap flex-shrink-0">
                 Xem phiếu &rarr;
               </Link>
             </div>
@@ -315,7 +315,7 @@ export default function ManagerOverview() {
                         Bởi: <strong>{receipt.createdByName || 'Barista'}</strong> · Ngày: {receipt.receiptDate}
                       </div>
                       {receipt.note && (
-                        <div className="small text-secondary fst-italic mt-1 text-truncate" style={{ maxWidth: '240px' }}>
+                        <div className="small text-secondary fst-italic mt-1 text-truncate" style={{ maxWidth: '380px' }}>
                           {receipt.note}
                         </div>
                       )}

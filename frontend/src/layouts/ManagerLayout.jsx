@@ -67,7 +67,7 @@ export default function ManagerLayout() {
           </div>
         </header>
 
-        <main className="admin-content">
+        <main className="admin-content manager-content">
           <Outlet />
         </main>
       </div>
