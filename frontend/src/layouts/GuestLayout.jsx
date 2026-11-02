@@ -84,6 +84,11 @@ export default function GuestLayout() {
           response = await guestTableApi.getContext()
         }
         if (cancelled) return
+        // Máy còn token nhưng server không còn nhận (backend vừa khởi động lại): tự mở lại phiên, không bắt quét QR.
+        if (!qrCode && response.status === 204 && getGuestToken()) {
+          await expire({ config: response.config })
+          return
+        }
         const tableData = response.status === 204 ? null : response.data
         if (qrCode) {
           setGuestToken(tableData.token)
@@ -117,7 +122,7 @@ export default function GuestLayout() {
     if (!table || renewing.current) return
     try {
       const response = await guestTableApi.getContext()
-      if (response.status === 204) expire(null) // phiên hết hạn / backend khởi động lại
+      if (response.status === 204) expire({ config: response.config }) // phiên hết hạn / backend khởi động lại
     } catch (error) {
       if (error.response?.status === 410) expire(error)
     }
@@ -144,11 +149,12 @@ export default function GuestLayout() {
   }, [brand])
 
   /**
-   * Phiên không dùng được nữa (nhận lỗi 410 từ server, hoặc null khi phiên hết hạn).
-   * Lượt khách đã xong (mã GUEST_SESSION_ENDED): bàn đã được giải phóng -> ẩn đơn cũ, tự mở phiên mới cho đúng bàn
-   * vừa quét để khách gọi tiếp, không cần quét lại QR. GIỮ NGUYÊN giỏ đang chọn: lượt trước thường xong đúng lúc khách
-   * đang chọn thêm món (trả tiền trước, món mang ra sau), xóa giỏ lúc đó là mất món khách vừa chọn.
-   * Không mở được phiên mới (bàn tạm ngưng, mất mạng...) thì mới xóa giỏ và yêu cầu quét lại QR.
+   * Phiên không dùng được nữa (lỗi 410, hoặc server trả 204 vì không còn nhận token).
+   * Máy còn mã QR của bàn -> tự mở phiên mới, GIỮ NGUYÊN giỏ đang chọn, khách không cần quét lại:
+   *  - Lượt khách đã xong (mã GUEST_SESSION_ENDED): báo "Cảm ơn quý khách" 1 lần cho mỗi lượt.
+   *  - Phiên mất do hết hạn / backend khởi động lại: mở lại âm thầm.
+   * Không có mã QR, hoặc server từ chối mở bàn (bàn tạm ngưng, QR đổi...) -> mới yêu cầu quét lại.
+   * Mất mạng lúc mở lại -> giữ nguyên màn hình, lần hỏi server kế tiếp sẽ thử lại.
    *
    * Trả về Promise<boolean>: true = đã có phiên mới dùng được (trang Giỏ hàng dựa vào đó để gửi lại đơn).
    * options.keepCart = true: giữ giỏ đang chọn (khách vừa bấm Gửi đơn đúng lúc lượt trước kết thúc).
@@ -157,46 +163,46 @@ export default function GuestLayout() {
     const headers = error?.config?.headers
     const sentToken = headers?.get?.('X-Guest-Token') ?? headers?.['X-Guest-Token'] ?? null
     const current = getGuestToken()
-    // Phản hồi trễ của phiên cũ: trang đã chuyển sang phiên mới rồi -> không làm gì thêm.
-    if (sentToken && sentToken !== current) return Promise.resolve(!!current)
+    // Phản hồi trễ của phiên cũ (hoặc gửi đi trước khi có token): trang đã có phiên khác rồi -> không làm gì thêm.
+    if (current && sentToken !== current) return Promise.resolve(true)
     // Đang mở phiên mới (nhiều yêu cầu cùng nhận 410) -> chờ chung 1 lần mở.
     if (renewing.current) return renewing.current
 
     const ended = error?.response?.data?.code === SESSION_ENDED_CODE
     orderRequestKey.current = null
 
-    const savedQr = getGuestQr()
-    if (!ended || !savedQr) {
-      if (!options.keepCart) setCart([])
+    /** Không còn cách tự mở lại: xóa phiên, hiện lời cảm ơn hoặc thông báo lỗi. */
+    function giveUp(message) {
       if (ended) clearAllCarts()
+      if (ended || !options.keepCart) setCart([])
       setGuestToken(null)
       setTable(null)
       setSessionEnded(ended)
-      setTableError(ended ? '' : (error ? errorMessage(error) : 'Phiên gọi món đã hết hạn. Vui lòng quét lại mã QR trên bàn.'))
-      return Promise.resolve(false)
+      setTableError(ended ? '' : message)
+      return false
     }
 
-    // Lượt đã xong: mở phiên mới cho đúng bàn. "Cảm ơn quý khách" chỉ báo 1 lần cho mỗi lượt.
-    const firstTime = !wasEndedHandled(sentToken)
-    markEndedHandled(sentToken)
+    const savedQr = getGuestQr()
+    if (!savedQr) {
+      return Promise.resolve(giveUp(error?.response?.data?.message || 'Phiên gọi món đã hết hạn. Vui lòng quét lại mã QR trên bàn.'))
+    }
+
+    const firstTime = ended && !!sentToken && !wasEndedHandled(sentToken)
+    if (ended) markEndedHandled(sentToken)
     renewing.current = (async () => {
       try {
         // Gửi kèm token cũ (đã kết thúc) cũng được: server không dùng lại mà cấp token mới.
         const response = await guestTableApi.openTable(savedQr)
         setGuestToken(response.data.token)
         setTable(response.data)
+        setCart((currentCart) => (currentCart.length ? currentCart : loadCart(response.data.tableId)))
         setTableError('')
         setSessionEnded(false)
         if (firstTime) toast(`Cảm ơn quý khách! ${response.data.tableNumber} sẵn sàng, bạn có thể gọi món mới.`)
         return true
-      } catch {
-        // Không mở lại được: yêu cầu quét lại QR.
-        clearAllCarts()
-        setGuestToken(null)
-        setTable(null)
-        setCart([])
-        setSessionEnded(true)
-        return false
+      } catch (openError) {
+        if (!openError.response) return false
+        return giveUp(errorMessage(openError))
       } finally {
         renewing.current = null
       }
