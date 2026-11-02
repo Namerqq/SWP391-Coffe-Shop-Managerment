@@ -7,7 +7,6 @@ import '../styles/manager.css'
 const NAV = [
   { to: '/manager', label: 'Tổng quan', icon: 'bi-grid', end: true },
   { to: '/manager/revenue', label: 'Doanh thu', icon: 'bi-graph-up' },
-  { to: '/manager/tables', label: 'Bàn & mã QR', icon: 'bi-qr-code' },
   { to: '/manager/menu-items', label: 'Menu món', icon: 'bi-cup-hot' },
   { to: '/manager/inventory', label: 'Kho nguyên liệu', icon: 'bi-box-seam' },
   { to: '/manager/stock-receipts', label: 'Phiếu nhập kho', icon: 'bi-file-earmark-arrow-down' },
