@@ -30,8 +30,9 @@ export default function GuestAssistanceButton({ table, onExpired }) {
         if (live && version === generation.current) { setCall(response.status === 204 ? null : response.data); setError('') }
       } catch (e) {
         if (live && version === generation.current) {
-          setError(errorMessage(e))
-          if (e.response?.status === 410) expireRef.current(errorMessage(e))
+          // 410 = phiên không còn dùng được: GuestLayout tự xử lý, cần truyền nguyên lỗi để nó đọc được mã lỗi và token.
+          if (e.response?.status === 410) expireRef.current(e)
+          else setError(errorMessage(e))
         }
       } finally { loading = false }
     }
@@ -53,7 +54,7 @@ export default function GuestAssistanceButton({ table, onExpired }) {
       setNote('')
     } catch (e) {
       setError(errorMessage(e))
-      if (e.response?.status === 410) expireRef.current(errorMessage(e))
+      if (e.response?.status === 410) expireRef.current(e)
     } finally { submitting.current = false; setBusy(false) }
   }
   const label = call?.status === 'ACCEPTED' ? 'Nhân viên đã nhận'
