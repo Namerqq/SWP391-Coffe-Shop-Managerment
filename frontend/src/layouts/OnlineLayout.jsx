@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import GuestItemModal from '../pages/guest/GuestItemModal'
+import CancelledOrderNotice from '../pages/online/CancelledOrderNotice'
 import guestTableApi from '../api/guestTableApi'
 import { unitTotal } from '../utils/orderOptions'
 import '../styles/guest.css'
@@ -139,6 +140,8 @@ export default function OnlineLayout() {
 
         {/* Nội dung trang con */}
         <main className="gx-main">
+          {/* Đơn vừa đặt bị hủy -> báo ở mọi trang, khách không cần vào Đơn của tôi */}
+          <CancelledOrderNotice />
           <Outlet />
         </main>
       </div>
