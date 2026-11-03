@@ -140,6 +140,21 @@ public class Order {
         items.add(item);
     }
 
+    /**
+     * Tách qty ly ra khỏi dòng món (vd 2× Americano, hủy / báo sự cố 1 ly): dòng cũ còn quantity - qty ly,
+     * dòng mới qty ly giống hệt (size, đường, đá, topping, ghi chú, trạng thái). Trả về dòng cần đổi trạng thái.
+     * qty = null hoặc >= cả dòng thì không tách, trả về chính dòng đó (kiểm tra 1..quantity ở OrderSupportService.splitLine).
+     */
+    public OrderItem splitItem(OrderItem line, Integer qty) {
+        if (qty == null || qty >= line.getQuantity()) return line;
+        int total = line.getQuantity();
+        OrderItem part = line.copyWithQuantity(qty);
+        line.setQuantity(total - qty);
+        line.recalcSubtotal();
+        addItem(part);
+        return part;
+    }
+
     /** Đơn đang chờ pha (chưa bắt đầu pha). */
     public boolean isWaitingForPreparation() {
         return PENDING.equals(status) || CONFIRMED.equals(status);
