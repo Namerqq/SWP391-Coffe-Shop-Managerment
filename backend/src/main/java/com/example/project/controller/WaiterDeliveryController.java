@@ -8,6 +8,7 @@ import com.example.project.security.RequireRole;
 import com.example.project.service.DeliveryService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -39,11 +40,12 @@ public class WaiterDeliveryController {
         return deliveryService.pickUp(orderId, me.getId());
     }
 
-    /** Đã giao. PUT /api/waiter/deliveries/12/deliver */
+    /** Đã giao, kèm ảnh món lúc giao. PUT /api/waiter/deliveries/12/deliver  (multipart, field "photo") */
     @PutMapping("/{orderId}/deliver")
     public OnlineOrderView deliver(@PathVariable Long orderId,
+                                   @RequestParam(value = "photo", required = false) MultipartFile photo,
                                    @RequestAttribute(AuthInterceptor.CURRENT_USER) User me) {
-        return deliveryService.deliver(orderId, me.getId());
+        return deliveryService.deliver(orderId, me.getId(), photo);
     }
 
     /** Giao không thành công. PUT /api/waiter/deliveries/12/fail  body { "reason": "Khách không nghe máy" } */

@@ -4,7 +4,14 @@ import axiosClient from './axiosClient'
 const waiterDeliveryApi = {
   getMyDeliveries: () => axiosClient.get('/waiter/deliveries'),
   pickUp: (orderId) => axiosClient.put(`/waiter/deliveries/${orderId}/pick-up`),
-  deliver: (orderId) => axiosClient.put(`/waiter/deliveries/${orderId}/deliver`),
+  // Đã giao: gửi kèm ảnh món lúc giao (bắt buộc).
+  deliver: (orderId, photo) => {
+    const data = new FormData()
+    data.append('photo', photo)
+    return axiosClient.put(`/waiter/deliveries/${orderId}/deliver`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
   fail: (orderId, reason) => axiosClient.put(`/waiter/deliveries/${orderId}/fail`, { reason }),
 }
 
