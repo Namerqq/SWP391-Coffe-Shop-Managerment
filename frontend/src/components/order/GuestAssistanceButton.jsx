@@ -31,7 +31,7 @@ export default function GuestAssistanceButton({ table, onExpired }) {
       } catch (e) {
         if (live && version === generation.current) {
           setError(errorMessage(e))
-          if (e.response?.status === 410) expireRef.current(errorMessage(e))
+          if (e.response?.status === 410) expireRef.current(e)
         }
       } finally { loading = false }
     }
@@ -39,7 +39,7 @@ export default function GuestAssistanceButton({ table, onExpired }) {
     const timer = setInterval(load, 5000)
     const clock = setInterval(() => setNow(Date.now()), 1000)
     return () => { live = false; clearInterval(timer); clearInterval(clock) }
-  }, [table.tableId]) // onExpired is only used on an invalid session.
+  }, [table.tableId, table.token]) // onExpired is only used on an invalid session.
 
   const send = async () => {
     submitting.current = true
@@ -53,7 +53,7 @@ export default function GuestAssistanceButton({ table, onExpired }) {
       setNote('')
     } catch (e) {
       setError(errorMessage(e))
-      if (e.response?.status === 410) expireRef.current(errorMessage(e))
+      if (e.response?.status === 410) expireRef.current(e)
     } finally { submitting.current = false; setBusy(false) }
   }
   const label = call?.status === 'ACCEPTED' ? 'Nhân viên đã nhận'
