@@ -136,12 +136,19 @@ export default function StockReceiptModal({ show, receiptId, onClose, onSuccess 
       return
     }
 
+    const seenItemIds = new Set()
     for (let i = 0; i < items.length; i++) {
       const row = items[i]
       if (!row.inventoryItemId) {
         toast(`Dòng ${i + 1}: Vui lòng chọn nguyên liệu`, 'warning')
         return
       }
+      const itemId = Number(row.inventoryItemId)
+      if (seenItemIds.has(itemId)) {
+        toast(`Dòng ${i + 1}: Nguyên liệu này đã có trong phiếu. Vui lòng gộp số lượng vào cùng một dòng!`, 'warning')
+        return
+      }
+      seenItemIds.add(itemId)
       if (!row.quantity || parseFloat(row.quantity) <= 0) {
         toast(`Dòng ${i + 1}: Số lượng nhập phải lớn hơn 0`, 'warning')
         return

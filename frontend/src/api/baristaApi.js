@@ -11,6 +11,8 @@ const baristaApi = {
   reportShortage: (data) => axiosClient.post('/barista/inventory/report-shortage', data),
   reportShortageBatch: (data) => axiosClient.post('/barista/inventory/report-shortage-batch', data),
   reportWaste: (id, data) => axiosClient.post(`/barista/inventory/${id}/waste`, data),
+  stockOut: (id, data) => axiosClient.post(`/barista/inventory/${id}/stock-out`, data),
+  getStockOutHistory: (date) => axiosClient.get('/barista/inventory/stock-out-history', { params: date ? { date } : {} }),
   getStaffList: () => axiosClient.get('/barista/staff-list'),
 }
 

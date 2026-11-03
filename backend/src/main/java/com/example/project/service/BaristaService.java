@@ -42,17 +42,17 @@ public class BaristaService {
     private final OrderItemRepository itemRepository;
     private final MenuItemRepository menuItemRepository;
     private final OrderSupportService support;
-    private final InventoryService inventoryService;
+// Đã lược bỏ inventoryService do không còn auto-deduct kho
 
     public BaristaService(OrderRepository orderRepository, OrderLockRepository lockRepository,
                           OrderItemRepository itemRepository, MenuItemRepository menuItemRepository,
-                          OrderSupportService support, InventoryService inventoryService) {
+                          OrderSupportService support) {
         this.orderRepository = orderRepository;
         this.lockRepository = lockRepository;
         this.itemRepository = itemRepository;
         this.menuItemRepository = menuItemRepository;
         this.support = support;
-        this.inventoryService = inventoryService;
+// this.inventoryService = inventoryService;
     }
 
     /** Đơn còn món chờ pha hoặc chờ mang ra, đơn đến trước nằm trên. Frontend chia món vào 2 cột. */
@@ -82,7 +82,7 @@ public class BaristaService {
             if (o.getAcceptedAt() == null) {
                 o.setAcceptedBy(barista);
                 o.setAcceptedAt(LocalDateTime.now());
-                inventoryService.deductForOrder(o, barista);
+// Đã bỏ tự động trừ kho: Barista chủ động lấy nguyên liệu ra quầy bar (Issue to Bar)
             }
             line.setItemStatus(OrderItem.READY);
         } else {
@@ -113,7 +113,7 @@ public class BaristaService {
             if (o.getAcceptedAt() == null) {
                 o.setAcceptedBy(barista);
                 o.setAcceptedAt(LocalDateTime.now());
-                inventoryService.deductForOrder(o, barista);
+// Đã bỏ tự động trừ kho: Barista chủ động lấy nguyên liệu ra quầy bar (Issue to Bar)
             }
             o.getItems().stream()
                     .filter(i -> wanted.contains(i.getId()) && i.isWaitingForPreparation())
