@@ -116,6 +116,20 @@ public class GuestSessionStore {
                 "Cảm ơn quý khách! Vui lòng quét lại mã QR trên bàn để gọi món mới.");
     }
 
+    /** Vô hiệu token theo bàn sau commit khi xóa/khôi phục bàn, kể cả token chưa gắn lượt. */
+    public void endTable(Long tableId) {
+        Runnable endAll = () -> guests.values().forEach(g -> {
+            if (g.tableId() == tableId.longValue()) g.end();
+        });
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { endAll.run(); }
+            });
+        } else {
+            endAll.run();
+        }
+    }
+
     /**
      * Lượt khách vừa đóng (đã phục vụ + đã thanh toán) -> kết thúc mọi phiên khách gắn với lượt đó.
      * Đang trong transaction thì chỉ kết thúc SAU KHI commit thành công (rollback thì phiên khách vẫn giữ).
