@@ -194,6 +194,63 @@ class OnlinePaymentTest {
 
     // ===== Màn Thu ngân (Q2-A, D5-A) =====
 
+    // ===== Mã đã hết hạn / đã hủy: tiền về muộn không tạo đơn =====
+
+    private QrPaymentRequest onlineRequest(long id, LocalDateTime expiresAt) throws Exception {
+        QrPaymentRequest r = new QrPaymentRequest();
+        ReflectionTestUtils.setField(r, "id", id);
+        r.setTargetType(QrPaymentRequest.ONLINE);
+        r.setSubtotal(58000L);
+        r.setAmount(58000L);
+        r.setExpiresAt(expiresAt);
+        r.setCartJson(objectMapper.writeValueAsString(new QrOnlineCart("An", "0901111111", "12 Cầu Giấy", null,
+                List.of(QrTakeawayCart.Line.of(line(2))), null)));
+        when(qrRepository.findWithLockById(id)).thenReturn(Optional.of(r));
+        return r;
+    }
+
+    @Test
+    void applyPaid_expiredRequest_becomesMismatchAndCreatesNoOrder() throws Exception {
+        QrPaymentRequest r = onlineRequest(9L, LocalDateTime.now().minusMinutes(5));
+        r.moveTo(QrPaymentRequest.EXPIRED, "Hết thời gian chờ.");
+
+        QrPaymentView view = service.applyPaid(9L, "WEBHOOK", "FT125");
+
+        assertEquals(QrPaymentRequest.MISMATCH, view.status());
+        assertTrue(r.getNote().contains("đã hết hạn"));
+        assertTrue(r.getNote().contains("0901111111"));
+        assertEquals("FT125", r.getBankReference());
+        verify(orderRepository, never()).save(any());
+        verifyNoInteractions(cashier);
+    }
+
+    @Test
+    void applyPaid_cancelledRequest_becomesMismatch() throws Exception {
+        QrPaymentRequest r = onlineRequest(10L, LocalDateTime.now().plusMinutes(5));
+        r.moveTo(QrPaymentRequest.CANCELLED, "Thu ngân hủy mã QR.");
+
+        assertEquals(QrPaymentRequest.MISMATCH, service.applyPaid(10L, "WEBHOOK", "FT126").status());
+        assertTrue(r.getNote().contains("đã bị hủy"));
+        verifyNoInteractions(cashier);
+    }
+
+    @Test
+    void applyPaid_stillPendingButLongPastExpiry_becomesMismatch() throws Exception {
+        onlineRequest(11L, LocalDateTime.now().minusMinutes(5));
+
+        assertEquals(QrPaymentRequest.MISMATCH, service.applyPaid(11L, "POLLING", "FT127").status());
+        verifyNoInteractions(cashier);
+    }
+
+    @Test
+    void markLatePayment_partialAmount_isShownInNote() throws Exception {
+        QrPaymentRequest r = onlineRequest(12L, LocalDateTime.now().minusMinutes(5));
+        r.moveTo(QrPaymentRequest.EXPIRED, "Hết thời gian chờ.");
+
+        assertEquals(QrPaymentRequest.MISMATCH, service.markLatePayment(12L, 10000L, "WEBHOOK", "FT128").status());
+        assertTrue(r.getNote().contains("10.000đ"));
+    }
+
     @Test
     void pending_hidesOnlineRequestsFromCashier() {
         QrPaymentRequest online = new QrPaymentRequest();

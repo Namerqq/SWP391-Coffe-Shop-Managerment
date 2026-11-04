@@ -14,8 +14,21 @@ class TablePaymentClosureTest {
         TableSession s=new TableSession(); ReflectionTestUtils.setField(s,"id",1L);
         CafeTable t=new CafeTable(); t.setStatus(CafeTable.OCCUPIED); s.setTable(t); return s;
     }
-    @Test void allPaidClosesEvenBeforeServing() {
+    @Test void paidButNotServedKeepsTableOccupied() {
         TableSession s=session(); Order o=new Order(); o.setStatus(Order.PENDING); o.setPaymentStatus(Payment.PAID);
+        when(orders.findByTableSession_IdOrderByCreatedAtAsc(1L)).thenReturn(List.of(o));
+        assertFalse(support.closeSessionIfSettled(s));
+        assertEquals(TableSession.OPEN,s.getStatus()); assertEquals(CafeTable.OCCUPIED,s.getTable().getStatus());
+        verifyNoInteractions(guests);
+    }
+    @Test void servedButNotPaidKeepsTableOccupied() {
+        TableSession s=session(); Order o=new Order(); o.setStatus(Order.SERVED);
+        when(orders.findByTableSession_IdOrderByCreatedAtAsc(1L)).thenReturn(List.of(o));
+        assertFalse(support.closeSessionIfSettled(s));
+        assertEquals(CafeTable.OCCUPIED,s.getTable().getStatus());
+    }
+    @Test void paidAndServedClosesTable() {
+        TableSession s=session(); Order o=new Order(); o.setStatus(Order.SERVED); o.setPaymentStatus(Payment.PAID);
         when(orders.findByTableSession_IdOrderByCreatedAtAsc(1L)).thenReturn(List.of(o));
         assertTrue(support.closeSessionIfSettled(s));
         assertEquals(TableSession.CLOSED,s.getStatus()); assertEquals(CafeTable.AVAILABLE,s.getTable().getStatus());
@@ -23,7 +36,8 @@ class TablePaymentClosureTest {
         assertFalse(support.closeSessionIfSettled(s));
     }
     @Test void partialPaymentKeepsSessionOpen() {
-        TableSession s=session(); Order paid=new Order(); paid.setPaymentStatus(Payment.PAID); Order unpaid=new Order();
+        TableSession s=session(); Order paid=new Order(); paid.setStatus(Order.SERVED); paid.setPaymentStatus(Payment.PAID);
+        Order unpaid=new Order(); unpaid.setStatus(Order.SERVED);
         when(orders.findByTableSession_IdOrderByCreatedAtAsc(1L)).thenReturn(List.of(paid,unpaid));
         assertFalse(support.closeSessionIfSettled(s)); assertEquals(TableSession.OPEN,s.getStatus());
         verifyNoInteractions(guests);

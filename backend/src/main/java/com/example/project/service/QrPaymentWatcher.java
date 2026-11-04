@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +24,8 @@ import java.util.Optional;
  * 2) Hỏi định kỳ: cứ app.payos.poll-interval-ms (mặc định 3 giây) hỏi payOS trạng thái từng mã đang chờ.
  *    Chạy được cả khi backend ở localhost và khi cả nhóm dùng chung 1 kênh payOS (webhook chỉ về 1 máy).
  * Cả 2 đường đều hỏi lại payOS trạng thái link trước khi ghi nhận, nên khách chuyển thiếu không bị tính là đã trả.
+ * Mã đã hết hạn / đã hủy vẫn được theo dõi thêm 1 thời gian (LATE_WATCH): khách quét lại ảnh chụp mã cũ thì
+ * không ghi hóa đơn mà báo thu ngân xử lý tay (xem QrPaymentService.applyPaid).
  */
 @Service
 public class QrPaymentWatcher {
@@ -30,6 +33,8 @@ public class QrPaymentWatcher {
     private static final Logger log = LoggerFactory.getLogger(QrPaymentWatcher.class);
     /** Cho thêm vài giây sau giờ hết hạn: giao dịch khách bấm đúng lúc cuối vẫn kịp được ghi nhận. */
     private static final long EXPIRY_GRACE_SECONDS = 15;
+    /** Mã đã đóng còn được hỏi payOS trong bao lâu (sau đó chỉ webhook mới báo được tiền về muộn). */
+    private static final Duration LATE_WATCH = Duration.ofHours(2);
 
     private final QrPaymentService qr;
     private final PayosClient payos;
@@ -94,10 +99,29 @@ public class QrPaymentWatcher {
         }
     }
 
+    /** Hỏi payOS các mã vừa đóng (thưa hơn poll): khách trả vào mã cũ mà webhook không tới thì vẫn báo được thu ngân. */
+    @Scheduled(fixedDelayString = "${app.payos.late-poll-interval-ms:60000}", initialDelayString = "${app.payos.poll-initial-delay-ms:10000}")
+    public void pollClosed() {
+        if (!payos.isConfigured()) return;
+        List<QrPaymentService.Snapshot> closed;
+        try {
+            closed = qr.recentlyClosedSnapshots(LATE_WATCH);
+        } catch (DataAccessException e) {
+            return; // poll() đã ghi log khi chưa có bảng
+        }
+        for (QrPaymentService.Snapshot s : closed) {
+            try {
+                sync(s, "POLLING", null);
+            } catch (Exception e) {
+                log.warn("Không kiểm tra được mã QR đã đóng {} (orderCode {}): {}", s.id(), s.orderCode(), e.getMessage());
+            }
+        }
+    }
+
     private void sync(QrPaymentService.Snapshot s, String via, PayosClient.WebhookPayload webhook) {
         boolean pending = QrPaymentRequest.PENDING.equals(s.status());
         boolean closedHere = QrPaymentRequest.EXPIRED.equals(s.status()) || QrPaymentRequest.CANCELLED.equals(s.status());
-        if (!pending && !(webhook != null && closedHere)) return; // đã PAID / MISMATCH: không làm gì nữa
+        if (!pending && !closedHere) return; // đã PAID / MISMATCH: không làm gì nữa
 
         LocalDateTime now = LocalDateTime.now();
         boolean timeUp = now.isAfter(s.expiresAt().plusSeconds(EXPIRY_GRACE_SECONDS));
@@ -113,6 +137,8 @@ public class QrPaymentWatcher {
             // Không hỏi được payOS: webhook đã kiểm chữ ký và báo đủ tiền thì vẫn ghi nhận.
             if (webhook != null && webhook.success() && webhook.amount() >= s.amount()) {
                 qr.applyPaid(s.id(), via, webhook.reference());
+            } else if (closedHere && webhook != null && webhook.success() && webhook.amount() > 0) {
+                qr.markLatePayment(s.id(), webhook.amount(), via, webhook.reference());
             } else if (pending && now.isAfter(s.expiresAt().plusMinutes(2))) {
                 qr.markClosed(s.id(), QrPaymentRequest.EXPIRED, "Hết thời gian chờ (không hỏi được payOS: " + e.getMessage() + ")");
             }
@@ -124,7 +150,15 @@ public class QrPaymentWatcher {
             qr.applyPaid(s.id(), via, reference);
             return;
         }
-        if (!pending) return; // mã đã đóng ở hệ thống này và payOS cũng chưa nhận đủ tiền
+        if (!pending) {
+            // Mã đã đóng ở hệ thống này: có tiền về (kể cả chưa đủ) thì báo thu ngân, không có thì thôi.
+            boolean webhookPaid = webhook != null && webhook.success();
+            long received = webhookPaid ? webhook.amount() : info.amountPaid();
+            if (received > 0) {
+                qr.markLatePayment(s.id(), received, via, webhookPaid ? webhook.reference() : info.reference());
+            }
+            return;
+        }
         if (info.isClosed()) {
             String status = "CANCELLED".equals(info.status()) ? QrPaymentRequest.CANCELLED : QrPaymentRequest.EXPIRED;
             qr.markClosed(s.id(), status, "payOS báo mã đã " + ("CANCELLED".equals(info.status()) ? "bị hủy." : "hết hạn."));
