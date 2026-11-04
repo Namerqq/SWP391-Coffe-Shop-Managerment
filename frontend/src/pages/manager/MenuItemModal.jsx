@@ -15,6 +15,8 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
     basePrice: item?.basePrice ?? '',
     description: item?.description || '',
     allowedToppingIds: item?.allowedToppingIds || [],
+    recipeIngredients: item?.recipeIngredients || '',
+    recipeInstructions: item?.recipeInstructions || '',
   })
 
   const [customization, setCustomization] = useState(item ? item.customization || null : defaultCustomization())
@@ -210,6 +212,37 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
         {['DRINK', 'FOOD'].includes(type) && (
           <ItemCustomizationFields value={customization} onChange={setCustomization} disabled={busy}
             toppings={availableToppings} allowedToppingIds={form.allowedToppingIds} onToppingsChange={setAllowedToppings} />
+        )}
+
+        {/* Công thức hiện ở màn Pha chế (nút Công thức); để trống thì Barista thấy "chưa có công thức". */}
+        {['DRINK', 'FOOD'].includes(type) && (
+          <fieldset className="border rounded p-3">
+            <legend className="fs-6 float-none w-auto px-1">Công thức pha chế (tuỳ chọn)</legend>
+            <label>
+              Nguyên liệu / định lượng
+              <textarea
+                className="form-control"
+                maxLength={16000}
+                rows={3}
+                value={form.recipeIngredients}
+                onChange={(e) => update('recipeIngredients', e.target.value)}
+                placeholder={'Mỗi dòng một nguyên liệu, ví dụ:\n18g cà phê espresso\n150ml nước nóng'}
+                disabled={busy}
+              />
+            </label>
+            <label>
+              Cách pha
+              <textarea
+                className="form-control"
+                maxLength={16000}
+                rows={3}
+                value={form.recipeInstructions}
+                onChange={(e) => update('recipeInstructions', e.target.value)}
+                placeholder={'Mỗi dòng một bước, ví dụ:\nChiết xuất 1 shot espresso\nThêm nước nóng, khuấy đều'}
+                disabled={busy}
+              />
+            </label>
+          </fieldset>
         )}
 
         {type === 'TOPPING' && <small className="cf-muted">

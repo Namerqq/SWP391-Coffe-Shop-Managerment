@@ -194,7 +194,7 @@ class BaristaServiceTest {
     @DisplayName("cancelItem: món đã pha xong thì không hủy được")
     void cancelItem_notWaiting() {
         item(order(1L, Order.READY, Order.SOURCE_STAFF), 10L, OrderItem.READY, null);
-        assertThrows(ApiException.class, () -> baristaService.cancelItem(1L, 10L));
+        assertThrows(ApiException.class, () -> baristaService.cancelItem(1L, 10L, null));
     }
 
     @Test
@@ -203,7 +203,7 @@ class BaristaServiceTest {
         Order o = order(1L, Order.PENDING, Order.SOURCE_STAFF);
         o.setPaymentStatus(Order.PAID);
         item(o, 10L, OrderItem.PENDING, null);
-        assertThrows(ApiException.class, () -> baristaService.cancelItem(1L, 10L));
+        assertThrows(ApiException.class, () -> baristaService.cancelItem(1L, 10L, null));
     }
 
     @Test
@@ -214,8 +214,8 @@ class BaristaServiceTest {
         OrderItem b = item(o, 11L, OrderItem.PENDING, "   ");
         item(o, 12L, OrderItem.PENDING, null);
 
-        baristaService.cancelItem(1L, 10L);
-        baristaService.cancelItem(1L, 11L);
+        baristaService.cancelItem(1L, 10L, null);
+        baristaService.cancelItem(1L, 11L, null);
 
         assertEquals(BaristaService.OUT_OF_STOCK_TAG, a.getNote());
         assertEquals(BaristaService.OUT_OF_STOCK_TAG, b.getNote());
@@ -229,11 +229,59 @@ class BaristaServiceTest {
         Order o = order(1L, Order.PENDING, Order.SOURCE_STAFF);
         OrderItem line = item(o, 10L, OrderItem.PENDING, "x".repeat(300));
 
-        baristaService.cancelItem(1L, 10L);
+        baristaService.cancelItem(1L, 10L, null);
 
         assertEquals(300, line.getNote().length());
         assertTrue(line.getNote().startsWith(BaristaService.OUT_OF_STOCK_TAG + " - x"));
         assertTrue(o.isCancelled());
         assertEquals("Hết nguyên liệu", o.getCancelReason());
+    }
+
+    /** Dòng 3× ly, mỗi ly 30.000 (chỉ có đơn giá, không size / topping). */
+    private static OrderItem cups(Order o, Long id, int qty, String note) {
+        OrderItem i = item(o, id, OrderItem.PENDING, note);
+        i.setQuantity(qty);
+        i.setUnitPrice(30000L);
+        i.recalcSubtotal();
+        return i;
+    }
+
+    @Test
+    @DisplayName("cancelItem: hủy 1 trong 3 ly thì tách dòng, dòng cũ còn 2 ly chờ pha, tiền giảm 1 ly")
+    void cancelItem_splitQuantity() {
+        Order o = order(1L, Order.PENDING, Order.SOURCE_STAFF);
+        OrderItem line = cups(o, 10L, 3, "Ít đá");
+
+        baristaService.cancelItem(1L, 10L, 1);
+
+        assertEquals(2, o.getItems().size());
+        OrderItem part = o.getItems().get(1);
+        assertEquals(2, line.getQuantity());
+        assertEquals(60000L, line.getSubtotal());
+        assertEquals(OrderItem.PENDING, line.getItemStatus());
+        assertEquals("Ít đá", line.getNote());
+        assertEquals(1, part.getQuantity());
+        assertEquals(30000L, part.getSubtotal());
+        assertEquals(OrderItem.CANCELLED, part.getItemStatus());
+        assertEquals(BaristaService.OUT_OF_STOCK_TAG + " - Ít đá", part.getNote());
+        assertEquals(60000L, o.getTotalAmount());
+        assertFalse(o.isCancelled());
+    }
+
+    @Test
+    @DisplayName("cancelItem: số ly = cả dòng thì không tách; số ly ngoài 1..quantity thì báo lỗi")
+    void cancelItem_quantityBounds() {
+        Order o = order(1L, Order.PENDING, Order.SOURCE_STAFF);
+        OrderItem line = cups(o, 10L, 2, null);
+
+        assertThrows(ApiException.class, () -> baristaService.cancelItem(1L, 10L, 3));
+        assertThrows(ApiException.class, () -> baristaService.cancelItem(1L, 10L, 0));
+        assertEquals(1, o.getItems().size());
+
+        baristaService.cancelItem(1L, 10L, 2);
+
+        assertEquals(1, o.getItems().size());
+        assertEquals(OrderItem.CANCELLED, line.getItemStatus());
+        assertTrue(o.isCancelled());
     }
 }

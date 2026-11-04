@@ -391,7 +391,7 @@ class InventoryServiceTest {
     }
 
     @Test
-    @DisplayName("TC12: Tự động trừ nguyên liệu khi Barista nhận đơn theo công thức thành công")
+    @DisplayName("TC12: Tự động trừ nguyên liệu khi Barista nhận đơn theo định lượng chuẩn, bỏ qua văn bản công thức")
     void deductForOrder_success() {
         InventoryItem coffee = new InventoryItem();
         org.springframework.test.util.ReflectionTestUtils.setField(coffee, "id", 1L);
@@ -410,7 +410,8 @@ class InventoryServiceTest {
 
         MenuItem americano = new MenuItem();
         americano.setName("Americano");
-        americano.setRecipeIngredients("0.020 kg Coffee beans");
+        // Công thức chỉ để Pha chế đọc; nếu bị dùng để trừ kho sẽ trừ 2 * 0.5 kg thay vì định lượng chuẩn.
+        americano.setRecipeIngredients("0.5 kg Coffee beans");
 
         OrderItem orderItem = new OrderItem();
         orderItem.setMenuItem(americano);
@@ -428,7 +429,7 @@ class InventoryServiceTest {
         verify(itemRepo, times(1)).save(coffee);
         verify(txRepo, times(1)).save(argThat(tx ->
                 StockTransaction.STOCK_OUT.equals(tx.getTransactionType()) &&
-                new BigDecimal("0.040").equals(tx.getQuantity())
+                new BigDecimal("0.040").compareTo(tx.getQuantity()) == 0
         ));
     }
 
@@ -445,8 +446,7 @@ class InventoryServiceTest {
                 .thenReturn(List.of(coffee));
 
         MenuItem americano = new MenuItem();
-        americano.setName("Americano");
-        americano.setRecipeIngredients("0.020 kg Coffee beans"); // Cần 0.02 kg
+        americano.setName("Americano"); // Định lượng chuẩn size M: cần 0.02 kg
 
         OrderItem orderItem = new OrderItem();
         orderItem.setMenuItem(americano);

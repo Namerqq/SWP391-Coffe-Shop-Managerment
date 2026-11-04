@@ -27,8 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -473,37 +471,14 @@ public class InventoryService {
 
     /**
      * Xác định lượng nguyên liệu cần dùng cho 1 ly đồ uống.
-     * Ưu tiên đọc recipe_ingredients của món; nếu chưa cấu hình thì dùng chuẩn định lượng mặc định theo loại đồ uống.
+     * Dùng chuẩn định lượng mặc định theo loại đồ uống. Công thức (recipe_ingredients) chỉ là văn bản
+     * cho Pha chế xem, không dùng để trừ kho.
      */
     private Map<Long, BigDecimal> resolveRecipe(MenuItem menu, OrderItem item, List<InventoryItem> activeInventory) {
         Map<Long, BigDecimal> recipe = new HashMap<>();
 
-        if (menu != null && menu.getRecipeIngredients() != null && !menu.getRecipeIngredients().isBlank()) {
-            String[] lines = menu.getRecipeIngredients().split("[;\n]");
-            for (String rawLine : lines) {
-                String line = rawLine.trim();
-                if (line.isBlank()) continue;
-
-                Matcher m = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)").matcher(line);
-                BigDecimal amount = null;
-                if (m.find()) {
-                    try {
-                        amount = new BigDecimal(m.group(1));
-                    } catch (Exception ignored) {}
-                }
-
-                String lower = line.toLowerCase(Locale.ROOT);
-                for (InventoryItem inv : activeInventory) {
-                    if (lower.contains(inv.getItemName().toLowerCase(Locale.ROOT))) {
-                        recipe.put(inv.getId(), amount != null ? amount : BigDecimal.valueOf(0.02));
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Fallback định lượng chuẩn theo tên món và danh mục
-        if (recipe.isEmpty() && menu != null) {
+        // Định lượng chuẩn theo tên món và danh mục
+        if (menu != null) {
             String name = menu.getName() != null ? menu.getName().toLowerCase(Locale.ROOT) : "";
             boolean isLarge = "L".equalsIgnoreCase(item.getSizeName());
 

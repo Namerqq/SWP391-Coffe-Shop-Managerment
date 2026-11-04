@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Modal from '../../components/Modal'
 import servingApi from '../../api/servingApi'
 import { errorMessage } from '../../api/axiosClient'
@@ -18,7 +18,11 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
   const [action, setAction] = useState('REMAKE') // REMAKE | CANCEL
   const [quickReason, setQuickReason] = useState(QUICK_REASONS[0])
   const [customReason, setCustomReason] = useState('')
+  const [quantity, setQuantity] = useState(1) // số ly bị đổ / vỡ trong dòng (vd 1 trong 2× Latte)
   const [loading, setLoading] = useState(false)
+
+  // Mở cho món khác thì đặt lại số ly về 1 (thường chỉ đổ / vỡ 1 ly)
+  useEffect(() => { setQuantity(1) }, [item?.id])
 
   if (!show || !order || !item) return null
 
@@ -31,14 +35,16 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
       : (customReason.trim() ? `${quickReason} (${customReason.trim()})` : quickReason)
 
     try {
+      // Ít ly hơn cả dòng thì backend tách các ly bị sự cố thành dòng riêng, ly còn lại vẫn Chờ mang ra
       const res = await servingApi.reportIncident(order.id, item.id, {
         action,
         reason: finalReason,
+        quantity,
       })
       toast(
         action === 'REMAKE'
-          ? `Đã báo sự cố: ${item.itemName} đã được gửi lại pha chế để làm lại. Biên bản đã gửi quản lý.`
-          : `Đã hủy ${item.itemName}, không tính tiền món này. Biên bản đã gửi quản lý.`,
+          ? `Đã báo sự cố: ${quantity}× ${item.itemName} đã được gửi lại pha chế để làm lại. Biên bản đã gửi quản lý.`
+          : `Đã hủy ${quantity}× ${item.itemName}, không tính tiền các ly này. Biên bản đã gửi quản lý.`,
         'success'
       )
       if (onSuccess) onSuccess(res.data, action)
@@ -75,6 +81,22 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
             <span className="cf-muted ms-2">— Đơn {order.displayNumber} ({placeLabel(order)})</span>
           </div>
         </div>
+
+        {/* Số ly bị sự cố: chỉ hiện khi dòng có từ 2 ly trở lên */}
+        {item.quantity > 1 && (
+          <div className="mb-3">
+            <label className="form-label fw-semibold" htmlFor="incidentQty">Số ly bị đổ / vỡ</label>
+            <select id="incidentQty" className="form-select w-auto" value={quantity}
+                    onChange={(e) => setQuantity(Number(e.target.value))}>
+              {Array.from({ length: item.quantity }, (_, k) => k + 1).map((n) => (
+                <option key={n} value={n}>{n} / {item.quantity} ly</option>
+              ))}
+            </select>
+            {quantity < item.quantity && (
+              <div className="form-text">{item.quantity - quantity} ly còn lại vẫn ở "Chờ mang ra", không bị ảnh hưởng.</div>
+            )}
+          </div>
+        )}
 
         {/* Hướng xử lý */}
         <div className="mb-3">

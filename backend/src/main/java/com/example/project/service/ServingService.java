@@ -114,6 +114,8 @@ public class ServingService {
      * - Khách không muốn làm lại (action = CANCEL): món chuyển sang CANCELLED, không tính tiền món này.
      * - Lưu 1 biên bản vào bảng incident_reports để quản lý xem xét, quyết định mức phạt.
      *   Thông tin sự cố là nội bộ: KHÔNG ghi vào ghi chú món nên khách không thấy.
+     * - quantity: chỉ vài ly của dòng bị đổ / vỡ (vd 1 trong 2× Latte) -> tách các ly đó thành dòng riêng,
+     *   ly còn lại vẫn Chờ mang ra; biên bản gắn với dòng mới tách. null = cả dòng.
      */
     @Transactional
     public OrderView reportIncident(Long orderId, Long itemId, IncidentItemRequest req, User waiter) {
@@ -138,13 +140,19 @@ public class ServingService {
             throw ApiException.badRequest("Đơn này đã thanh toán. Vui lòng chọn 'Khách muốn làm lại' hoặc liên hệ Thu ngân hoàn tiền trước khi hủy món.");
         }
         String reason = (req.reason() == null || req.reason().isBlank()) ? "Làm đổ/vỡ khi mang ra" : req.reason().trim();
+        if (!IncidentReport.REMAKE.equals(action) && !IncidentReport.CANCEL.equals(action)) {
+            throw ApiException.badRequest("Hướng xử lý chỉ được chọn REMAKE (Làm lại) hoặc CANCEL (Không làm lại).");
+        }
+        Integer qty = req.quantity();
+        if (qty != null && (qty < 1 || qty > line.getQuantity())) {
+            throw ApiException.badRequest("Số ly bị sự cố phải từ 1 đến " + line.getQuantity() + ".");
+        }
+        OrderItem broken = o.splitItem(line, qty);
 
         if (IncidentReport.REMAKE.equals(action)) {
-            line.setItemStatus(OrderItem.PENDING); // gửi lại pha chế làm lại
-        } else if (IncidentReport.CANCEL.equals(action)) {
-            line.setItemStatus(OrderItem.CANCELLED); // khách không muốn làm lại, không tính tiền món này
+            broken.setItemStatus(OrderItem.PENDING); // gửi lại pha chế làm lại
         } else {
-            throw ApiException.badRequest("Hướng xử lý chỉ được chọn REMAKE (Làm lại) hoặc CANCEL (Không làm lại).");
+            broken.setItemStatus(OrderItem.CANCELLED); // khách không muốn làm lại, không tính tiền món này
         }
 
         o.syncStatusFromItems();
@@ -153,7 +161,7 @@ public class ServingService {
         orderRepository.saveAndFlush(o);
 
         // Lưu biên bản sự cố (nội bộ) để quản lý xem xét và quyết định mức phạt
-        incidentService.create(line, waiter, action, reason);
+        incidentService.create(broken, waiter, action, reason);
 
         support.closeSessionIfEmpty(o.getTableSession());   // hủy hết món, bàn không còn đơn nào -> trả bàn trống
         support.closeSessionIfSettled(o.getTableSession()); // các đơn còn lại đã phục vụ + đã thanh toán -> đóng lượt

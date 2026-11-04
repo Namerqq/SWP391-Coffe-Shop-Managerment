@@ -14,7 +14,8 @@ export function ToastProvider({ children }) {
       type = messageOrObj.type || 'success'
     }
     const id = Date.now() + Math.random()
-    setToasts((t) => [...t, { id, message, type }])
+    // Thông báo giống hệt đang hiện thì không xếp chồng thêm.
+    setToasts((t) => (t.some((x) => x.message === message && x.type === type) ? t : [...t, { id, message, type }]))
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500)
   }, [])
 
