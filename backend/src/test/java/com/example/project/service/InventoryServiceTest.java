@@ -391,78 +391,42 @@ class InventoryServiceTest {
     }
 
     @Test
-    @DisplayName("TC12: Tự động trừ nguyên liệu khi Barista nhận đơn theo định lượng chuẩn, bỏ qua văn bản công thức")
-    void deductForOrder_success() {
+    @DisplayName("TC12: Xuất nguyên liệu ra quầy bar (Stock-Out) thành công")
+    void stockOut_success() {
         InventoryItem coffee = new InventoryItem();
         org.springframework.test.util.ReflectionTestUtils.setField(coffee, "id", 1L);
         coffee.setItemName("Coffee beans");
         coffee.setUnit("kg");
         coffee.setCurrentQuantity(new BigDecimal("5.000"));
 
-        InventoryItem milk = new InventoryItem();
-        org.springframework.test.util.ReflectionTestUtils.setField(milk, "id", 2L);
-        milk.setItemName("Fresh milk");
-        milk.setUnit("litre");
-        milk.setCurrentQuantity(new BigDecimal("10.000"));
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(coffee));
 
-        when(itemRepo.findAllByStatusOrderByItemNameAsc(InventoryItem.ACTIVE))
-                .thenReturn(List.of(coffee, milk));
+        StockOutRequest req = new StockOutRequest(new BigDecimal("1.500"), "STOCK_OUT", "Khui bao ca sáng");
+        InventoryItemView view = inventoryService.stockOut(1L, req, sampleManager);
 
-        MenuItem americano = new MenuItem();
-        americano.setName("Americano");
-        // Công thức chỉ để Pha chế đọc; nếu bị dùng để trừ kho sẽ trừ 2 * 0.5 kg thay vì định lượng chuẩn.
-        americano.setRecipeIngredients("0.5 kg Coffee beans");
-
-        OrderItem orderItem = new OrderItem();
-        orderItem.setMenuItem(americano);
-        orderItem.setQuantity(2);
-        orderItem.setItemStatus(OrderItem.PENDING);
-
-        Order order = new Order();
-        order.setOrderNumber("ORD-001");
-        order.addItem(orderItem);
-
-        inventoryService.deductForOrder(order, sampleManager);
-
-        // 2 ly * 0.020 = 0.040 kg -> 5.000 - 0.040 = 4.960 kg
-        assertEquals(new BigDecimal("4.960"), coffee.getCurrentQuantity());
-        verify(itemRepo, times(1)).save(coffee);
+        assertNotNull(view);
+        assertEquals(new BigDecimal("3.500"), coffee.getCurrentQuantity());
         verify(txRepo, times(1)).save(argThat(tx ->
                 StockTransaction.STOCK_OUT.equals(tx.getTransactionType()) &&
-                new BigDecimal("0.040").compareTo(tx.getQuantity()) == 0
+                new BigDecimal("1.500").equals(tx.getQuantity())
         ));
     }
 
     @Test
-    @DisplayName("TC13: Tự động trừ nguyên liệu ném lỗi BadRequest khi không đủ tồn kho")
-    void deductForOrder_insufficientStock_throwsBadRequest() {
+    @DisplayName("TC13: Xuất kho ném lỗi BadRequest khi số lượng vượt tồn hiện có")
+    void stockOut_exceedsQuantity_throwsBadRequest() {
         InventoryItem coffee = new InventoryItem();
         org.springframework.test.util.ReflectionTestUtils.setField(coffee, "id", 1L);
         coffee.setItemName("Coffee beans");
-        coffee.setUnit("kg");
-        coffee.setCurrentQuantity(new BigDecimal("0.010")); // Chỉ còn 0.01 kg
+        coffee.setCurrentQuantity(new BigDecimal("1.000"));
 
-        when(itemRepo.findAllByStatusOrderByItemNameAsc(InventoryItem.ACTIVE))
-                .thenReturn(List.of(coffee));
+        when(itemRepo.findById(1L)).thenReturn(Optional.of(coffee));
 
-        MenuItem americano = new MenuItem();
-        americano.setName("Americano"); // Định lượng chuẩn size M: cần 0.02 kg
-
-        OrderItem orderItem = new OrderItem();
-        orderItem.setMenuItem(americano);
-        orderItem.setQuantity(1);
-        orderItem.setItemStatus(OrderItem.PENDING);
-
-        Order order = new Order();
-        order.setOrderNumber("ORD-002");
-        order.addItem(orderItem);
-
-        com.example.project.exception.ApiException ex = assertThrows(
+        StockOutRequest req = new StockOutRequest(new BigDecimal("2.000"), "STOCK_OUT", "Lấy quá tồn");
+        assertThrows(
                 com.example.project.exception.ApiException.class,
-                () -> inventoryService.deductForOrder(order, sampleManager)
+                () -> inventoryService.stockOut(1L, req, sampleManager)
         );
-
-        assertTrue(ex.getMessage().contains("Không đủ nguyên liệu"));
         verify(txRepo, never()).save(any(StockTransaction.class));
     }
 

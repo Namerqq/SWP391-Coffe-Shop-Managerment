@@ -250,27 +250,27 @@ export default function BaristaShortageModal({
             Danh sách nguyên liệu đề xuất ({shortageList.length})
           </span>
           {availableToAdd.length > 0 && (
-            <div className="d-flex gap-1" style={{ maxWidth: 300 }}>
+            <div className="d-flex align-items-center gap-2" style={{ minWidth: 280, maxWidth: 360 }}>
               <select
                 className="form-select form-select-sm"
                 value={extraItemId}
                 onChange={(e) => setExtraItemId(e.target.value)}
               >
-                <option value="">+ Chọn thêm nguyên liệu khác...</option>
+                <option value="">+ Chọn thêm nguyên liệu...</option>
                 {availableToAdd.map((i) => (
                   <option key={i.id} value={i.id}>
-                    {i.itemName} (tồn: {i.currentQuantity} {i.unit})
+                    {i.itemName} (tồn: {Number(i.currentQuantity).toLocaleString('vi-VN')} {i.unit})
                   </option>
                 ))}
               </select>
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary px-2"
+                className="btn btn-sm btn-outline-primary px-3 text-nowrap fw-medium"
                 onClick={handleAddExtraItem}
                 disabled={!extraItemId}
                 title="Thêm vào danh sách đề xuất"
               >
-                Thêm
+                <i className="bi bi-plus-lg me-1" /> Thêm
               </button>
             </div>
           )}
@@ -290,7 +290,7 @@ export default function BaristaShortageModal({
                   <th>Nguyên liệu</th>
                   <th className="text-center" style={{ width: 110 }}>Tồn kho</th>
                   <th style={{ width: 150 }}>SL đề xuất</th>
-                  <th style={{ width: 110 }}>Ưu tiên</th>
+                  <th style={{ width: 130 }}>Ưu tiên</th>
                   <th style={{ width: 40 }} className="text-center">Xóa</th>
                 </tr>
               </thead>
@@ -346,20 +346,28 @@ export default function BaristaShortageModal({
                         </div>
                       </td>
                       <td>
-                        <select
-                          className={`form-select form-select-sm small ${
+                        <button
+                          type="button"
+                          className={`btn btn-sm py-1 px-2 rounded-pill fw-semibold border d-inline-flex align-items-center gap-1 ${
                             row.itemPriority === 'URGENT'
-                              ? 'border-danger text-danger fw-semibold'
-                              : 'text-secondary'
+                              ? 'btn-danger text-white border-danger shadow-sm'
+                              : 'btn-light text-secondary border-secondary-subtle'
                           }`}
-                          value={row.itemPriority}
-                          onChange={(e) =>
-                            handleUpdateItem(idx, 'itemPriority', e.target.value)
+                          onClick={() =>
+                            handleUpdateItem(idx, 'itemPriority', row.itemPriority === 'URGENT' ? 'NORMAL' : 'URGENT')
                           }
+                          title="Bấm để chuyển đổi giữa Thường và Khẩn cấp"
                         >
-                          <option value="NORMAL">Bình thường</option>
-                          <option value="URGENT">Khẩn cấp</option>
-                        </select>
+                          {row.itemPriority === 'URGENT' ? (
+                            <>
+                              <i className="bi bi-lightning-charge-fill text-warning" /> Khẩn cấp
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi bi-clock-history text-muted" /> Thường
+                            </>
+                          )}
+                        </button>
                       </td>
                       <td className="text-center">
                         <button

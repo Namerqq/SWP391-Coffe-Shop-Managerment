@@ -4,7 +4,8 @@ export const danmtNav = {
     subtitle: 'Pha chế',
     items: [
       { to: '/barista', label: 'Đơn cần pha', icon: 'bi-cup-straw', end: true },
-      { to: '/barista/inventory', label: 'Kho nguyên liệu', icon: 'bi-box-seam' }
+      { to: '/barista/inventory', label: 'Kho nguyên liệu', icon: 'bi-box-seam' },
+      { to: '/barista/stock-out', label: 'Lấy nguyên liệu ra quầy', icon: 'bi-box-arrow-up' }
     ],
   },
   WAITER: {

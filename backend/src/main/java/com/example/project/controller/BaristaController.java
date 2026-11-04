@@ -10,6 +10,11 @@ import com.example.project.dto.inventory.ShortageReportRequest;
 import com.example.project.dto.inventory.StaffSelectView;
 import com.example.project.dto.inventory.StockReceiptView;
 import com.example.project.dto.inventory.WasteReportRequest;
+import com.example.project.dto.inventory.StockOutRequest;
+import com.example.project.dto.inventory.StockTransactionView;
+import com.example.project.entity.StockTransaction;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
 import com.example.project.dto.order.OrderView;
 import com.example.project.entity.User;
 import com.example.project.security.AuthInterceptor;
@@ -80,6 +85,21 @@ public class BaristaController {
     }
 
     // ===== UC-B06: Báo hao hụt / hư hỏng tại quầy (Waste) =====
+
+    // ===== UC-B07: Xuất nguyên liệu ra quầy pha chế (Issue to Bar / Stock Out) =====
+
+    @PostMapping("/inventory/{id}/stock-out")
+    public InventoryItemView stockOut(@PathVariable Long id, @Valid @RequestBody StockOutRequest req, HttpServletRequest http) {
+        User me = (User) http.getAttribute(AuthInterceptor.CURRENT_USER);
+        return inventoryService.stockOut(id, req, me);
+    }
+
+    @GetMapping("/inventory/stock-out-history")
+    public List<StockTransactionView> stockOutHistory(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        return inventoryService.searchTransactions(null, StockTransaction.STOCK_OUT, targetDate, targetDate);
+    }
 
     @PostMapping("/inventory/{id}/waste")
     public InventoryItemView reportWaste(@PathVariable Long id, @Valid @RequestBody WasteReportRequest req, HttpServletRequest http) {
