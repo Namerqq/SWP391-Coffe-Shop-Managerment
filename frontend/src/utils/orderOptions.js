@@ -14,7 +14,7 @@ export const defaultCustomization = () => ({ sizes: ['S', 'M', 'L'], defaultSize
 export const customizationForItem = (item, options) => {
   const menuItem = (options?.categories || []).flatMap((c) => c.items)
     .find((m) => m.id === (item?.menuItemId ?? item?.id)) || item
-  if (isToppingItem(menuItem, options) || isSizeItem(menuItem, options)) {
+  if (menuItem?.categoryType === 'FOOD' || isToppingItem(menuItem, options) || isSizeItem(menuItem, options)) {
     return { sizes: [], defaultSize: null, sugarLevels: [], defaultSugar: null, iceLevels: [], defaultIce: null, legacy: false }
   }
   return menuItem?.customization || { sizes: ['M', 'L'], defaultSize: 'M', sugarLevels: SUGAR_LEVELS,
@@ -44,6 +44,8 @@ export const standaloneCategories = (menu) => (menu?.categories || [])
 export const toppingsForItem = (item, options) => {
   if (!item || isToppingItem(item, options) || isSizeItem(item, options)) return []
   const id = item.menuItemId ?? item.id
+  const menuItem = (options?.categories || []).flatMap(c => c.items).find(m => m.id === id) || item
+  if (menuItem.categoryType === 'FOOD') return []
   return (options?.toppings || []).filter((t) => (t.allowedItemIds || []).includes(id))
 }
 

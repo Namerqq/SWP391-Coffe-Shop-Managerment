@@ -92,16 +92,18 @@ export default function ItemOptionsModal({ show, item, options, initial, confirm
             (s) => <>{s.name}{s.price > 0 && <span className="opt-extra">+{formatMoney(s.price)}</span>}</>)}
         </div>
       )}
-      {!standaloneTopping && <div className="opt-group">
-        <div className="opt-label">Đường</div>
-        {config.sugarLevels.length === 0 && <span className="cf-muted">Không áp dụng</span>}
-        {pills(config.sugarLevels, form.sugarLevel, (v) => set({ sugarLevel: v }))}
-      </div>}
-      {!standaloneTopping && <div className="opt-group">
-        <div className="opt-label">Đá</div>
-        {config.iceLevels.length === 0 && <span className="cf-muted">Không áp dụng</span>}
-        {pills(config.iceLevels, form.iceLevel, (v) => set({ iceLevel: v }))}
-      </div>}
+      {!standaloneTopping && config.sugarLevels.length > 0 && (
+        <div className="opt-group">
+          <div className="opt-label">Đường</div>
+          {pills(config.sugarLevels, form.sugarLevel, (v) => set({ sugarLevel: v }))}
+        </div>
+      )}
+      {!standaloneTopping && config.iceLevels.length > 0 && (
+        <div className="opt-group">
+          <div className="opt-label">Đá</div>
+          {pills(config.iceLevels, form.iceLevel, (v) => set({ iceLevel: v }))}
+        </div>
+      )}
       {toppings.length > 0 && (
         <div className="opt-group">
           <div className="opt-label">Topping</div>

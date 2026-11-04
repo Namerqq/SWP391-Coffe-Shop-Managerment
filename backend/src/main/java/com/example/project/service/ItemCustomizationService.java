@@ -21,14 +21,14 @@ public class ItemCustomizationService {
         this.settings = settings; this.json = json;
     }
     public static ItemCustomization defaults(MenuItem item) {
-        if (item.getCategory().isType("TOPPING") || item.getCategory().isType("SIZE")) {
+        if (item.getCategory().isType("FOOD") || item.getCategory().isType("TOPPING") || item.getCategory().isType("SIZE")) {
             return new ItemCustomization(List.of(), null, List.of(), null, List.of(), null, false);
         }
         return new ItemCustomization(List.of("M", "L"), "M", LEVELS, "100%", LEVELS, "100%", true);
     }
     @Transactional(readOnly = true)
     public ItemCustomization get(MenuItem item) {
-        if (item.getCategory().isOptionGroup()) return defaults(item);
+        if (item.getCategory().isOptionGroup() || item.getCategory().isType("FOOD")) return defaults(item);
         return settings.findById(PREFIX + item.getId()).map(row -> {
             try { return json.readValue(row.getValue(), ItemCustomization.class); }
             catch (Exception ex) { throw ApiException.badRequest("Cấu hình lựa chọn món không hợp lệ, vui lòng báo quản lý."); }
@@ -46,6 +46,11 @@ public class ItemCustomizationService {
     }
     @Transactional
     public void save(MenuItem item, ItemCustomization config) {
+        // Bánh không có size/đường/đá, bỏ cấu hình cũ nếu manager lưu lại món.
+        if (item.getCategory().isType("FOOD")) {
+            remove(item.getId());
+            return;
+        }
         if (config == null) return; // Old clients and unchanged legacy items retain their current policy.
         if (item.getCategory().isOptionGroup()) throw ApiException.badRequest("Size/đường/đá chỉ cấu hình cho món chính.");
         ItemCustomization normalized = new ItemCustomization(

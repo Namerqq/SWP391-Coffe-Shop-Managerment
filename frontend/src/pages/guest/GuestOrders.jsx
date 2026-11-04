@@ -121,6 +121,14 @@ export default function GuestOrders() {
               </div>
             ))}
 
+            {/* Ghi chú cả đơn được lưu ở customerNote; i.note phía trên chỉ là ghi chú từng món. */}
+            {o.customerNote?.trim() && (
+              <div className="gx-note gx-order-note">
+                <strong>Ghi chú cho quán: </strong>
+                <span>{o.customerNote}</span>
+              </div>
+            )}
+
             <footer>
               {cancelled
                 ? <span className="gx-muted">{o.cancelReason || 'Đơn đã hủy'}</span>

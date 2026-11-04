@@ -94,6 +94,9 @@ public class OrderSupportService {
                 || blankToNull(req.sugarLevel()) != null || blankToNull(req.iceLevel()) != null)) {
             throw ApiException.badRequest("Topping bán lẻ chỉ chọn số lượng và ghi chú, không chọn size hay topping thêm kèm.");
         }
+        if (item.getCategory().isType("FOOD") && req.toppingIds() != null && !req.toppingIds().isEmpty()) {
+            throw ApiException.badRequest("Bánh không áp dụng topping đi kèm.");
+        }
         int qty = req.quantity() == null ? 1 : req.quantity();
         if (qty < 1 || qty > 50) throw ApiException.badRequest("Số lượng mỗi món từ 1 đến 50.");
 

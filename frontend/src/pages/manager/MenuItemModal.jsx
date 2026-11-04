@@ -112,8 +112,8 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
         categoryId: Number(form.categoryId),
         basePrice: Number(form.basePrice),
         imageUrl: url || null,
-        allowedToppingIds: type === 'TOPPING' ? [] : form.allowedToppingIds,
-        customization: type === 'TOPPING' || customization?.legacy ? null : customization,
+        allowedToppingIds: type === 'DRINK' ? form.allowedToppingIds : [],
+        customization: type !== 'DRINK' || customization?.legacy ? null : customization,
       })
 
       onSaved()
@@ -209,8 +209,8 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
           />
         </label>
 
-        {['DRINK', 'FOOD'].includes(type) && (
-          <ItemCustomizationFields value={customization} onChange={setCustomization} disabled={busy}
+        {type === 'DRINK' && (
+          <ItemCustomizationFields showDrinkOptions={type === 'DRINK'} value={customization} onChange={setCustomization} disabled={busy}
             toppings={availableToppings} allowedToppingIds={form.allowedToppingIds} onToppingsChange={setAllowedToppings} />
         )}
 

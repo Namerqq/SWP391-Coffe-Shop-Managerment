@@ -55,8 +55,8 @@ public class ToppingCompatibilityService {
                     .orElseThrow(() -> ApiException.badRequest("Món đi kèm không tồn tại."));
             if (MenuItem.INACTIVE.equals(item.getAvailabilityStatus())
                     || !"ACTIVE".equals(item.getCategory().getStatus())
-                    || !(item.getCategory().isType("DRINK") || item.getCategory().isType("FOOD"))) {
-                throw ApiException.badRequest("Chỉ gán topping cho đồ uống hoặc đồ ăn chưa xoá.");
+                    || !item.getCategory().isType("DRINK")) {
+                throw ApiException.badRequest("Chỉ gán topping cho đồ uống chưa xóa.");
             }
         }
         List<SystemSetting> old = settings.findByKeyStartingWith(prefix(toppingId));
@@ -75,8 +75,8 @@ public class ToppingCompatibilityService {
     public void replaceForItem(Long itemId, List<Long> requested) {
         MenuItem main = items.findById(itemId)
                 .orElseThrow(() -> ApiException.badRequest("Món không tồn tại."));
-        if (!(main.getCategory().isType("DRINK") || main.getCategory().isType("FOOD"))) {
-            throw ApiException.badRequest("Chỉ cấu hình topping đi kèm đồ uống hoặc đồ ăn.");
+        if (!main.getCategory().isType("DRINK")) {
+            throw ApiException.badRequest("Chỉ cấu hình topping đi kèm đồ uống.");
         }
         Set<Long> ids = new LinkedHashSet<>(requested == null ? List.of() : requested);
         for (Long id : ids) {
