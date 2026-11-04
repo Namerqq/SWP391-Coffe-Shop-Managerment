@@ -149,6 +149,8 @@ public class MenuManagementService {
         item.setBasePrice(request.basePrice());
         item.setDescription(request.description());
         item.setImageUrl(imageUrl);
+        item.setRecipeIngredients(normalizeRecipe(request.recipeIngredients()));
+        item.setRecipeInstructions(normalizeRecipe(request.recipeInstructions()));
         item.setSellStandalone(true);
 
         if (category.isOptionGroup() && request.allowedToppingIds() != null && !request.allowedToppingIds().isEmpty()) {
@@ -202,7 +204,9 @@ public class MenuManagementService {
                 customizations.get(item),
                 item.getCategory().isOptionGroup() ? List.of() : toppingRules.entrySet().stream()
                         .filter(entry -> entry.getValue().contains(item.getId()))
-                        .map(Map.Entry::getKey).sorted().toList()
+                        .map(Map.Entry::getKey).sorted().toList(),
+                item.getRecipeIngredients(),
+                item.getRecipeInstructions()
         );
     }
 
@@ -228,20 +232,12 @@ public class MenuManagementService {
             List<MenuItem> visibleItems,
             List<Category> visibleCategories
     ) {
-        List<MenuItem> standaloneItems = visibleItems.stream()
-                .filter(MenuItem::isSellStandalone)
-                .toList();
-        long sellingCount = standaloneItems.stream()
-                .filter(MenuItem::isSellable)
-                .count();
-        long unavailableCount = standaloneItems.stream()
-                .filter(item -> MenuItem.UNAVAILABLE.equals(item.getAvailabilityStatus()))
-                .count();
+        MenuStatistics.Counts counts = MenuStatistics.count(visibleItems);
 
         return Map.of(
-                "total", standaloneItems.size(),
-                "selling", sellingCount,
-                "unavailable", unavailableCount,
+                "total", counts.total(),
+                "selling", counts.selling(),
+                "unavailable", counts.unavailable(),
                 "categoryCount", (long) visibleCategories.size(),
                 "averagePrice", calculateAveragePrice(visibleItems)
         );
@@ -356,5 +352,10 @@ public class MenuManagementService {
         }
 
         return imageUrl;
+    }
+
+    /** Bỏ khoảng trắng thừa ở đầu/cuối công thức; để trống thì lưu null (Barista thấy "chưa có công thức"). */
+    private String normalizeRecipe(String recipe) {
+        return recipe == null || recipe.isBlank() ? null : recipe.strip();
     }
 }

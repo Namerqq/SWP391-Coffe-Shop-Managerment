@@ -128,9 +128,11 @@ public class BaristaService {
      * BF-02: thiếu nguyên liệu -> hủy 1 món còn chờ pha. Tiền món bị hủy không tính (activeTotal).
      * Hủy hết món thì đơn tự hủy; bàn không còn đơn nào thì trả bàn về trống.
      * Đơn đã thu tiền thì không hủy ở đây (cần hoàn tiền) -> báo thu ngân.
+     * quantity: chỉ hủy vài ly của dòng (vd 1 trong 2× Americano) -> tách thành dòng riêng rồi hủy dòng đó;
+     * null = hủy cả dòng.
      */
     @Transactional
-    public OrderView cancelItem(Long orderId, Long itemId) {
+    public OrderView cancelItem(Long orderId, Long itemId, Integer quantity) {
         Order o = findForUpdate(orderId);
         OrderItem line = findLine(o, itemId);
         if (!line.isWaitingForPreparation()) {
@@ -139,8 +141,10 @@ public class BaristaService {
         if (o.isPaid()) {
             throw ApiException.badRequest("Đơn " + num(o) + " đã thanh toán, hủy món cần hoàn tiền. Vui lòng báo thu ngân.");
         }
-        line.setItemStatus(OrderItem.CANCELLED);
-        line.setNote(outOfStockNote(line.getNote()));//gan tag de phuc vu nhan thong bao
+        checkQuantity(quantity, line);
+        OrderItem cancelled = o.splitItem(line, quantity);
+        cancelled.setItemStatus(OrderItem.CANCELLED);
+        cancelled.setNote(outOfStockNote(cancelled.getNote()));//gan tag de phuc vu nhan thong bao
         o.recalcTotal();//tinh lai tien trong order sau khi huy mon
         o.syncStatusFromItems();//dong bo tu dong hoa trang thai don hang(nen de auto)
         if (o.isCancelled()) o.setCancelReason(OUT_OF_STOCK);
@@ -182,6 +186,13 @@ public class BaristaService {
                 .filter(i -> i.getId().equals(itemId))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("Món không thuộc đơn này."));
+    }
+
+    /** Số ly cần tách phải nằm trong 1..số ly của dòng (null = cả dòng). */
+    private static void checkQuantity(Integer quantity, OrderItem line) {
+        if (quantity != null && (quantity < 1 || quantity > line.getQuantity())) {
+            throw ApiException.badRequest("Số ly cần hủy phải từ 1 đến " + line.getQuantity() + ".");
+        }
     }
 
     private static String num(Order o) {

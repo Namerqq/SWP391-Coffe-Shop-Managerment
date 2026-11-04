@@ -68,6 +68,24 @@ public class OrderItem {
         this.subtotal = quantity * (unitPrice + sizePrice + toppingPrice);
     }
 
+    /** Bản sao y hệt dòng này (chưa gắn đơn) nhưng chỉ qty ly, dùng khi tách dòng (Order.splitItem). */
+    public OrderItem copyWithQuantity(int qty) {
+        OrderItem c = new OrderItem();
+        c.menuItem = menuItem;
+        c.quantity = qty;
+        c.unitPrice = unitPrice;
+        c.sugarLevel = sugarLevel;
+        c.iceLevel = iceLevel;
+        c.sizeName = sizeName;
+        c.sizePrice = sizePrice;
+        c.toppingDetails = toppingDetails;
+        c.toppingPrice = toppingPrice;
+        c.note = note;
+        c.itemStatus = itemStatus;
+        c.recalcSubtotal();
+        return c;
+    }
+
     /** Món còn chờ pha (PREPARING: đơn cũ đã bấm "Bắt đầu pha" trước khi bỏ bước này). */
     public boolean isWaitingForPreparation() {
         return PENDING.equals(itemStatus) || PREPARING.equals(itemStatus);

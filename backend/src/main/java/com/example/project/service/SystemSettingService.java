@@ -34,7 +34,7 @@ public class SystemSettingService {
 
     public List<SettingResponse> getAll() {
         return repository.findAllByOrderByGroupNameAscSortOrderAsc().stream()
-                .filter(s -> !s.getKey().startsWith(ToppingCompatibilityService.PREFIX) && !s.getKey().startsWith(ItemCustomizationService.PREFIX)).map(SettingResponse::from).toList();
+                .filter(s -> !s.getKey().startsWith(ToppingCompatibilityService.PREFIX) && !s.getKey().startsWith(ItemCustomizationService.PREFIX) && !s.getKey().startsWith(ManagerTableService.DELETED_PREFIX)).map(SettingResponse::from).toList();
     }
 
     /** Lưu nhiều cấu hình một lần; sai 1 giá trị thì không lưu gì cả. */
@@ -42,6 +42,9 @@ public class SystemSettingService {
     public List<SettingResponse> update(Map<String, String> values, String updatedBy) {
         if (values == null || values.isEmpty()) throw ApiException.badRequest("Không có cấu hình nào để lưu.");
         values.forEach((key, raw) -> {
+            if (key.startsWith(ManagerTableService.DELETED_PREFIX)) {
+                throw ApiException.badRequest("Hãy quản lý bàn đã xóa tại chức năng quản lý bàn.");
+            }
             if (key.startsWith(ToppingCompatibilityService.PREFIX) || key.startsWith(ItemCustomizationService.PREFIX)) {
                 throw ApiException.badRequest("Hãy chỉnh món đi kèm tại form quản lý topping.");
             }

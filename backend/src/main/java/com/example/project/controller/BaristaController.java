@@ -1,5 +1,6 @@
 package com.example.project.controller;
 
+import com.example.project.dto.barista.ItemCancelRequest;
 import com.example.project.dto.barista.ItemCheckRequest;
 import com.example.project.dto.barista.ItemsDoneRequest;
 import com.example.project.dto.barista.RecipeView;
@@ -137,10 +138,14 @@ public class BaristaController {
         return service.checkItems(req.itemIds(), me);
     }
 
-    /** BF-02: hết nguyên liệu -> hủy 1 món còn chờ pha (hủy hết món thì đơn tự hủy). */
+    /**
+     * BF-02: hết nguyên liệu -> hủy 1 món còn chờ pha (hủy hết món thì đơn tự hủy).
+     * Body (không bắt buộc): { "quantity": 1 } để chỉ hủy vài ly của dòng; không gửi = hủy cả dòng.
+     */
     @PatchMapping("/orders/{orderId}/items/{itemId}/cancel")
-    public OrderView cancelItem(@PathVariable Long orderId, @PathVariable Long itemId) {
-        return service.cancelItem(orderId, itemId);
+    public OrderView cancelItem(@PathVariable Long orderId, @PathVariable Long itemId,
+                                @Valid @RequestBody(required = false) ItemCancelRequest req) {
+        return service.cancelItem(orderId, itemId, req == null ? null : req.quantity());
     }
 
     @GetMapping("/recipes/{menuItemId}")

@@ -6,7 +6,8 @@ const baristaApi = {
   getOrder: (id) => axiosClient.get(`/barista/orders/${id}`),
   checkItem: (orderId, itemId, done) => axiosClient.patch(`/barista/orders/${orderId}/items/${itemId}`, { done }),
   checkItems: (itemIds) => axiosClient.patch('/barista/items/done', { itemIds }), // trả về bảng pha chế mới
-  cancelItem: (orderId, itemId) => axiosClient.patch(`/barista/orders/${orderId}/items/${itemId}/cancel`),
+  // quantity: số ly cần hủy trong dòng (vd 1 trong 2× Americano), backend tự tách dòng
+  cancelItem: (orderId, itemId, quantity) => axiosClient.patch(`/barista/orders/${orderId}/items/${itemId}/cancel`, { quantity }),
   getRecipe: (menuItemId) => axiosClient.get(`/barista/recipes/${menuItemId}`),
   reportShortage: (data) => axiosClient.post('/barista/inventory/report-shortage', data),
   reportShortageBatch: (data) => axiosClient.post('/barista/inventory/report-shortage-batch', data),
