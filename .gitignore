@@ -18,7 +18,7 @@ backend/src/main/resources/application-local.properties
 Thumbs.db
 nbproject/
 frontend/nbproject/
-backend/application-default.properties
+backend/src/main/resources/application-default.properties
 frontend/.env.local
 # Temporary & drawio backup
 scratch/

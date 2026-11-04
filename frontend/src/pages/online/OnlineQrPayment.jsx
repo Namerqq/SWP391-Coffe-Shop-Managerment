@@ -25,7 +25,8 @@ export default function OnlineQrPayment() {
   const [codePopup, setCodePopup] = useState(null) // mã đơn đang hiện trong popup
 
   const load = useCallback(async () => {
-    if (!id || (qr && qr.status !== 'PENDING')) return // mã đã xong thì thôi không hỏi nữa
+    // Mã đã xong thì thôi không hỏi nữa. Mã hết hạn / đã hủy vẫn hỏi: khách lỡ quét mã cũ thì trang đổi sang báo đã nhận tiền.
+    if (!id || qr?.status === 'PAID' || qr?.status === 'MISMATCH') return
     try {
       const data = (await onlinePaymentApi.getQr(id)).data
       setQr(data)
@@ -114,7 +115,7 @@ export default function OnlineQrPayment() {
       <section className="op-result is-closed" role="status">
         <i className="bi bi-clock-history" aria-hidden="true" />
         <h1 className="gx-title justify-content-center">{cancelled ? 'Mã QR đã bị hủy' : 'Mã QR đã hết hạn'}</h1>
-        <p>Đơn chưa được tạo và bạn chưa bị trừ tiền. Giỏ hàng vẫn còn, bạn có thể đặt lại.</p>
+        <p>Đơn chưa được tạo. Vui lòng không quét lại mã này, kể cả ảnh đã chụp: tiền chuyển vào mã cũ sẽ không tự tạo đơn. Giỏ hàng vẫn còn, bạn có thể đặt lại.</p>
         <div className="gx-actions justify-content-center">
           <Link className="btn btn-primary" to="/online-order/checkout">Đặt lại</Link>
         </div>
