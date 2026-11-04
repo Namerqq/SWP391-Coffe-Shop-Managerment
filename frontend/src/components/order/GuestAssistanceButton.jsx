@@ -40,7 +40,7 @@ export default function GuestAssistanceButton({ table, onExpired }) {
     const timer = setInterval(load, 5000)
     const clock = setInterval(() => setNow(Date.now()), 1000)
     return () => { live = false; clearInterval(timer); clearInterval(clock) }
-  }, [table.tableId]) // onExpired is only used on an invalid session.
+  }, [table.tableId, table.token]) // onExpired is only used on an invalid session.
 
   const send = async () => {
     submitting.current = true

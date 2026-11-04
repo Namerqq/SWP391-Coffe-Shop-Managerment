@@ -232,20 +232,12 @@ public class MenuManagementService {
             List<MenuItem> visibleItems,
             List<Category> visibleCategories
     ) {
-        List<MenuItem> standaloneItems = visibleItems.stream()
-                .filter(MenuItem::isSellStandalone)
-                .toList();
-        long sellingCount = standaloneItems.stream()
-                .filter(MenuItem::isSellable)
-                .count();
-        long unavailableCount = standaloneItems.stream()
-                .filter(item -> MenuItem.UNAVAILABLE.equals(item.getAvailabilityStatus()))
-                .count();
+        MenuStatistics.Counts counts = MenuStatistics.count(visibleItems);
 
         return Map.of(
-                "total", standaloneItems.size(),
-                "selling", sellingCount,
-                "unavailable", unavailableCount,
+                "total", counts.total(),
+                "selling", counts.selling(),
+                "unavailable", counts.unavailable(),
                 "categoryCount", (long) visibleCategories.size(),
                 "averagePrice", calculateAveragePrice(visibleItems)
         );

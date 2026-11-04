@@ -5,8 +5,6 @@ import com.example.project.dto.inventory.StockReceiptView;
 import com.example.project.dto.manager.ManagerDashboardView;
 import com.example.project.dto.order.TableBoardItem;
 import com.example.project.dto.revenue.RevenueReportView;
-import com.example.project.entity.Category;
-import com.example.project.entity.MenuItem;
 import com.example.project.entity.StockReceipt;
 import com.example.project.repository.MenuItemRepository;
 import org.springframework.stereotype.Service;
@@ -67,15 +65,11 @@ public class ManagerDashboardService {
         int totalTables = tables.size();
         int occupiedTables = (int) tables.stream().filter(t -> t.sessionId() != null).count();
 
-        // 3. Món đang mở bán (Active menu items)
-        List<MenuItem> allMenuItems = menuItemRepository.findAll();
-        long totalMenuItems = allMenuItems.stream()
-                .filter(m -> m.getCategory() != null && Category.ACTIVE.equals(m.getCategory().getStatus()))
-                .count();
-        long activeMenuItems = allMenuItems.stream()
-                .filter(m -> m.getCategory() != null && Category.ACTIVE.equals(m.getCategory().getStatus()))
-                .filter(m -> MenuItem.AVAILABLE.equals(m.getAvailabilityStatus()))
-                .count();
+        // 3. Dùng chung quy tắc với quản lý menu: bỏ SIZE, món/danh mục đã xóa,
+        // và chỉ đếm món bán riêng (bao gồm topping được bán riêng).
+        MenuStatistics.Counts menuCounts = MenuStatistics.count(menuItemRepository.findAll());
+        long totalMenuItems = menuCounts.total();
+        long activeMenuItems = menuCounts.selling();
 
         // 4. Cảnh báo nguyên liệu sắp hết (Low-stock summary)
         Map<String, Object> invStats = inventoryService.stats();

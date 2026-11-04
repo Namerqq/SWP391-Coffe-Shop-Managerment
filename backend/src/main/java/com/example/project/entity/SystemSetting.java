@@ -68,6 +68,13 @@ public class SystemSetting {
         return setting;
     }
 
+    /** Dấu xóa mềm bàn, chỉ được quản lý qua chức năng bàn. */
+    public static SystemSetting deletedTable(String key) {
+        SystemSetting setting = menuRule(key);
+        setting.label = "Bàn đã xóa";
+        return setting;
+    }
+
     public String getKey() { return key; }
     public String getValue() { return value; }
     public void setValue(String value) { this.value = value; }

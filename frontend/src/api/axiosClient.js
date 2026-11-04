@@ -7,8 +7,17 @@ const axiosClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Mỗi GET của khách có URL riêng để không dùng lại bản 410 đã cache trước khi backend có no-store.
+// Không đưa token vào URL; mã này chỉ phân biệt request, không dùng để xác thực.
+let guestRequestSequence = 0
+
 // Tự gắn token đăng nhập vào mọi request.
 axiosClient.interceptors.request.use((config) => {
+  if (config.method?.toLowerCase() === 'get' && /^\/public\/order(?:\/|$)/.test(config.url || '')) {
+    const params = new URLSearchParams(config.params)
+    params.set('_guestRequest', `${Date.now()}-${++guestRequestSequence}`)
+    config.params = params
+  }
   const token = getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
