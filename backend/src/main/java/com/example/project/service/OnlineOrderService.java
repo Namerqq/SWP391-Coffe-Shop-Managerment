@@ -37,6 +37,7 @@ public class OnlineOrderService {
     private final OrderSupportService orderSupport;
     private final OrderLockRepository lockRepository;
     private SystemSettingService settings;
+    private DeliveryPhotoService photos;
 
     public OnlineOrderService(OrderRepository orderRepository,
                               DeliveryRepository deliveryRepository,
@@ -283,7 +284,8 @@ public class OnlineOrderService {
                 v.deliveryStatus(), v.customerNote(), v.cancelReason(), v.paymentMethod(), v.paymentStatus(),
                 v.totalAmount(), v.createdAt(), v.items(), v.qrPaymentUrl(),
                 v.assignedWaiterName(), v.assignedAt(), v.pickedUpAt(), v.deliveredAt(),
-                v.failedAt(), v.failureReason(), v.shippingFee(), v.amountToCollect());
+                v.failedAt(), v.failureReason(), v.shippingFee(), v.amountToCollect(),
+                null); // ảnh giao hàng chỉ cho thu ngân xem (ảnh hay chụp cửa nhà khách)
     }
 
     /** "0901234567" -> "09*****567" */
@@ -310,6 +312,11 @@ public class OnlineOrderService {
     @Autowired
     void setSettings(SystemSettingService settings) {
         this.settings = settings;
+    }
+
+    @Autowired
+    void setPhotos(DeliveryPhotoService photos) {
+        this.photos = photos;
     }
 
     /** Phí ship hiện tại (VND), không âm. */
@@ -376,7 +383,8 @@ public class OnlineOrderService {
                 delivery != null ? delivery.getFailedAt() : null,
                 delivery != null ? delivery.getFailureReason() : null,
                 shippingFeeOf(delivery),
-                amountToCollect(order, shippingFeeOf(delivery))
+                amountToCollect(order, shippingFeeOf(delivery)),
+                photos != null && delivery != null ? photos.urlOf(delivery.getId()) : null
         );
     }
 }

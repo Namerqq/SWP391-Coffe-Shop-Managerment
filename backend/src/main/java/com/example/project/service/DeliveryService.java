@@ -11,8 +11,10 @@ import com.example.project.repository.DeliveryRepository;
 import com.example.project.repository.OrderLockRepository;
 import com.example.project.repository.OrderRepository;
 import com.example.project.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -40,6 +42,7 @@ public class DeliveryService {
     private final DeliveryRepository deliveryRepository;
     private final UserRepository userRepository;
     private final OnlineOrderService onlineOrderService;
+    private DeliveryPhotoService photos;
 
     public DeliveryService(OrderRepository orderRepository, OrderLockRepository lockRepository,
                            DeliveryRepository deliveryRepository, UserRepository userRepository,
@@ -141,7 +144,7 @@ public class DeliveryService {
      * Đơn chuyển sang Hoàn thành để không còn nằm ở "Pha xong".
      */
     @Transactional
-    public OnlineOrderView deliver(Long orderId, Long waiterId) {
+    public OnlineOrderView deliver(Long orderId, Long waiterId, MultipartFile photo) {
         Order order = lockedDeliveryOrder(orderId);
         String no = OrderSupportService.displayNumber(order.getOrderNumber());
         Delivery delivery = myDelivery(order, waiterId, no);
@@ -152,6 +155,8 @@ public class DeliveryService {
                     : "Đơn " + no + " chưa lấy hàng, chưa giao xong được.");
         }
 
+        photos.validate(photo); // bắt buộc chụp ảnh món lúc giao
+
         LocalDateTime now = LocalDateTime.now();
         delivery.setDeliveredAt(now);
         delivery.setDeliveryStatus(Delivery.STATUS_DELIVERED);
@@ -159,7 +164,13 @@ public class DeliveryService {
         order.moveTo(Order.SERVED, OrderItem.SERVED);
         order.setCompletedAt(now);
         orderRepository.save(order);
+        photos.save(delivery.getId(), photo); // lỗi lưu file -> ném lỗi, đơn quay lại như cũ
         return onlineOrderService.toView(order, delivery, paymentMethod(order), null);
+    }
+
+    @Autowired
+    void setPhotos(DeliveryPhotoService photos) {
+        this.photos = photos;
     }
 
     /**
