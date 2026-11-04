@@ -46,6 +46,7 @@ export default function BaristaBoard() {
   const [detailId, setDetailId] = useState(null)
   const [recipeFor, setRecipeFor] = useState(null) // { menuItemId, itemName }
   const [cancelling, setCancelling] = useState(null) // { order, item } đang chờ xác nhận hủy món
+  const [cancelQty, setCancelQty] = useState(1) // số ly cần hủy trong dòng đó (mặc định cả dòng)
   const [cancelBusy, setCancelBusy] = useState(false)
 
   const load = async () => {
@@ -139,16 +140,23 @@ export default function BaristaBoard() {
     }
   }
 
-  // BF-02: hết nguyên liệu -> hủy 1 món còn chờ pha (hủy hết món thì đơn tự hủy).
+  // Mở hộp xác nhận hủy món, mặc định hủy cả dòng (vd cả 2× Americano)
+  const openCancel = (order, item) => {
+    setCancelling({ order, item })
+    setCancelQty(item.quantity)
+  }
+
+  // BF-02: hết nguyên liệu -> hủy món còn chờ pha (hủy hết món thì đơn tự hủy).
+  // Hủy ít ly hơn số ly của dòng thì backend tách thành dòng riêng, các ly còn lại vẫn chờ pha.
   const confirmCancel = async () => {
     const { order, item } = cancelling
     setCancelBusy(true)
     try {
-      const res = await baristaApi.cancelItem(order.id, item.id)
+      const res = await baristaApi.cancelItem(order.id, item.id, cancelQty)
       replaceOrder(res.data)
       toast(res.data.status === 'CANCELLED'
         ? `Đã hủy đơn ${order.displayNumber} vì hết nguyên liệu`
-        : `Đã hủy ${item.itemName} ở đơn ${order.displayNumber}`)
+        : `Đã hủy ${cancelQty}× ${item.itemName} ở đơn ${order.displayNumber}`)
     } catch (e) {
       toast(errorMessage(e), 'error')
       load()
@@ -184,7 +192,7 @@ export default function BaristaBoard() {
                          {recipeButton(i)}
                          <button type="button" className="btn btn-light-soft btn-icon kds-cancel-item"
                                  title="Hết nguyên liệu, hủy món" aria-label={`Hủy ${i.itemName}`}
-                                 disabled={busyItemId === i.id} onClick={() => setCancelling({ order: o, item: i })}>
+                                 disabled={busyItemId === i.id} onClick={() => openCancel(o, i)}>
                            <i className="bi bi-x-lg" />
                          </button>
                        </div>
@@ -276,14 +284,30 @@ export default function BaristaBoard() {
       </div>
 
       <BaristaOrderModal order={detail} busyItemId={busyItemId} onClose={() => setDetailId(null)}
-                         onToggleItem={toggleItem} onCancelItem={(o, i) => setCancelling({ order: o, item: i })}
+                         onToggleItem={toggleItem} onCancelItem={openCancel}
                          onRecipe={(i) => setRecipeFor(i)} />
       <RecipeModal target={recipeFor} onClose={() => setRecipeFor(null)} />
       <ConfirmModal show={!!cancelling} danger loading={cancelBusy} title="Hủy món" confirmText="Hủy món"
                     message={cancelling && (
                       <>
-                        Hủy <strong>{cancelling.item.quantity}× {cancelling.item.itemName}</strong> ở đơn {cancelling.order.displayNumber} vì
+                        Hủy <strong>{cancelQty}× {cancelling.item.itemName}</strong> ở đơn {cancelling.order.displayNumber} vì
                         hết nguyên liệu? Phục vụ sẽ báo lại cho khách. Nếu đơn không còn món nào khác thì cả đơn sẽ bị hủy.
+                        {cancelling.item.quantity > 1 && (
+                          <div className="d-flex align-items-center gap-2 mt-3">
+                            <label htmlFor="cancelQty" className="mb-0">Số ly cần hủy</label>
+                            <select id="cancelQty" className="form-select form-select-sm w-auto" value={cancelQty}
+                                    disabled={cancelBusy} onChange={(e) => setCancelQty(Number(e.target.value))}>
+                              {Array.from({ length: cancelling.item.quantity }, (_, k) => k + 1).map((n) => (
+                                <option key={n} value={n}>{n} / {cancelling.item.quantity} ly</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        {cancelQty < cancelling.item.quantity && (
+                          <div className="cell-sub mt-1">
+                            {cancelling.item.quantity - cancelQty} ly còn lại vẫn ở "Chờ pha".
+                          </div>
+                        )}
                       </>
                     )}
                     onClose={() => setCancelling(null)} onConfirm={confirmCancel} />
