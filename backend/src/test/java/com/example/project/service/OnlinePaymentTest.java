@@ -194,6 +194,26 @@ class OnlinePaymentTest {
 
     // ===== Màn Thu ngân (Q2-A, D5-A) =====
 
+    // ===== Ghi chú thanh toán của mã QR =====
+
+    @Test
+    void applyPaid_takeaway_copiesPaymentNoteToInvoice() throws Exception {
+        QrPaymentRequest r = new QrPaymentRequest();
+        ReflectionTestUtils.setField(r, "id", 20L);
+        r.setTargetType(QrPaymentRequest.TAKEAWAY);
+        r.setSubtotal(58000L);
+        r.setAmount(58000L);
+        r.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        r.setPaymentNote("Khách chuyển hộ");
+        r.setCartJson(objectMapper.writeValueAsString(new QrTakeawayCart(null, List.of(QrTakeawayCart.Line.of(line(2))))));
+        when(qrRepository.findWithLockById(20L)).thenReturn(Optional.of(r));
+        when(menuItemRepository.findById(1L)).thenReturn(Optional.of(bacXiu));
+
+        assertEquals(QrPaymentRequest.PAID, service.applyPaid(20L, "WEBHOOK", "FT129").status());
+
+        assertEquals("Khách chuyển hộ", r.getPayment().getNote());
+    }
+
     // ===== Mã đã hết hạn / đã hủy: tiền về muộn không tạo đơn =====
 
     private QrPaymentRequest onlineRequest(long id, LocalDateTime expiresAt) throws Exception {

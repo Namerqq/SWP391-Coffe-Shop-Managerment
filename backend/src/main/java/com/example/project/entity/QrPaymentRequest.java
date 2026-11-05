@@ -126,6 +126,10 @@ public class QrPaymentRequest {
     @Column(length = 500)
     private String note;
 
+    /** V11: ghi chú thanh toán thu ngân nhập lúc tạo mã, chép sang payments.note khi tiền về. */
+    @Column(name = "payment_note", length = 300)
+    private String paymentNote;
+
     @PrePersist
     void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -189,4 +193,6 @@ public class QrPaymentRequest {
     public String getConfirmedVia() { return confirmedVia; }
     public void setConfirmedVia(String confirmedVia) { this.confirmedVia = confirmedVia; }
     public String getNote() { return note; }
+    public String getPaymentNote() { return paymentNote; }
+    public void setPaymentNote(String paymentNote) { this.paymentNote = paymentNote; }
 }

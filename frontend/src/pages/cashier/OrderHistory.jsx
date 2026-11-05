@@ -283,7 +283,7 @@ export default function OrderHistory() {
                             {refundPendingAmount > 0 && (
                               <button type="button" className="btn btn-link btn-sm p-0 ms-1 align-baseline"
                                       onClick={() => setQueueOpen(true)}>
-                                Nhập mã giao dịch
+                                Tải ảnh chuyển khoản
                               </button>
                             )}
                           </div>
@@ -344,7 +344,7 @@ export default function OrderHistory() {
           setRefundOrder(null)
           toast(r.status === 'REFUNDED'
             ? `Đã hoàn ${formatMoney(r.amount)} tiền mặt (phiếu ${r.refundCode}).`
-            : `Phiếu ${r.refundCode} ${formatMoney(r.amount)} chờ chuyển khoản trả khách. Chuyển xong thì nhập mã giao dịch ở nút Hoàn tiền.`)
+            : `Phiếu ${r.refundCode} ${formatMoney(r.amount)} chờ chuyển khoản trả khách. Chuyển xong thì tải ảnh chuyển khoản ở nút Hoàn tiền.`)
           load()
         }}
       />

@@ -141,6 +141,7 @@ public class CashierService {
         Customer customer = findCustomerOrNull(req.customerId());
         Payment p = new Payment();
         p.setTableSession(s);
+        p.setNote(OrderSupportService.blankToNull(req.paymentNote()));
         settle(p, subtotal, req.method(), customer, req.pointsToRedeem(), cashier, s);
         toPay.forEach(o -> o.markPaid(p));
         orderRepository.saveAll(toPay);
@@ -177,6 +178,7 @@ public class CashierService {
 
         Payment p = new Payment();
         p.setOrder(o);
+        p.setNote(OrderSupportService.blankToNull(req.paymentNote()));
         settle(p, o.getTotalAmount(), req.method(), customer, req.pointsToRedeem(), cashier, null);
         o.markPaid(p); // trả trước: đơn vào hàng chờ pha với trạng thái Đã thanh toán
         orderRepository.save(o);
@@ -238,7 +240,7 @@ public class CashierService {
                 subtotal, discount, p.getTotalAmount(),
                 redeemed, earned, CustomerView.from(customer),
                 s == null ? null : s.getTable().getId(), s != null && s.isActive(),
-                qrRepository.existsByPayment_Id(p.getId()), refunds, refundedAmount, shipping);
+                qrRepository.existsByPayment_Id(p.getId()), refunds, refundedAmount, shipping, p.getNote());
     }
 
     // ===== Dùng chung =====

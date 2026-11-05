@@ -1,6 +1,5 @@
 package com.example.project.service;
 
-import com.example.project.dto.refund.RefundCompleteRequest;
 import com.example.project.dto.refund.RefundItemsRequest;
 import com.example.project.dto.refund.RefundView;
 import com.example.project.entity.Customer;
@@ -23,6 +22,7 @@ import com.example.project.repository.RefundRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
@@ -52,6 +52,7 @@ class RefundServiceTest {
     private CustomerRepository customerRepository;
     private IncidentReportService incidentService;
     private OrderSupportService support;
+    private FileStorageService fileStorage;
     private RefundService service;
     private final User cashier = new User();
     private final List<LoyaltyTransaction> loyalty = new ArrayList<>();
@@ -67,8 +68,9 @@ class RefundServiceTest {
         customerRepository = mock(CustomerRepository.class);
         incidentService = mock(IncidentReportService.class);
         support = mock(OrderSupportService.class);
+        fileStorage = mock(FileStorageService.class);
         service = new RefundService(refundRepository, paymentRepository, orderRepository, lockRepository,
-                deliveryRepository, loyaltyRepository, customerRepository, incidentService, support);
+                deliveryRepository, loyaltyRepository, customerRepository, incidentService, support, fileStorage);
         cashier.setFullName("Nguyen Thu Nga");
 
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -269,16 +271,34 @@ class RefundServiceTest {
     // ===== Chờ chuyển khoản -> đã hoàn =====
 
     @Test
-    void completingPendingRefundStoresBankReference() {
+    void completingPendingRefundStoresProofImage() {
         Payment r = refundRow(Payment.REFUND_PENDING);
+        MockMultipartFile proof = new MockMultipartFile("proof", "chuyen-khoan.png", "image/png", new byte[]{1});
+        when(fileStorage.saveImage(proof, RefundService.PROOF_FOLDER)).thenReturn("/uploads/refund-proofs/a.png");
 
-        RefundView v = service.complete(99L, new RefundCompleteRequest(" FT26304123 "), cashier);
+        RefundView v = service.complete(99L, proof, cashier);
 
         assertEquals(Payment.REFUNDED, v.status());
         assertNotNull(v.refundedAt());
-        assertTrue(r.getNote().contains("FT26304123"));
-        assertThrows(ApiException.class, () -> service.complete(99L, new RefundCompleteRequest("FT1"), cashier));
-        assertThrows(ApiException.class, () -> service.complete(99L, new RefundCompleteRequest(" "), cashier));
+        assertEquals("/uploads/refund-proofs/a.png", v.proofUrl());
+        assertEquals("/uploads/refund-proofs/a.png", r.getRefundProofUrl());
+        verify(fileStorage, times(1)).validateMenuImage(proof);
+
+        // Phiếu đã hoàn: báo lỗi và không lưu thêm ảnh.
+        assertThrows(ApiException.class, () -> service.complete(99L, proof, cashier));
+        verify(fileStorage, times(1)).saveImage(any(), anyString());
+    }
+
+    @Test
+    void completingRefundWithoutProofIsRejected() {
+        Payment r = refundRow(Payment.REFUND_PENDING);
+        MockMultipartFile empty = new MockMultipartFile("proof", "a.png", "image/png", new byte[0]);
+
+        assertThrows(ApiException.class, () -> service.complete(99L, null, cashier));
+        assertThrows(ApiException.class, () -> service.complete(99L, empty, cashier));
+
+        assertEquals(Payment.REFUND_PENDING, r.getPaymentStatus());
+        verify(fileStorage, never()).saveImage(any(), anyString());
     }
 
     // ===== Dựng dữ liệu =====

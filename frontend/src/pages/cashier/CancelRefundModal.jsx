@@ -79,7 +79,7 @@ export default function CancelRefundModal({ target, mode = 'cancel', onClose, on
       <p className="small">
         {isCancel && 'Đơn bị hủy ngay, pha chế không làm tiếp. '}
         Phiếu hoàn <strong>{formatMoney(target.amount)}</strong> chờ ở nút Hoàn tiền của Lịch sử đơn: chuyển khoản trả lại vào tài khoản
-        khách đã dùng để thanh toán (tra bằng mã giao dịch QR), rồi nhập mã giao dịch để hoàn tất.
+        khách đã dùng để thanh toán (tra bằng mã giao dịch QR), rồi tải ảnh chuyển khoản để hoàn tất.
       </p>
       {!isCancel && target.cancelReason && <p className="small cf-muted">Lý do hủy đơn: {target.cancelReason}</p>}
 

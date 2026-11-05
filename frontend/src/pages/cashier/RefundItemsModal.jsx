@@ -14,7 +14,7 @@ const REASONS = ['Hết nguyên liệu', 'Khách đổi ý', 'Chờ lâu quá', 
 const METHODS = [
   { value: 'CASH', label: 'Tiền mặt', icon: 'bi-cash', hint: 'Đưa tiền cho khách ngay, phiếu hoàn xong luôn.' },
   { value: 'BANK_TRANSFER', label: 'Chuyển khoản', icon: 'bi-bank',
-    hint: 'Phiếu chờ ở nút Hoàn tiền của Lịch sử đơn tới khi bạn chuyển khoản trả khách và nhập mã giao dịch.' },
+    hint: 'Phiếu chờ ở nút Hoàn tiền của Lịch sử đơn tới khi bạn chuyển khoản trả khách và tải ảnh chuyển khoản.' },
 ]
 
 /** order = OrderView cần hoàn (null = đóng). onDone(refundView) sau khi hoàn xong. */

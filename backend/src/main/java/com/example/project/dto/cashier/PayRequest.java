@@ -3,6 +3,7 @@ package com.example.project.dto.cashier;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
@@ -10,6 +11,7 @@ import java.util.List;
  * Thanh toán: method = CASH | BANK_TRANSFER. customerId, pointsToRedeem không bắt buộc.
  * orderIds = các đơn muốn thu (bỏ trống = mọi đơn chưa thanh toán của bàn); đơn ở trạng thái phục vụ nào cũng được.
  * expectedSubtotal = tạm tính thu ngân đang thấy; đơn vừa bị sửa làm tiền khác đi thì backend báo lại (409).
+ * paymentNote = ghi chú thanh toán của thu ngân, không bắt buộc.
  */
 public record PayRequest(
         @NotBlank(message = "Vui lòng chọn cách thanh toán")
@@ -18,5 +20,6 @@ public record PayRequest(
         Long customerId,
         @Min(value = 0, message = "Số điểm dùng không hợp lệ") Integer pointsToRedeem,
         List<Long> orderIds,
-        @Min(value = 0, message = "Số tiền không hợp lệ") Long expectedSubtotal
+        @Min(value = 0, message = "Số tiền không hợp lệ") Long expectedSubtotal,
+        @Size(max = 300, message = "Ghi chú thanh toán tối đa 300 ký tự") String paymentNote
 ) {}

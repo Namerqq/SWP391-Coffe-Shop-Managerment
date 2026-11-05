@@ -51,8 +51,14 @@ const cashierApi = {
   cancelDeliveryWithRefund: (orderId, reason) => axiosClient.post(`/cashier/refunds/delivery-orders/${orderId}/cancel`, { reason }),
   // Đơn online đã trả QR nhưng đã bị hủy (giao không thành công): tạo phiếu hoàn chuyển khoản
   refundCancelledDelivery: (orderId, reason) => axiosClient.post(`/cashier/refunds/delivery-orders/${orderId}`, { reason }),
-  // Đã chuyển khoản trả khách: data = { bankReference }
-  completeRefund: (id, data) => axiosClient.post(`/cashier/refunds/${id}/complete`, data),
+  // Đã chuyển khoản trả khách: proof = file ảnh chuyển khoản
+  completeRefund: (id, proof) => {
+    const data = new FormData()
+    data.append('proof', proof)
+    return axiosClient.post(`/cashier/refunds/${id}/complete`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
   getPendingRefunds: () => axiosClient.get('/cashier/refunds/pending'),
   getOrdersToRefund: () => axiosClient.get('/cashier/refunds/to-refund'),
   // Phiếu hoàn tạo trong 1 ngày (yyyy-mm-dd, bỏ trống = hôm nay)

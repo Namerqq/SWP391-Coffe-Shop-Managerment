@@ -51,11 +51,15 @@ public class Payment {
     private LocalDateTime paidAt;
 
     /**
-     * V9 (ThangNN Iter3 - Hoàn tiền): ghi chú của dòng hoàn tiền (món hoàn, lý do, mã giao dịch chuyển khoản trả khách).
-     * Hóa đơn thu tiền bình thường để trống.
+     * Dòng hoàn tiền: món hoàn, lý do, người xác nhận (V9).
+     * Hóa đơn thu tiền: ghi chú thanh toán của thu ngân, không bắt buộc (V11).
      */
     @Column(name = "note", length = 500)
     private String note;
+
+    /** V11: ảnh chuyển khoản trả khách của phiếu hoàn (/uploads/refund-proofs/...). Phiếu cũ và phiếu tiền mặt để trống. */
+    @Column(name = "refund_proof_url", length = 255)
+    private String refundProofUrl;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -90,5 +94,7 @@ public class Payment {
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
+    public String getRefundProofUrl() { return refundProofUrl; }
+    public void setRefundProofUrl(String refundProofUrl) { this.refundProofUrl = refundProofUrl; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

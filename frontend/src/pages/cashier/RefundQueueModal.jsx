@@ -3,15 +3,19 @@ import Modal from '../../components/Modal'
 import { useToast } from '../../context/ToastContext'
 import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
+import { assetUrl } from '../../utils/assetUrl'
 import { formatDateTime } from '../../utils/format'
 import { formatMoney, formatTime } from '../../utils/orderFormat'
 import { REFUND_METHOD, refundStatus } from './refundFormat'
 
 // Hoàn tiền (ThangNN Iter3) — popup mở từ nút "Hoàn tiền" ở Lịch sử đơn (thay cho màn riêng trước đây).
 // 1. Đơn online đã trả QR nhưng đã bị hủy (giao không thành công...) chưa có phiếu hoàn: thu ngân quyết định tạo phiếu.
-// 2. Phiếu chờ chuyển khoản trả khách: chuyển khoản xong thì nhập mã giao dịch để hoàn tất.
+// 2. Phiếu chờ chuyển khoản trả khách: chuyển khoản xong thì tải ảnh chuyển khoản để hoàn tất.
 // 3. Các phiếu hoàn của ngày đang xem ở Lịch sử đơn.
 // Tạo phiếu hoàn mở hộp CancelRefundModal ở Lịch sử đơn (onCreate), popup này tạm ẩn rồi hiện lại.
+
+const PROOF_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const PROOF_MAX_BYTES = 5 * 1024 * 1024
 
 const dayLabel = (iso) => {
   const [y, m, d] = iso.split('-')
@@ -25,7 +29,7 @@ export default function RefundQueueModal({ show, date, isToday, onClose, onCreat
   const [pending, setPending] = useState(null)
   const [refunds, setRefunds] = useState(null)
   const [error, setError] = useState('')
-  const [refs, setRefs] = useState({}) // id phiếu -> mã giao dịch đang nhập
+  const [proofs, setProofs] = useState({}) // id phiếu -> { file, url } ảnh chuyển khoản đang chọn
   const [savingId, setSavingId] = useState(null)
   const requestNo = useRef(0)
 
@@ -50,17 +54,40 @@ export default function RefundQueueModal({ show, date, isToday, onClose, onCreat
     if (show) load()
   }, [show, load])
 
+  const clearProof = (id) => setProofs((m) => {
+    if (m[id]) URL.revokeObjectURL(m[id].url)
+    const next = { ...m }
+    delete next[id]
+    return next
+  })
+
+  const pickProof = (id, input) => {
+    const file = input.files?.[0]
+    if (!file) return
+    const problem = !PROOF_TYPES.includes(file.type) ? 'Chỉ nhận ảnh JPG, PNG, WebP.'
+      : file.size > PROOF_MAX_BYTES ? 'Ảnh tối đa 5 MB.' : ''
+    if (problem) {
+      toast(problem, 'error')
+      input.value = ''
+      return
+    }
+    setProofs((m) => {
+      if (m[id]) URL.revokeObjectURL(m[id].url)
+      return { ...m, [id]: { file, url: URL.createObjectURL(file) } }
+    })
+  }
+
   const complete = async (r) => {
-    const ref = (refs[r.id] || '').trim()
-    if (!ref) {
-      toast('Nhập mã giao dịch chuyển khoản trả khách trước.', 'error')
+    const proof = proofs[r.id]
+    if (!proof) {
+      toast('Chọn ảnh chuyển khoản trả khách trước.', 'error')
       return
     }
     setSavingId(r.id)
     try {
-      await cashierApi.completeRefund(r.id, { bankReference: ref })
+      await cashierApi.completeRefund(r.id, proof.file)
       toast(`Phiếu ${r.refundCode} đã hoàn xong ${formatMoney(r.amount)}.`)
-      setRefs((m) => ({ ...m, [r.id]: '' }))
+      clearProof(r.id)
       load()
       onChanged?.()
     } catch (e) {
@@ -79,7 +106,7 @@ export default function RefundQueueModal({ show, date, isToday, onClose, onCreat
            footer={<button type="button" className="btn btn-light-soft" onClick={onClose} disabled={Boolean(savingId)}>Đóng</button>}>
       <p className="small cf-muted">
         Hoàn món của đơn tại quầy bằng nút "Hoàn tiền" trên từng đơn; hủy đơn online đã trả QR ở Đơn giao hàng.
-        Phiếu chuyển khoản chờ ở đây tới khi bạn nhập mã giao dịch.
+        Phiếu chuyển khoản chờ ở đây tới khi bạn tải ảnh chuyển khoản.
       </p>
       {error && <div className="alert alert-danger">{error}</div>}
       {loading && <div className="empty-state"><span className="spinner-border spinner-border-sm" /> Đang tải...</div>}
@@ -136,7 +163,7 @@ export default function RefundQueueModal({ show, date, isToday, onClose, onCreat
             <div className="table-responsive">
               <table className="table cf-table mb-0 align-middle">
                 <thead>
-                  <tr><th>Phiếu</th><th>Đơn / khách</th><th>Nội dung</th><th className="text-end">Trả khách</th><th>Mã giao dịch đã chuyển</th></tr>
+                  <tr><th>Phiếu</th><th>Đơn / khách</th><th>Nội dung</th><th className="text-end">Trả khách</th><th>Ảnh chuyển khoản</th></tr>
                 </thead>
                 <tbody>
                   {pending.map((r) => (
@@ -154,17 +181,22 @@ export default function RefundQueueModal({ show, date, isToday, onClose, onCreat
                       </td>
                       <td className="small" style={{ maxWidth: 260 }}>{r.note}</td>
                       <td className="text-end fw-semibold text-nowrap">{formatMoney(r.amount)}</td>
-                      <td style={{ minWidth: 230 }}>
+                      <td style={{ minWidth: 300 }}>
                         <div className="d-flex gap-2">
-                          <input className="form-control form-control-sm" maxLength={100} placeholder="Ví dụ FT26304..."
-                                 aria-label={`Mã giao dịch phiếu ${r.refundCode}`} value={refs[r.id] || ''}
-                                 onChange={(e) => setRefs((m) => ({ ...m, [r.id]: e.target.value }))}
-                                 onKeyDown={(e) => e.key === 'Enter' && complete(r)} disabled={savingId === r.id} />
+                          <input type="file" accept={PROOF_TYPES.join(',')} className="form-control form-control-sm"
+                                 aria-label={`Ảnh chuyển khoản phiếu ${r.refundCode}`}
+                                 onChange={(e) => pickProof(r.id, e.target)} disabled={savingId === r.id} />
                           <button type="button" className="btn btn-sm btn-primary text-nowrap" onClick={() => complete(r)}
                                   disabled={savingId === r.id}>
                             {savingId === r.id && <span className="spinner-border spinner-border-sm me-1" />}Đã chuyển
                           </button>
                         </div>
+                        {proofs[r.id] && (
+                          <a href={proofs[r.id].url} target="_blank" rel="noreferrer" className="d-inline-block mt-2">
+                            <img src={proofs[r.id].url} alt={`Ảnh chuyển khoản đã chọn cho phiếu ${r.refundCode}`}
+                                 style={{ maxHeight: 96, maxWidth: '100%' }} className="rounded border" />
+                          </a>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -200,7 +232,14 @@ export default function RefundQueueModal({ show, date, isToday, onClose, onCreat
                             <div>{r.place} · {r.fulfillmentType === 'DELIVERY' ? r.orderNumber : r.displayNumber}</div>
                             <div className="cell-sub">Hóa đơn {r.paymentCode}</div>
                           </td>
-                          <td className="small" style={{ maxWidth: 300 }}>{r.note}</td>
+                          <td className="small" style={{ maxWidth: 300 }}>
+                            {r.note}
+                            {r.proofUrl && (
+                              <a href={assetUrl(r.proofUrl)} target="_blank" rel="noreferrer" className="d-block mt-1">
+                                <i className="bi bi-image me-1" aria-hidden="true" />Xem ảnh chuyển khoản
+                              </a>
+                            )}
+                          </td>
                           <td className="text-end text-nowrap">
                             <div className="fw-semibold">{formatMoney(r.amount)}</div>
                             <div className="cell-sub">{REFUND_METHOD[r.method] || r.method}</div>

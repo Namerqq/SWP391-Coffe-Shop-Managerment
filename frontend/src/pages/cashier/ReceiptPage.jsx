@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
+import { assetUrl } from '../../utils/assetUrl'
 import { formatDateTime } from '../../utils/format'
 import { formatMoney, itemOptionsText } from '../../utils/orderFormat'
 import { refundStatus } from './refundFormat'
@@ -121,6 +122,8 @@ export default function ReceiptPage() {
         )}
         <div className="receipt-row receipt-grand"><span>Tổng thanh toán</span><span>{formatMoney(r.total)}</span></div>
         <div className="receipt-row"><span>Thanh toán bằng</span><span>{methodLabel(r)}</span></div>
+        {/* Ghi chú nội bộ của thu ngân: xem trên màn hình, không in cho khách. */}
+        {r.paymentNote && <div className="cell-sub mt-1 no-print">Ghi chú thanh toán: {r.paymentNote}</div>}
 
         {/* Iter3 Hoàn tiền: món đã hoàn không còn trong danh sách món ở trên, ghi trong từng phiếu hoàn. */}
         {r.refunds?.length > 0 && (
@@ -132,6 +135,11 @@ export default function ReceiptPage() {
                   <span>-{formatMoney(f.amount)}</span>
                 </div>
                 {f.note && <div className="cell-sub">{f.note}</div>}
+                {f.proofUrl && (
+                  <a href={assetUrl(f.proofUrl)} target="_blank" rel="noreferrer" className="cell-sub d-block no-print">
+                    <i className="bi bi-image me-1" aria-hidden="true" />Xem ảnh chuyển khoản
+                  </a>
+                )}
               </div>
             ))}
             <div className="receipt-row receipt-grand"><span>Còn lại sau hoàn</span><span>{formatMoney(r.total - r.refundedAmount)}</span></div>
