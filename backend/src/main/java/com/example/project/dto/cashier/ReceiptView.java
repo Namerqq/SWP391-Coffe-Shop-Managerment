@@ -17,6 +17,7 @@ import java.util.List;
  * món đã hoàn ghi trong note của từng phiếu; subtotal / discount / total vẫn là số lúc thu tiền.
  * shippingFee: phí ship trong hóa đơn của đơn giao hàng online (0 với đơn tại bàn / mang đi).
  * total = subtotal + shippingFee - discount.
+ * paymentNote: ghi chú thanh toán của thu ngân (không bắt buộc).
  */
 public record ReceiptView(
         String shopName, String shopAddress, String shopPhone,
@@ -24,5 +25,5 @@ public record ReceiptView(
         String place, boolean takeaway, String sessionCode, List<OrderView> orders,
         long subtotal, long discount, long total, int pointsRedeemed, int pointsEarned, CustomerView customer,
         Long tableId, boolean tableStillOpen, boolean qrAutoConfirmed,
-        List<RefundView> refunds, long refundedAmount, long shippingFee
+        List<RefundView> refunds, long refundedAmount, long shippingFee, String paymentNote
 ) {}

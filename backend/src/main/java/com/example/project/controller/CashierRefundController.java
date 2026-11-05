@@ -1,7 +1,6 @@
 package com.example.project.controller;
 
 import com.example.project.dto.refund.OrderToRefundView;
-import com.example.project.dto.refund.RefundCompleteRequest;
 import com.example.project.dto.refund.RefundItemsRequest;
 import com.example.project.dto.refund.RefundPreview;
 import com.example.project.dto.refund.RefundPreviewRequest;
@@ -14,6 +13,7 @@ import com.example.project.service.RefundService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -21,7 +21,7 @@ import java.util.List;
 /**
  * Hoàn tiền của Thu ngân (ThangNN Iter3, Template 6 "Refund and Loyalty Reversal").
  * Đơn tại quầy: hoàn món chưa mang ra (mở từ Lịch sử đơn). Đơn online trả QR: hủy và hoàn (mở từ Đơn giao hàng),
- * hoặc tạo phiếu hoàn cho đơn đã bị hủy. Phiếu chuyển khoản chờ thu ngân nhập mã giao dịch
+ * hoặc tạo phiếu hoàn cho đơn đã bị hủy. Phiếu chuyển khoản chờ thu ngân tải ảnh chuyển khoản
  * (popup Hoàn tiền mở từ Lịch sử đơn, không có màn riêng).
  */
 @RestController
@@ -85,10 +85,11 @@ public class CashierRefundController {
         return service.refundCancelledDelivery(orderId, req == null ? null : req.reason(), cashier);
     }
 
-    /** Đã chuyển khoản trả khách. Body: { "bankReference": "FT26304123456" } */
+    /** Đã chuyển khoản trả khách, kèm ảnh chuyển khoản. POST multipart, field "proof". */
     @PostMapping("/{id}/complete")
-    public RefundView complete(@PathVariable Long id, @Valid @RequestBody RefundCompleteRequest req,
+    public RefundView complete(@PathVariable Long id,
+                               @RequestParam(value = "proof", required = false) MultipartFile proof,
                                @RequestAttribute(AuthInterceptor.CURRENT_USER) User cashier) {
-        return service.complete(id, req, cashier);
+        return service.complete(id, proof, cashier);
     }
 }

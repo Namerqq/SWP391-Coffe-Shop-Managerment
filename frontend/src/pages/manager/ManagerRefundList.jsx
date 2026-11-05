@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import refundApi from '../../api/refundApi'
 import { errorMessage } from '../../api/axiosClient'
+import { assetUrl } from '../../utils/assetUrl'
 import { formatDateTime } from '../../utils/format'
 import { formatMoney } from '../../utils/orderFormat'
 import { REFUND_METHOD, refundStatus, todayString } from '../cashier/refundFormat'
@@ -138,7 +139,14 @@ export default function ManagerRefundList() {
                         <div>{r.place} · {r.fulfillmentType === 'DELIVERY' ? r.orderNumber : r.displayNumber}</div>
                         <div className="cell-sub">Hóa đơn {r.paymentCode}, khách trả {formatMoney(r.paidAmount)}</div>
                       </td>
-                      <td className="small" style={{ maxWidth: 360 }}>{r.note}</td>
+                      <td className="small" style={{ maxWidth: 360 }}>
+                        {r.note}
+                        {r.proofUrl && (
+                          <a href={assetUrl(r.proofUrl)} target="_blank" rel="noreferrer" className="d-block mt-1">
+                            <i className="bi bi-image me-1" aria-hidden="true" />Xem ảnh chuyển khoản
+                          </a>
+                        )}
+                      </td>
                       <td className="text-end text-nowrap">
                         <div className="fw-semibold">{formatMoney(r.amount)}</div>
                         <div className="cell-sub">{REFUND_METHOD[r.method] || r.method}</div>

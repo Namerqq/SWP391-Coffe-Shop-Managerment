@@ -145,6 +145,7 @@ public class QrPaymentService {
         QrPaymentRequest r = newRequest(QrPaymentRequest.TABLE, subtotal, discount, customer, redeem, createdBy);
         r.setTableSession(s);
         r.getOrders().addAll(toPay);
+        r.setPaymentNote(OrderSupportService.blankToNull(req.paymentNote()));
         return open(r);
     }
 
@@ -166,6 +167,7 @@ public class QrPaymentService {
 
         QrPaymentRequest r = newRequest(QrPaymentRequest.TAKEAWAY, subtotal, discount, customer, redeem, createdBy);
         r.setCartJson(writeCart(new QrTakeawayCart(OrderSupportService.blankToNull(req.note()), lines)));
+        r.setPaymentNote(OrderSupportService.blankToNull(req.paymentNote()));
         return open(r);
     }
 
@@ -185,7 +187,7 @@ public class QrPaymentService {
         if (old.isTable()) {
             List<Long> orderIds = old.getOrders().stream().map(Order::getId).toList();
             return createForSession(old.getTableSession().getId(),
-                    new QrSessionRequest(customerId, old.getPointsToRedeem(), orderIds, old.getSubtotal()), createdBy);
+                    new QrSessionRequest(customerId, old.getPointsToRedeem(), orderIds, old.getSubtotal(), old.getPaymentNote()), createdBy);
         }
         requireGateway();
         QrTakeawayCart cart = readCart(old.getCartJson());
@@ -194,6 +196,7 @@ public class QrPaymentService {
         QrPaymentRequest r = newRequest(QrPaymentRequest.TAKEAWAY, subtotal, discount, old.getCustomer(),
                 old.getPointsToRedeem(), createdBy);
         r.setCartJson(old.getCartJson());
+        r.setPaymentNote(old.getPaymentNote());
         return open(r);
     }
 
@@ -502,6 +505,7 @@ public class QrPaymentService {
 
         Payment p = new Payment();
         p.setTableSession(s);
+        p.setNote(r.getPaymentNote());
         cashier.record(p, r.getSubtotal(), r.getSubtotal() - r.getAmount(), r.getPointsToRedeem(),
                 Payment.BANK_TRANSFER, r.getCustomer(), r.getCreatedBy(), s);
         toPay.forEach(o -> o.markPaid(p));
@@ -545,6 +549,7 @@ public class QrPaymentService {
 
         Payment p = new Payment();
         p.setOrder(o);
+        p.setNote(r.getPaymentNote());
         cashier.record(p, r.getSubtotal(), r.getSubtotal() - r.getAmount(), r.getPointsToRedeem(),
                 Payment.BANK_TRANSFER, customer, r.getCreatedBy(), null);
         o.markPaid(p); // trả trước: đơn vào hàng chờ pha với trạng thái Đã thanh toán
