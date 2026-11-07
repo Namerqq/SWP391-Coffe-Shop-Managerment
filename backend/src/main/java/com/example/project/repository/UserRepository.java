@@ -19,6 +19,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     long countByRole_NameAndStatus(String roleName, String status);
 
+    /** Tài khoản đứng tên các thao tác tự động của hệ thống (biên bản sự cố cuối ngày). */
+    Optional<User> findFirstByRole_NameAndStatusOrderByIdAsc(String roleName, String status);
+
     List<User> findAllByStatusOrderByFullNameAsc(String status);
 
     /** Tìm kiếm danh sách tài khoản: mọi tham số đều có thể null (= bỏ qua điều kiện đó). */
