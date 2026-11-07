@@ -15,6 +15,7 @@ import com.example.project.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -161,9 +162,13 @@ public class BaristaService {
         return new RecipeView(m.getId(), m.getName(), m.getRecipeIngredients(), m.getRecipeInstructions());
     }
 
-    /** Đơn online còn chờ thu ngân xác nhận thì chưa hiện cho pha chế (dùng ở Iter2). */
+    /**
+     * Đơn online còn chờ thu ngân xác nhận thì chưa hiện cho pha chế (dùng ở Iter2).
+     * Đơn của ngày trước còn dở (đã thu tiền, chờ phục vụ / thu ngân xử lý) thì pha chế không làm nữa.
+     */
     private static boolean visibleToBarista(Order o) {
-        return !(Order.SOURCE_ONLINE.equals(o.getSource()) && Order.PENDING.equals(o.getStatus()));
+        boolean previousDay = o.getCreatedAt() != null && o.getCreatedAt().isBefore(LocalDate.now().atStartOfDay());
+        return !previousDay && !(Order.SOURCE_ONLINE.equals(o.getSource()) && Order.PENDING.equals(o.getStatus()));
     }
 
     private Order find(Long id) {
