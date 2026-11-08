@@ -84,7 +84,7 @@ public class QrPaymentWatcher {
             tableMissingLogged = false;
         } catch (DataAccessException e) {
             if (!tableMissingLogged) {
-                log.warn("Chưa đọc được bảng qr_payment_requests (đã chạy database/V7__qr_payment_payos.sql chưa?): {}",
+                log.warn("Chưa đọc được bảng qr_payment_requests (đã chạy database/cafe_management.sql chưa?): {}",
                         e.getMostSpecificCause().getMessage());
                 tableMissingLogged = true;
             }
