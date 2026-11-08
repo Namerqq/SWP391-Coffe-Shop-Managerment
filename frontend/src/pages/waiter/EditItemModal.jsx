@@ -162,7 +162,7 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
       )}
 
       {/* 3. Mức đường */}
-      <div className="mb-3">
+      {config.sugarLevels.length > 0 && <div className="mb-3">
         <label className="form-label fw-semibold">Mức đường</label>
         {!config.sugarLevels.length && <span className="cf-muted">Không áp dụng</span>}
         <div className="d-flex flex-wrap gap-2">
@@ -178,10 +178,10 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* 4. Mức đá */}
-      <div className="mb-3">
+      {config.iceLevels.length > 0 && <div className="mb-3">
         <label className="form-label fw-semibold">Mức đá</label>
         {!config.iceLevels.length && <span className="cf-muted">Không áp dụng</span>}
         <div className="d-flex flex-wrap gap-2">
@@ -197,7 +197,7 @@ export default function EditItemModal({ show, order, item, menuOptions, onClose,
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* 5. Topping */}
       {toppings.length > 0 && (

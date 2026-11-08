@@ -523,3 +523,36 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Popup món giữ nút lưu hiển thị và chỉ cuộn nội dung khi cần. */
+.cf-modal .modal-dialog:has(.mm-item-form) { max-width: 720px; margin: 1rem auto; min-height: calc(100% - 2rem); }
+.cf-modal .modal-content:has(.mm-item-form) { max-height: calc(100dvh - 2rem); }
+.cf-modal .modal-content:has(.mm-item-form) .modal-body { padding: 1rem 1.25rem; overflow-y: auto; }
+.cf-modal .modal-content:has(.mm-item-form) .modal-header,
+.cf-modal .modal-content:has(.mm-item-form) .modal-footer { padding: .75rem 1.25rem; flex-shrink: 0; }
+.mm-item-form { gap: .75rem; font-size: .875rem; }
+.mm-item-form .form-control,
+.mm-item-form .form-select { margin-top: .25rem; padding: .4rem .65rem; border-radius: .5rem; font-size: .875rem; }
+.mm-item-form .mm-form-row { gap: .75rem; }
+.mm-item-form .mm-preview { width: 64px; height: 64px; border-radius: .6rem; font-size: 1.5rem; }
+.mm-item-form .mm-upload { gap: .75rem; }
+.mm-item-form .mm-upload p { margin: .25rem 0 0; }
+.mm-item-form .mm-upload-button { padding: .35rem .65rem; font-size: .85rem; }
+.mm-customization,
+.mm-recipe { border: 1px solid var(--cf-border); border-radius: .65rem; padding: .65rem .75rem; min-width: 0; }
+.mm-customization legend { font-weight: 600; margin-bottom: .25rem; }
+.mm-customization p { font-size: .78rem; margin-bottom: .5rem; }
+.mm-option-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.mm-option-group { min-width: 0; }
+.mm-item-form .mm-option-group label,
+.mm-item-form .mm-customization section label { font-size: .8rem; }
+.mm-item-form .mm-option-group .gap-3 { gap: .35rem .65rem !important; }
+.mm-option-group small { display: block; font-size: .75rem; }
+.mm-recipe summary { cursor: pointer; font-weight: 600; }
+.mm-recipe[open] summary { margin-bottom: .5rem; }
+@media (max-width: 600px) {
+  .cf-modal .modal-dialog:has(.mm-item-form) { max-width: calc(100% - 1rem); margin: .5rem auto; min-height: calc(100% - 1rem); }
+  .cf-modal .modal-content:has(.mm-item-form) { max-height: calc(100dvh - 1rem); }
+  .mm-option-grid,
+  .mm-item-form .mm-form-row { grid-template-columns: 1fr; }
+}

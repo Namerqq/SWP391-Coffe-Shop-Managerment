@@ -11,7 +11,7 @@ import static org.mockito.Mockito.*;
 class ManagerTableServiceTest {
     CafeTableRepository tables = mock(CafeTableRepository.class);
     TableSessionRepository sessions = mock(TableSessionRepository.class);
-    ManagerTableService service = new ManagerTableService(tables, sessions);
+    ManagerTableService service = new ManagerTableService(tables, sessions, mock(SystemSettingRepository.class), mock(GuestSessionStore.class));
     CafeTable table() {
         CafeTable t = new CafeTable(); ReflectionTestUtils.setField(t,"id",1L);
         t.setTableNumber("Bàn 01"); t.setQrCode("stable-qr"); return t;

@@ -35,7 +35,14 @@ public class ToppingCompatibilityService {
                 } catch (NumberFormatException ignored) { /* Ignore malformed legacy settings. */ }
             }
         }
-        result.values().forEach(Collections::sort);
+        Set<Long> enabledItems = new HashSet<>();
+        for (MenuItem item : items.findAll()) {
+            if (ItemCustomizationService.categoryEnabled(item.getCategory(), settings)) enabledItems.add(item.getId());
+        }
+        result.values().forEach(ids -> {
+            ids.removeIf(id -> !enabledItems.contains(id));
+            Collections.sort(ids);
+        });
         return result;
     }
     @Transactional(readOnly = true)
@@ -44,6 +51,8 @@ public class ToppingCompatibilityService {
     }
     @Transactional(readOnly = true)
     public boolean allows(Long toppingId, Long itemId) {
+        MenuItem item = items.findById(itemId).orElse(null);
+        if (item == null || !ItemCustomizationService.categoryEnabled(item.getCategory(), settings)) return false;
         return settings.findById(prefix(toppingId) + itemId)
                 .map(row -> "true".equals(row.getValue())).orElse(false);
     }
@@ -55,7 +64,7 @@ public class ToppingCompatibilityService {
                     .orElseThrow(() -> ApiException.badRequest("Món đi kèm không tồn tại."));
             if (MenuItem.INACTIVE.equals(item.getAvailabilityStatus())
                     || !"ACTIVE".equals(item.getCategory().getStatus())
-                    || !(item.getCategory().isType("DRINK") || item.getCategory().isType("FOOD"))) {
+                    || !ItemCustomizationService.categoryEnabled(item.getCategory(), settings)) {
                 throw ApiException.badRequest("Chỉ gán topping cho đồ uống hoặc đồ ăn chưa xoá.");
             }
         }
@@ -75,7 +84,7 @@ public class ToppingCompatibilityService {
     public void replaceForItem(Long itemId, List<Long> requested) {
         MenuItem main = items.findById(itemId)
                 .orElseThrow(() -> ApiException.badRequest("Món không tồn tại."));
-        if (!(main.getCategory().isType("DRINK") || main.getCategory().isType("FOOD"))) {
+        if (!ItemCustomizationService.categoryEnabled(main.getCategory(), settings) && requested != null && !requested.isEmpty()) {
             throw ApiException.badRequest("Chỉ cấu hình topping đi kèm đồ uống hoặc đồ ăn.");
         }
         Set<Long> ids = new LinkedHashSet<>(requested == null ? List.of() : requested);
