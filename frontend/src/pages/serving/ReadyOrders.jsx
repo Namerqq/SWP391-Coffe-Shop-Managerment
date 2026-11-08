@@ -3,6 +3,7 @@ import servingApi from '../../api/servingApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 import usePolling from '../../utils/usePolling'
+import { refreshNavCounts } from '../../components/NavCount'
 import { elapsedLabel, itemOptionsText, minutesSince } from '../../utils/orderFormat'
 import '../../styles/danmt.css'
 
@@ -41,6 +42,7 @@ export default function ReadyOrders({ type = 'DINE_IN' }) {
     } finally {
       setBusyId(null)
       load()
+      if (pickup) refreshNavCounts() // chấm đỏ trên menu giảm ngay, không chờ lần hỏi sau
     }
   }
 
