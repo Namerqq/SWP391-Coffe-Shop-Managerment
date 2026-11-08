@@ -61,6 +61,12 @@ public class SystemSetting {
         return setting;
     }
 
+    public static SystemSetting categoryOptions(String key) {
+        SystemSetting setting = menuRule(key);
+        setting.label = "Cho phép lựa chọn khi gọi món theo danh mục";
+        return setting;
+    }
+
     public static SystemSetting itemCustomization(String key) {
         SystemSetting setting = menuRule(key);
         setting.dataType = "TEXT";

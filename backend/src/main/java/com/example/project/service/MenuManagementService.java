@@ -105,9 +105,10 @@ public class MenuManagementService {
         category.setName(name);
         category.setCategoryType(request.categoryType());
         categoryRepository.save(category);
+        customizations.saveCategoryOptions(category, request.orderOptionsEnabled());
 
         return new CategoryView(
-                category.getId(), category.getName(), category.getCategoryType(), 0
+                category.getId(), category.getName(), category.getCategoryType(), 0, customizations.categoryEnabled(category)
         );
     }
 
@@ -132,9 +133,12 @@ public class MenuManagementService {
     public ManagedItemView saveItem(Long id, MenuRequest request) {
         Category category = requireManagedCategory(request.categoryId());
         String name = request.name().trim();
-        MenuItem item = id == null ? new MenuItem() : requireManagedItem(id);
+        MenuItem item = id == null ? findItemToRestore(category.getId(), name) : requireManagedItem(id);
 
-        validateItemName(id, category.getId(), name);
+        validateItemName(item.getId(), category.getId(), name);
+        if (id == null) {
+            item.setAvailabilityStatus(MenuItem.AVAILABLE);
+        }
         String imageUrl = normalizeImageUrl(request.imageUrl());
 
         if (id != null && !item.getCategory().getCategoryType().equals(category.getCategoryType())) {
@@ -153,8 +157,8 @@ public class MenuManagementService {
         item.setRecipeInstructions(normalizeRecipe(request.recipeInstructions()));
         item.setSellStandalone(true);
 
-        if (category.isOptionGroup() && request.allowedToppingIds() != null && !request.allowedToppingIds().isEmpty()) {
-            throw ApiException.badRequest("Topping bán riêng không được thêm topping đi kèm.");
+        if (!customizations.categoryEnabled(category) && request.allowedToppingIds() != null && !request.allowedToppingIds().isEmpty()) {
+            throw ApiException.badRequest("Danh mục này đã tắt lựa chọn khi gọi món, không được thêm topping đi kèm.");
         }
         if (category.isType(FOOD_TYPE) && request.allowedToppingIds() != null && !request.allowedToppingIds().isEmpty()) {
             throw ApiException.badRequest("Bánh không áp dụng topping đi kèm.");
@@ -226,7 +230,8 @@ public class MenuManagementService {
                         category.getCategoryType(),
                         visibleItems.stream()
                                 .filter(item -> category.getId().equals(item.getCategory().getId()))
-                                .count()
+                                .count(),
+                        customizations.categoryEnabled(category)
                 ))
                 .toList();
     }
@@ -334,7 +339,17 @@ public class MenuManagementService {
         }
     }
 
-    /** Không cho trùng tên món trong cùng danh mục, kể cả món đã xoá. */
+    /** Thêm lại tên đã xoá dùng bản ghi cũ để giữ liên kết với đơn hàng và ràng buộc tên duy nhất. */
+    private MenuItem findItemToRestore(Long categoryId, String name) {
+        return menuItemRepository.findAll().stream()
+                .filter(item -> categoryId.equals(item.getCategory().getId()))
+                .filter(item -> item.getName().equalsIgnoreCase(name))
+                .filter(item -> MenuItem.INACTIVE.equals(item.getAvailabilityStatus()))
+                .findFirst()
+                .orElseGet(MenuItem::new);
+    }
+
+    /** Khi sửa món, vẫn kiểm tra tên của các bản ghi khác để tránh vi phạm ràng buộc database. */
     private void validateItemName(Long id, Long categoryId, String name) {
         boolean duplicate = menuItemRepository.findAll().stream()
                 .anyMatch(item -> categoryId.equals(item.getCategory().getId())
@@ -342,7 +357,7 @@ public class MenuManagementService {
                         && !Objects.equals(item.getId(), id));
 
         if (duplicate) {
-            throw ApiException.conflict("Tên món đã tồn tại trong danh mục này, kể cả món đã xoá.");
+            throw ApiException.conflict("Tên món đã tồn tại trong danh mục này. Nếu món đã xoá, hãy dùng Thêm món để thêm lại.");
         }
     }
 

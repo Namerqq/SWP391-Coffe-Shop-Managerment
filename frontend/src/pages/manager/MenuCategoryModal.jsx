@@ -8,6 +8,7 @@ import { categoryTypes } from '../../utils/menuFormat'
 export default function MenuCategoryModal({ category, onClose, onSaved }) {
   const [name, setName] = useState(category?.name || '')
   const [type, setType] = useState(category?.categoryType || 'DRINK')
+  const [orderOptionsEnabled, setOrderOptionsEnabled] = useState(category?.orderOptionsEnabled ?? (category?.categoryType || 'DRINK') === 'DRINK')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -27,6 +28,7 @@ export default function MenuCategoryModal({ category, onClose, onSaved }) {
       await api.saveCategory(category?.id, {
         name: name.trim(),
         categoryType: type,
+        orderOptionsEnabled: type !== 'TOPPING' && orderOptionsEnabled,
       })
 
       onSaved()
@@ -77,7 +79,10 @@ export default function MenuCategoryModal({ category, onClose, onSaved }) {
           <select
             className="form-select"
             value={type}
-            onChange={(e) => setType(e.target.value)}
+            onChange={(e) => {
+              setType(e.target.value)
+              setOrderOptionsEnabled(e.target.value === 'DRINK')
+            }}
             disabled={busy}
           >
             {Object.entries(categoryTypes).map(([key, label]) => (
@@ -87,6 +92,18 @@ export default function MenuCategoryModal({ category, onClose, onSaved }) {
             ))}
           </select>
         </label>
+
+        <label className="mm-check">
+          <input type="checkbox" className="form-check-input"
+            checked={type !== 'TOPPING' && orderOptionsEnabled}
+            onChange={(e) => setOrderOptionsEnabled(e.target.checked)}
+            disabled={busy || type === 'TOPPING'} />
+          Cho phép lựa chọn khi gọi món
+        </label>
+        <small className="cf-muted">
+          Bật để cấu hình size, đường, đá và topping cho các món trong danh mục.
+          Tắt thì khách chỉ chọn số lượng và ghi chú.
+        </small>
 
         {category && (
           <small className="cf-muted">

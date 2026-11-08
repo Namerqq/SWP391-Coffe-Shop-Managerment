@@ -113,8 +113,8 @@ export default function GuestItemModal({ show, item, options, initial, confirmTe
           </div>
         </fieldset>
       )}
-      {!standaloneTopping && levels('Đường', config.sugarLevels, form.sugarLevel, 'sugarLevel')}
-      {!standaloneTopping && levels('Đá', config.iceLevels, form.iceLevel, 'iceLevel')}
+      {!standaloneTopping && config.sugarLevels.length > 0 && levels('Đường', config.sugarLevels, form.sugarLevel, 'sugarLevel')}
+      {!standaloneTopping && config.iceLevels.length > 0 && levels('Đá', config.iceLevels, form.iceLevel, 'iceLevel')}
       {toppings.length > 0 && (
         <fieldset className="gx-opt">
           <legend>Topping</legend>

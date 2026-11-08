@@ -2,6 +2,7 @@ package com.example.project.service;
 
 import com.example.project.dto.menu.ItemCustomization;
 import com.example.project.entity.MenuItem;
+import com.example.project.entity.Category;
 import com.example.project.entity.SystemSetting;
 import com.example.project.exception.ApiException;
 import com.example.project.repository.SystemSettingRepository;
@@ -12,6 +13,7 @@ import java.util.*;
 
 @Service
 public class ItemCustomizationService {
+    public static final String CATEGORY_PREFIX = "menu.category-options.";
     public static final String PREFIX = "menu.customization.";
     public static final List<String> SIZES = List.of("S", "M", "L");
     public static final List<String> LEVELS = List.of("100%", "70%", "50%", "30%", "0%");
@@ -19,6 +21,23 @@ public class ItemCustomizationService {
     private final ObjectMapper json;
     public ItemCustomizationService(SystemSettingRepository settings, ObjectMapper json) {
         this.settings = settings; this.json = json;
+    }
+    /** Danh mục cũ: đồ uống được tùy chỉnh, bánh và topping mặc định tắt. */
+    public static boolean categoryEnabled(Category category, SystemSettingRepository settings) {
+        if (category.isOptionGroup()) return false;
+        return settings.findById(CATEGORY_PREFIX + category.getId())
+                .map(row -> Boolean.parseBoolean(row.getValue()))
+                .orElse(category.isType("DRINK"));
+    }
+    public boolean categoryEnabled(Category category) {
+        return categoryEnabled(category, settings);
+    }
+    public void saveCategoryOptions(Category category, Boolean enabled) {
+        String key = CATEGORY_PREFIX + category.getId();
+        if (enabled == null && !category.isOptionGroup()) return;
+        SystemSetting row = settings.findById(key).orElseGet(() -> SystemSetting.categoryOptions(key));
+        row.setValue(String.valueOf(!category.isOptionGroup() && Boolean.TRUE.equals(enabled)));
+        settings.save(row);
     }
     public static ItemCustomization defaults(MenuItem item) {
         if (item.getCategory().isType("FOOD") || item.getCategory().isType("TOPPING") || item.getCategory().isType("SIZE")) {
@@ -28,7 +47,9 @@ public class ItemCustomizationService {
     }
     @Transactional(readOnly = true)
     public ItemCustomization get(MenuItem item) {
-        if (item.getCategory().isOptionGroup() || item.getCategory().isType("FOOD")) return defaults(item);
+        if (!categoryEnabled(item.getCategory())) {
+            return new ItemCustomization(List.of(), null, List.of(), null, List.of(), null, false);
+        }
         return settings.findById(PREFIX + item.getId()).map(row -> {
             try { return json.readValue(row.getValue(), ItemCustomization.class); }
             catch (Exception ex) { throw ApiException.badRequest("Cấu hình lựa chọn món không hợp lệ, vui lòng báo quản lý."); }
@@ -46,8 +67,7 @@ public class ItemCustomizationService {
     }
     @Transactional
     public void save(MenuItem item, ItemCustomization config) {
-        // Bánh không có size/đường/đá, bỏ cấu hình cũ nếu manager lưu lại món.
-        if (item.getCategory().isType("FOOD")) {
+        if (!categoryEnabled(item.getCategory())) {
             remove(item.getId());
             return;
         }

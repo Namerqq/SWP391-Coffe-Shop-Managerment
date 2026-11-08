@@ -45,7 +45,9 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
     setForm((f) => ({ ...f, [key]: value }))
   }
 
-  const type = categories.find((c) => c.id === Number(form.categoryId))?.categoryType
+  const category = categories.find((c) => c.id === Number(form.categoryId))
+  const type = category?.categoryType
+  const orderOptionsEnabled = type !== 'TOPPING' && (category?.orderOptionsEnabled ?? type === 'DRINK')
   const availableToppings = items.filter((candidate) =>
     categories.find((category) => category.id === candidate.categoryId)?.categoryType === 'TOPPING')
   const setAllowedToppings = (ids) => setForm((current) => ({ ...current, allowedToppingIds: ids }))
@@ -112,8 +114,8 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
         categoryId: Number(form.categoryId),
         basePrice: Number(form.basePrice),
         imageUrl: url || null,
-        allowedToppingIds: type === 'DRINK' ? form.allowedToppingIds : [],
-        customization: type !== 'DRINK' || customization?.legacy ? null : customization,
+        customization: !orderOptionsEnabled || customization?.legacy ? null : customization,
+        allowedToppingIds: orderOptionsEnabled ? form.allowedToppingIds : [],
       })
 
       onSaved()
@@ -146,7 +148,7 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
         </>
       }
     >
-      <form id="mm-item-form" onSubmit={submit} className="mm-form">
+      <form id="mm-item-form" onSubmit={submit} className="mm-form mm-item-form">
         <label>
           Tên món
           <input
@@ -209,15 +211,16 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
           />
         </label>
 
-        {type === 'DRINK' && (
-          <ItemCustomizationFields showDrinkOptions={type === 'DRINK'} value={customization} onChange={setCustomization} disabled={busy}
+        {orderOptionsEnabled && (
+          <ItemCustomizationFields value={customization} onChange={setCustomization} disabled={busy}
             toppings={availableToppings} allowedToppingIds={form.allowedToppingIds} onToppingsChange={setAllowedToppings} />
         )}
 
         {/* Công thức hiện ở màn Pha chế (nút Công thức); để trống thì Barista thấy "chưa có công thức". */}
         {['DRINK', 'FOOD'].includes(type) && (
-          <fieldset className="border rounded p-3">
-            <legend className="fs-6 float-none w-auto px-1">Công thức pha chế (tuỳ chọn)</legend>
+          <details className="mm-recipe">
+            <summary>Công thức pha chế (tuỳ chọn)</summary>
+            <div className="mm-form-row">
             <label>
               Nguyên liệu / định lượng
               <textarea
@@ -242,7 +245,8 @@ export default function MenuItemModal({ item, categories, items = [], initialCat
                 disabled={busy}
               />
             </label>
-          </fieldset>
+          </div>
+          </details>
         )}
 
         {type === 'TOPPING' && <small className="cf-muted">

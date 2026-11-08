@@ -10,7 +10,7 @@ export default function ItemCustomizationFields({ value, onChange, disabled,
     const selected = value[key]
     const setChoices = (next) => onChange({ ...value, [key]: next,
       [defaultKey]: next.includes(value[defaultKey]) ? value[defaultKey] : next[0] ?? null })
-    return <section className="mb-3" key={key}>
+    return <section className="mm-option-group" key={key}>
       <label className="d-flex align-items-center gap-2">
         <input type="checkbox" className="form-check-input m-0" checked={selected.length > 0}
           disabled={disabled} onChange={(e) => setChoices(e.target.checked ? [...choices] : [])} />
@@ -35,7 +35,7 @@ export default function ItemCustomizationFields({ value, onChange, disabled,
       </>}
     </section>
   }
-  return <fieldset className="border rounded p-3">
+  return <fieldset className="mm-customization">
     <legend className="fs-6 float-none w-auto px-1">Lựa chọn khi gọi món</legend>
     {showDrinkOptions && (legacy ? <>
       <p className="cf-muted">Chưa cấu hình riêng: giữ M theo giá niêm yết, L +10.000đ và các mức đường/đá cũ.</p>
@@ -43,9 +43,11 @@ export default function ItemCustomizationFields({ value, onChange, disabled,
         onClick={() => onChange(defaultCustomization())}>Thiết lập riêng size, đường, đá</button>
     </> : <>
       <p className="cf-muted">Giá niêm yết là giá size S: M +5.000đ, L +15.000đ. Không áp dụng size thì giữ giá niêm yết.</p>
+      <div className="mm-option-grid">
       {group('Size', 'sizes', 'defaultSize', ['S', 'M', 'L'])}
       {group('Đường', 'sugarLevels', 'defaultSugar', SUGAR_LEVELS)}
       {group('Đá', 'iceLevels', 'defaultIce', ICE_LEVELS)}
+      </div>
       <p className="cf-muted">0% là lựa chọn không đường/không đá. Bỏ áp dụng nghĩa là món không có tuỳ chọn đó.</p>
     </>)}
     {!showDrinkOptions && <p className="cf-muted">Bánh không áp dụng size, đường và đá.</p>}
