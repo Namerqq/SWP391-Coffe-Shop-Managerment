@@ -1,6 +1,7 @@
 package com.example.project.dto.cashier;
 
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
@@ -12,5 +13,6 @@ public record QrSessionRequest(
         Long customerId,
         @Min(value = 0, message = "Số điểm dùng không hợp lệ") Integer pointsToRedeem,
         List<Long> orderIds,
-        @Min(value = 0, message = "Số tiền không hợp lệ") Long expectedSubtotal
+        @Min(value = 0, message = "Số tiền không hợp lệ") Long expectedSubtotal,
+        @Size(max = 300, message = "Ghi chú thanh toán tối đa 300 ký tự") String paymentNote
 ) {}

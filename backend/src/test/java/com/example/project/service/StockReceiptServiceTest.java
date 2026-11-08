@@ -225,4 +225,62 @@ class StockReceiptServiceTest {
         assertEquals(2, view.items().size());
         verify(receiptRepo, times(1)).save(any(StockReceipt.class));
     }
+    @Test
+    @DisplayName("Cập nhật phiếu nhập nháp (updateDraft) tại chỗ thành công không bị duplicate key")
+    void updateDraft_inPlaceUpdate_success() {
+        StockReceipt receipt = new StockReceipt();
+        receipt.setId(10L);
+        receipt.setReceiptCode("PN-20261017-001");
+        receipt.setStatus(StockReceipt.DRAFT);
+        receipt.setSupplierName("NCC Cũ");
+
+        StockReceiptItem existingItem = new StockReceiptItem();
+        existingItem.setInventoryItem(sampleItem); // id = 1L
+        existingItem.setQuantity(new BigDecimal("5.000"));
+        existingItem.setUnitCost(200000L);
+        existingItem.calcSubtotal();
+        receipt.addItem(existingItem);
+
+        when(receiptRepo.findWithDetailsById(10L)).thenReturn(Optional.of(receipt));
+        when(receiptRepo.save(any(StockReceipt.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockReceiptRequest req = new StockReceiptRequest(
+                "NCC Mới",
+                LocalDate.now(),
+                "Cập nhật lại số lượng",
+                List.of(new StockReceiptItemRequest(1L, new BigDecimal("12.000"), 210000L))
+        );
+
+        StockReceiptView view = stockReceiptService.updateDraft(10L, req);
+
+        assertNotNull(view);
+        assertEquals("NCC Mới", view.supplierName());
+        assertEquals(1, view.items().size());
+        assertEquals(new BigDecimal("12.000"), view.items().get(0).quantity());
+        assertEquals(210000L, view.items().get(0).unitCost());
+        assertEquals(2520000L, view.totalAmount()); // 12 * 210,000 = 2,520,000
+        verify(receiptRepo, times(1)).save(receipt);
+    }
+
+    @Test
+    @DisplayName("Cập nhật phiếu nháp với nguyên liệu bị trùng lặp trong request ném lỗi BadRequest")
+    void updateDraft_duplicateItemInRequest_throwsBadRequest() {
+        StockReceipt receipt = new StockReceipt();
+        receipt.setId(10L);
+        receipt.setStatus(StockReceipt.DRAFT);
+
+        when(receiptRepo.findWithDetailsById(10L)).thenReturn(Optional.of(receipt));
+
+        StockReceiptRequest req = new StockReceiptRequest(
+                "NCC Test",
+                LocalDate.now(),
+                "Trùng item",
+                List.of(
+                        new StockReceiptItemRequest(1L, new BigDecimal("2.000"), 200000L),
+                        new StockReceiptItemRequest(1L, new BigDecimal("5.000"), 200000L)
+                )
+        );
+
+        assertThrows(ApiException.class, () -> stockReceiptService.updateDraft(10L, req));
+    }
 }

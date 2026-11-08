@@ -1,7 +1,6 @@
 package com.example.project.service;
 
 import com.example.project.dto.refund.OrderToRefundView;
-import com.example.project.dto.refund.RefundCompleteRequest;
 import com.example.project.dto.refund.RefundItemsRequest;
 import com.example.project.dto.refund.RefundPreview;
 import com.example.project.dto.refund.RefundPreviewRequest;
@@ -27,6 +26,7 @@ import com.example.project.repository.PaymentRepository;
 import com.example.project.repository.RefundRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,13 +41,13 @@ import java.util.stream.Collectors;
  *
  * Không thêm bảng: mỗi lần hoàn là 1 dòng payments "chiều ngược lại", gắn order_id của đơn được hoàn,
  * total_amount = số tiền trả khách, payment_status = REFUND_PENDING (chờ chuyển khoản trả khách) hoặc
- * REFUNDED (đã trả xong), note = món được hoàn + lý do (+ mã giao dịch chuyển khoản). Dòng hóa đơn gốc giữ nguyên PAID;
+ * REFUNDED (đã trả xong), note = món được hoàn + lý do, refund_proof_url = ảnh chuyển khoản trả khách. Dòng hóa đơn gốc giữ nguyên PAID;
  * hóa đơn gốc của 1 dòng hoàn = order.payment. Mã phiếu hoàn dạng RFyyMMdd-0001.
  *
  * 1. Đơn tại quầy (tại bàn / mang đi) đã thu tiền: thu ngân chọn các món CHƯA MANG RA để hoàn (cùng quy tắc
  *    với "Bỏ món khi thanh toán": món đã pha xong thì ghi thêm biên bản sự cố cho quản lý).
  *    Tiền hoàn chia theo tỉ lệ khách thực trả (hóa đơn có dùng điểm thì mỗi món được giảm tương ứng).
- *    Tiền mặt: trả ngay, phiếu REFUNDED. Chuyển khoản: phiếu REFUND_PENDING tới khi nhập mã giao dịch.
+ *    Tiền mặt: trả ngay, phiếu REFUNDED. Chuyển khoản: phiếu REFUND_PENDING tới khi tải ảnh chuyển khoản.
  * 2. Đơn online đã trả QR: "Hủy và hoàn tiền" khi phục vụ chưa lấy hàng đi giao, hoặc tạo phiếu hoàn cho đơn
  *    đã bị hủy (giao không thành công). Luôn hoàn cả đơn, bằng chuyển khoản (REFUND_PENDING).
  * 3. Điểm khách thân thiết: trừ lại phần điểm đã cộng ứng với số tiền hoàn; hoàn hết hóa đơn thì trả lại
@@ -66,6 +66,7 @@ public class RefundService {
     private static final int INCIDENT_REASON_MAX = 300;
     private static final int REASON_MAX = 200;
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
+    static final String PROOF_FOLDER = "refund-proofs";
 
     private final RefundRepository refundRepository;
     private final PaymentRepository paymentRepository;
@@ -76,12 +77,13 @@ public class RefundService {
     private final CustomerRepository customerRepository;
     private final IncidentReportService incidentService;
     private final OrderSupportService support;
+    private final FileStorageService fileStorage;
 
     public RefundService(RefundRepository refundRepository, PaymentRepository paymentRepository,
                          OrderRepository orderRepository, OrderLockRepository lockRepository,
                          DeliveryRepository deliveryRepository, LoyaltyTransactionRepository loyaltyRepository,
                          CustomerRepository customerRepository, IncidentReportService incidentService,
-                         OrderSupportService support) {
+                         OrderSupportService support, FileStorageService fileStorage) {
         this.refundRepository = refundRepository;
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
@@ -91,6 +93,7 @@ public class RefundService {
         this.customerRepository = customerRepository;
         this.incidentService = incidentService;
         this.support = support;
+        this.fileStorage = fileStorage;
     }
 
     /**
@@ -166,7 +169,7 @@ public class RefundService {
 
     /**
      * Thu ngân hủy đơn online đã trả QR khi phục vụ chưa lấy hàng đi giao (hết nguyên liệu, khách gọi hủy...),
-     * đồng thời tạo phiếu hoàn chuyển khoản cả đơn (chờ thu ngân chuyển trả và nhập mã giao dịch).
+     * đồng thời tạo phiếu hoàn chuyển khoản cả đơn (chờ thu ngân chuyển trả và tải ảnh chuyển khoản).
      */
     @Transactional
     public RefundView cancelDeliveryAndRefund(Long orderId, String reason, User cashier) {
@@ -243,21 +246,22 @@ public class RefundService {
 
     // ===== 3. Chờ chuyển khoản -> đã trả =====
 
-    /** Thu ngân đã chuyển khoản trả khách: nhập mã giao dịch, phiếu chuyển sang Đã hoàn (tính vào trừ doanh thu lúc này). */
+    /** Thu ngân đã chuyển khoản trả khách: tải ảnh chuyển khoản, phiếu chuyển sang Đã hoàn (tính vào trừ doanh thu lúc này). */
     @Transactional
-    public RefundView complete(Long refundId, RefundCompleteRequest req, User cashier) {
-        String ref = req == null ? null : OrderSupportService.blankToNull(req.bankReference());
-        if (ref == null) throw ApiException.badRequest("Nhập mã giao dịch chuyển khoản trả khách.");
-        if (ref.length() > 100) throw ApiException.badRequest("Mã giao dịch tối đa 100 ký tự.");
+    public RefundView complete(Long refundId, MultipartFile proof, User cashier) {
+        if (proof == null || proof.isEmpty()) throw ApiException.badRequest("Vui lòng tải ảnh chuyển khoản trả khách.");
+        fileStorage.validateMenuImage(proof); // dung lượng, đuôi file và nội dung đúng ảnh JPG / PNG / WebP
         Payment r = refundRepository.findRefundWithLockById(refundId)
                 .filter(Payment::isRefund)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phiếu hoàn id = " + refundId));
         if (Payment.REFUNDED.equals(r.getPaymentStatus())) {
             throw ApiException.conflict("Phiếu " + r.getPaymentCode() + " đã hoàn xong trước đó. Danh sách vừa được tải lại.");
         }
+        // Lưu file sau khi đã khóa và kiểm tra phiếu, để phiếu đã hoàn không sinh thêm ảnh thừa.
+        r.setRefundProofUrl(fileStorage.saveImage(proof, PROOF_FOLDER));
         r.setPaymentStatus(Payment.REFUNDED);
         r.setPaidAt(LocalDateTime.now());
-        r.setNote(joinNote(r.getNote(), "Mã GD hoàn: " + ref + " (" + staffName(cashier) + " xác nhận)."));
+        r.setNote(joinNote(r.getNote(), "Đã chuyển khoản trả khách (" + staffName(cashier) + " xác nhận)."));
         paymentRepository.save(r);
         return toView(r);
     }
@@ -465,7 +469,7 @@ public class RefundService {
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn giao hàng #" + orderId));
     }
 
-    /** Dòng hoàn tiền mới. Tiền mặt: trả ngay (REFUNDED); chuyển khoản: chờ nhập mã giao dịch (REFUND_PENDING). */
+    /** Dòng hoàn tiền mới. Tiền mặt: trả ngay (REFUNDED); chuyển khoản: chờ tải ảnh chuyển khoản (REFUND_PENDING). */
     private Payment newRefund(Order o, long amount, String method, User cashier, String note) {
         Payment r = new Payment();
         r.setOrder(o);
@@ -500,7 +504,7 @@ public class RefundService {
                 o == null ? null : o.getCustomerName(), o == null ? null : o.getCustomerPhone(),
                 original == null ? null : original.getId(), original == null ? null : original.getPaymentCode(),
                 original == null ? null : original.getPaymentMethod(), original == null ? 0 : nz(original.getTotalAmount()),
-                original == null ? null : paymentReference(original));
+                original == null ? null : paymentReference(original), r.getRefundProofUrl());
     }
 
     private String paymentReference(Payment original) {
@@ -533,7 +537,7 @@ public class RefundService {
                 .collect(Collectors.joining(", "));
     }
 
-    /** Ghép thêm câu vào ghi chú, ưu tiên giữ nguyên câu mới (mã giao dịch) nếu quá dài. */
+    /** Ghép thêm câu vào ghi chú, ưu tiên giữ nguyên câu mới nếu quá dài. */
     static String joinNote(String base, String extra) {
         if (base == null || base.isBlank()) return limit(extra, NOTE_MAX);
         String joined = base + " " + extra;

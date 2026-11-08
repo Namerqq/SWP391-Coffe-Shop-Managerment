@@ -20,6 +20,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -66,6 +70,19 @@ public class StockReceiptService {
         receipt.setReceiptDate(req.receiptDate() != null ? req.receiptDate() : LocalDate.now());
         receipt.setNote(req.note());
         receipt.setStatus(StockReceipt.DRAFT);
+
+        if (req.items() == null || req.items().isEmpty()) {
+            throw ApiException.badRequest("Danh sách nguyên liệu không được để trống.");
+        }
+        Set<Long> seenIds = new HashSet<>();
+        for (StockReceiptItemRequest itemReq : req.items()) {
+            if (itemReq.inventoryItemId() == null) {
+                throw ApiException.badRequest("Vui lòng chọn nguyên liệu hợp lệ.");
+            }
+            if (!seenIds.add(itemReq.inventoryItemId())) {
+                throw ApiException.badRequest("Nguyên liệu id = " + itemReq.inventoryItemId() + " bị trùng lặp trong cùng một phiếu.");
+            }
+        }
 
         for (StockReceiptItemRequest itemReq : req.items()) {
             InventoryItem inv = itemRepo.findById(itemReq.inventoryItemId())
@@ -138,6 +155,16 @@ public class StockReceiptService {
         String note = priorityTag + (req.note() != null && !req.note().isBlank() ? req.note().trim() : "Đề xuất bổ sung hàng loạt từ quầy pha chế.");
         receipt.setNote(note);
 
+        Set<Long> seenBatchIds = new HashSet<>();
+        for (BatchShortageItemRequest itemReq : req.items()) {
+            if (itemReq.inventoryItemId() == null) {
+                throw ApiException.badRequest("Vui lòng chọn nguyên liệu hợp lệ.");
+            }
+            if (!seenBatchIds.add(itemReq.inventoryItemId())) {
+                throw ApiException.badRequest("Nguyên liệu id = " + itemReq.inventoryItemId() + " bị trùng lặp trong đề xuất.");
+            }
+        }
+
         for (BatchShortageItemRequest itemReq : req.items()) {
             InventoryItem inv = itemRepo.findById(itemReq.inventoryItemId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nguyên liệu id = " + itemReq.inventoryItemId()));
@@ -167,16 +194,53 @@ public class StockReceiptService {
         receipt.setReceiptDate(req.receiptDate() != null ? req.receiptDate() : LocalDate.now());
         receipt.setNote(req.note());
 
-        receipt.clearItems();
-        for (StockReceiptItemRequest itemReq : req.items()) {
-            InventoryItem inv = itemRepo.findById(itemReq.inventoryItemId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nguyên liệu id = " + itemReq.inventoryItemId()));
+        if (req.items() == null || req.items().isEmpty()) {
+            throw ApiException.badRequest("Danh sách nguyên liệu không được để trống.");
+        }
 
-            StockReceiptItem item = new StockReceiptItem();
-            item.setInventoryItem(inv);
-            item.setQuantity(itemReq.quantity());
-            item.setUnitCost(itemReq.unitCost() != null ? itemReq.unitCost() : inv.getUnitCost());
-            receipt.addItem(item);
+        Set<Long> updateSeenIds = new HashSet<>();
+        for (StockReceiptItemRequest itemReq : req.items()) {
+            if (itemReq.inventoryItemId() == null) {
+                throw ApiException.badRequest("Vui lòng chọn nguyên liệu hợp lệ.");
+            }
+            if (!updateSeenIds.add(itemReq.inventoryItemId())) {
+                throw ApiException.badRequest("Nguyên liệu id = " + itemReq.inventoryItemId() + " bị trùng lặp trong danh sách phiếu.");
+            }
+        }
+
+        // Cập nhật tại chỗ (In-place update) để tránh xung đột Hibernate INSERT trước DELETE gây Duplicate entry
+        Map<Long, StockReceiptItem> existingItemsMap = new HashMap<>();
+        for (StockReceiptItem item : receipt.getItems()) {
+            if (item.getInventoryItem() != null && item.getInventoryItem().getId() != null) {
+                existingItemsMap.put(item.getInventoryItem().getId(), item);
+            }
+        }
+
+        // Xóa những item cũ không còn nằm trong danh sách cập nhật mới
+        receipt.getItems().removeIf(item -> {
+            boolean keep = updateSeenIds.contains(item.getInventoryItem().getId());
+            if (!keep) {
+                item.setReceipt(null);
+            }
+            return !keep;
+        });
+
+        // Cập nhật số lượng, đơn giá cho item có sẵn, hoặc tạo mới cho item mới bổ sung
+        for (StockReceiptItemRequest itemReq : req.items()) {
+            StockReceiptItem existingItem = existingItemsMap.get(itemReq.inventoryItemId());
+            if (existingItem != null) {
+                existingItem.setQuantity(itemReq.quantity());
+                existingItem.setUnitCost(itemReq.unitCost() != null ? itemReq.unitCost() : existingItem.getInventoryItem().getUnitCost());
+            } else {
+                InventoryItem inv = itemRepo.findById(itemReq.inventoryItemId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nguyên liệu id = " + itemReq.inventoryItemId()));
+
+                StockReceiptItem newItem = new StockReceiptItem();
+                newItem.setInventoryItem(inv);
+                newItem.setQuantity(itemReq.quantity());
+                newItem.setUnitCost(itemReq.unitCost() != null ? itemReq.unitCost() : inv.getUnitCost());
+                receipt.addItem(newItem);
+            }
         }
 
         receipt.recalcTotal();

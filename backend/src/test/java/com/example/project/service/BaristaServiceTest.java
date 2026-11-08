@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -35,7 +36,7 @@ class BaristaServiceTest {
     @Mock private OrderItemRepository itemRepository;
     @Mock private MenuItemRepository menuItemRepository;
     @Mock private OrderSupportService support;
-    @Mock private InventoryService inventoryService;
+// @Mock private InventoryService inventoryService;
 
     @InjectMocks
     private BaristaService baristaService;
@@ -78,6 +79,23 @@ class BaristaServiceTest {
         verify(support).toView(staff);
         verify(support).toView(onlineConfirmed);
         verify(support, never()).toView(onlinePending);
+    }
+
+    @Test
+    @DisplayName("board / thao tác: đơn ngày trước còn dở không hiện và không tích được; đơn tạo đúng 0h vẫn hiện")
+    void previousDayOrderHidden() {
+        Order old = order(1L, Order.PREPARING, Order.SOURCE_STAFF);
+        ReflectionTestUtils.setField(old, "createdAt", LocalDate.now().atStartOfDay().minusSeconds(1));
+        item(old, 10L, OrderItem.PENDING, null);
+        Order today = order(2L, Order.PENDING, Order.SOURCE_STAFF);
+        ReflectionTestUtils.setField(today, "createdAt", LocalDate.now().atStartOfDay());
+        when(orderRepository.findByStatusInOrderByCreatedAtAsc(anyList())).thenReturn(List.of(old, today));
+
+        baristaService.board();
+
+        verify(support).toView(today);
+        verify(support, never()).toView(old);
+        assertThrows(ApiException.class, () -> baristaService.checkItem(1L, 10L, true, barista));
     }
 
     @Test
@@ -131,7 +149,7 @@ class BaristaServiceTest {
         baristaService.checkItem(1L, 11L, true, barista);
         assertEquals(Order.READY, o.getStatus());
 
-        verify(inventoryService, times(1)).deductForOrder(o, barista);
+// verify(inventoryService, times(1)).deductForOrder(o, barista);
     }
 
     @Test
@@ -184,8 +202,8 @@ class BaristaServiceTest {
         assertEquals(OrderItem.READY, a.getItemStatus());
         assertEquals(OrderItem.PENDING, b.getItemStatus());
         assertEquals(OrderItem.READY, d.getItemStatus());
-        verify(inventoryService).deductForOrder(o1, barista);
-        verify(inventoryService, never()).deductForOrder(o2, barista);
+        // verify(inventoryService).deductForOrder(o1, barista);
+        // verify(inventoryService, never()).deductForOrder(o2, barista);
     }
 
     // ===================== cancelItem =====================

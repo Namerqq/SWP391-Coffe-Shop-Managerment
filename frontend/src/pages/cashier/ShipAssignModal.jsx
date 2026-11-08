@@ -3,6 +3,7 @@ import Modal from '../../components/Modal'
 import cashierApi from '../../api/cashierApi'
 import { errorMessage } from '../../api/axiosClient'
 import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderFormat'
+import { assetUrl } from '../../utils/assetUrl'
 
 // Đơn đã xác nhận (chờ pha / đang pha / pha xong) và phục vụ chưa lấy hàng thì còn gán / đổi người được
 const ASSIGNABLE_ORDER = ['CONFIRMED', 'PREPARING', 'READY']
@@ -141,6 +142,15 @@ export default function ShipAssignModal({ orderId, onClose, onChanged }) {
             </ul>
           )}
           {order.failureReason && <div className="small text-danger mb-3">Lý do giao lỗi: {order.failureReason}</div>}
+          {order.deliveryPhotoUrl && (
+            <div className="mb-3">
+              <div className="small fw-semibold mb-1">Ảnh lúc giao hàng</div>
+              <a href={assetUrl(order.deliveryPhotoUrl)} target="_blank" rel="noreferrer">
+                <img src={assetUrl(order.deliveryPhotoUrl)} alt="Ảnh lúc giao hàng" className="img-fluid rounded border"
+                     style={{ maxHeight: 220, objectFit: 'contain' }} />
+              </a>
+            </div>
+          )}
 
           <div className="mb-1 fw-semibold">
             Người giao: {order.assignedWaiterName || <span className="text-muted fw-normal">chưa có</span>}

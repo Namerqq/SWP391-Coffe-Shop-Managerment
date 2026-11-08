@@ -1,7 +1,7 @@
 -- =====================================================================================
 -- CAFE MANAGEMENT SYSTEM (Gạch Coffee) - DATABASE ĐẦY ĐỦ, 1 FILE DUY NHẤT
 -- Cập nhật: 2026-11-01. Gộp toàn bộ: V1 -> V7 (FREEZE 1.0), V8 biên bản sự cố, V9 hoàn tiền,
--- V10 phí ship chốt theo đơn. Không còn file migration riêng.
+-- V10 phí ship chốt theo đơn, V11 ghi chú thanh toán + ảnh chuyển khoản hoàn tiền. Không còn file migration riêng.
 --
 -- Cài mới: MySQL 8.0.16+ (cần CHECK), chạy cả file 1 lần. File tự tạo và chọn schema cafe_management.
 -- Database đang có dữ liệu: KHÔNG chạy file này, xem phần "Nâng cấp database đang chạy" trong database/README.md.
@@ -18,7 +18,7 @@
 -- Quy ước chính:
 --   - Mọi khóa chính / khóa ngoại BIGINT UNSIGNED. Tiền lưu VND, kiểu BIGINT UNSIGNED.
 --   - Hoàn tiền (V9): mỗi lần hoàn = 1 dòng payments có payment_status REFUND_PENDING / REFUNDED, mã RF...,
---     gắn order_id của đơn được hoàn; payments.note ghi món hoàn, lý do, mã giao dịch trả khách.
+--     gắn order_id của đơn được hoàn; payments.note ghi món hoàn, lý do; payments.refund_proof_url là ảnh chuyển khoản trả khách.
 --     Query cộng tiền trên payments phải lọc theo payment_status.
 --   - Phí ship (V10): deliveries.shipping_fee chốt lúc tạo đơn giao hàng theo cài đặt delivery.shipping_fee.
 --     Trả QR: mã QR = tiền món + phí ship. Trả khi nhận hàng: phục vụ thu tiền món + phí ship.
@@ -258,8 +258,10 @@ CREATE TABLE payments (
     total_amount BIGINT UNSIGNED NOT NULL,
     payment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     paid_at DATETIME NULL,
-    -- V9: ghi chú của dòng hoàn tiền (món hoàn, lý do, mã giao dịch trả khách). Hóa đơn thường để trống.
+    -- V9: ghi chú của dòng hoàn tiền (món hoàn, lý do). V11: hóa đơn thu tiền dùng cho ghi chú thanh toán, không bắt buộc.
     note VARCHAR(500) NULL,
+    -- V11: ảnh chuyển khoản trả khách của phiếu hoàn.
+    refund_proof_url VARCHAR(255) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_payments_code UNIQUE (payment_code),
     CONSTRAINT fk_payments_confirmer FOREIGN KEY (confirmed_by_user_id) REFERENCES users(user_id)
@@ -406,6 +408,8 @@ CREATE TABLE qr_payment_requests (
  bank_reference VARCHAR(100) NULL,
  confirmed_via VARCHAR(20) NULL,
  note VARCHAR(500) NULL,
+ -- V11: ghi chú thanh toán thu ngân nhập lúc tạo mã, chép sang payments.note khi tiền về.
+ payment_note VARCHAR(300) NULL,
  INDEX idx_qr_requests_status (status,
  expires_at),
  INDEX idx_qr_requests_changed (status_changed_at),
@@ -500,7 +504,7 @@ VALUES
     ('shop.close_time', '22:00', 'TIME', 'GENERAL', 'Giờ đóng cửa', NULL, 6),
 
     ('loyalty.vnd_per_point', '10000', 'NUMBER', 'SALES', 'Số tiền đổi 1 điểm (VND)', 'Ví dụ 10000: mỗi 10.000đ thanh toán được 1 điểm.', 2),
-    ('payment.qr_timeout_minutes', '15', 'NUMBER', 'SALES', 'Hết hạn QR thanh toán (phút)', 'Quá thời gian này đơn online chưa thanh toán sẽ bị hủy.', 3),
+    ('payment.qr_timeout_minutes', '15', 'NUMBER', 'SALES', 'Hết hạn QR thanh toán (phút)', 'Thời gian hiệu lực của mã QR thanh toán; hết hạn thì mã bị hủy, chưa có đơn nào được tạo.', 3),
     ('delivery.shipping_fee', '25000', 'NUMBER', 'SALES', 'Phí ship mỗi đơn giao hàng (VND)', 'Cộng vào mỗi đơn giao hàng online: trả QR thì gồm trong mã QR, trả khi nhận hàng thì phục vụ thu cùng tiền món. Đổi giá trị chỉ áp dụng cho đơn đặt sau đó.', 8),
 
     ('security.max_login_attempts', '5', 'NUMBER', 'SECURITY', 'Số lần đăng nhập sai tối đa', 'Vượt quá sẽ khóa tài khoản (LOCKED). 0 = không giới hạn.', 1),

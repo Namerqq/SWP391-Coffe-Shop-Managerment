@@ -69,6 +69,10 @@ ALTER TABLE deliveries ADD COLUMN shipping_fee BIGINT UNSIGNED NULL AFTER failur
 UPDATE system_settings
 SET description = 'Cộng vào mỗi đơn giao hàng online: trả QR thì gồm trong mã QR, trả khi nhận hàng thì phục vụ thu cùng tiền món. Đổi giá trị chỉ áp dụng cho đơn đặt sau đó.'
 WHERE setting_key = 'delivery.shipping_fee';
+
+-- V11: ghi chú thanh toán + ảnh chuyển khoản hoàn tiền (mọi database cũ đều phải chạy)
+ALTER TABLE payments ADD COLUMN refund_proof_url VARCHAR(255) NULL AFTER note;
+ALTER TABLE qr_payment_requests ADD COLUMN payment_note VARCHAR(300) NULL AFTER note;
 ```
 
 Kiểm tra nhanh database đang thiếu gì:
@@ -77,6 +81,8 @@ Kiểm tra nhanh database đang thiếu gì:
 SHOW TABLES LIKE 'incident_reports';
 SHOW COLUMNS FROM payments LIKE 'note';
 SHOW COLUMNS FROM deliveries LIKE 'shipping_fee';
+SHOW COLUMNS FROM payments LIKE 'refund_proof_url';
+SHOW COLUMNS FROM qr_payment_requests LIKE 'payment_note';
 SELECT setting_key FROM system_settings WHERE setting_key = 'delivery.shipping_fee';
 ```
 
@@ -86,4 +92,7 @@ SELECT setting_key FROM system_settings WHERE setting_key = 'delivery.shipping_f
   gắn `order_id` của đơn được hoàn. Query cộng tiền trên `payments` phải lọc theo `payment_status`.
 - Phí ship: `deliveries.shipping_fee` chốt lúc tạo đơn giao hàng. Hóa đơn (`payments.total_amount`) của đơn giao hàng
   gồm cả phí ship, cả khi trả QR lẫn trả khi nhận hàng. `NULL` = đơn tạo trước V10 (hiển thị theo phí ship hiện tại).
+- Ghi chú thanh toán: `payments.note` của hóa đơn thu tiền (không bắt buộc). Mã QR giữ tạm ở
+  `qr_payment_requests.payment_note`, tiền về mới chép sang hóa đơn.
+- Ảnh hoàn tiền: `payments.refund_proof_url`, file nằm ở `uploads/refund-proofs/`. Phiếu cũ vẫn giữ mã giao dịch trong `note`.
 - Có thay đổi schema mới: sửa thẳng `cafe_management.sql` và thêm đoạn nâng cấp vào mục trên, không tạo file V11 riêng.

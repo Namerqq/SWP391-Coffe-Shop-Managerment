@@ -3,6 +3,7 @@ import ProtectedRoute from '../components/ProtectedRoute'
 import StaffLayout from '../layouts/StaffLayout'
 import BaristaBoard from '../pages/barista/BaristaBoard'
 import BaristaInventory from '../pages/barista/BaristaInventory'
+import BaristaStockOutPage from '../pages/barista/BaristaStockOutPage'
 import WaiterTables from '../pages/waiter/WaiterTables'
 import WaiterTableDetail from '../pages/waiter/WaiterTableDetail'
 import WaiterBoard from '../pages/waiter/WaiterBoard'
@@ -18,6 +19,7 @@ export const danmtRoutes = (
     <Route path="/barista" element={<ProtectedRoute roles={['BARISTA']}><StaffLayout /></ProtectedRoute>}>
       <Route index element={<BaristaBoard />} />
       <Route path="inventory" element={<BaristaInventory />} />
+      <Route path="stock-out" element={<BaristaStockOutPage />} />
     </Route>
 
     <Route path="/waiter" element={<ProtectedRoute roles={['WAITER']}><StaffLayout /></ProtectedRoute>}>

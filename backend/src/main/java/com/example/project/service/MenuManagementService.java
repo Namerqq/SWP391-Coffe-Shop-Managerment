@@ -160,12 +160,16 @@ public class MenuManagementService {
         if (!customizations.categoryEnabled(category) && request.allowedToppingIds() != null && !request.allowedToppingIds().isEmpty()) {
             throw ApiException.badRequest("Danh mục này đã tắt lựa chọn khi gọi món, không được thêm topping đi kèm.");
         }
+        if (category.isType(FOOD_TYPE) && request.allowedToppingIds() != null && !request.allowedToppingIds().isEmpty()) {
+            throw ApiException.badRequest("Bánh không áp dụng topping đi kèm.");
+        }
         MenuItem saved = menuItemRepository.save(item);
+        if (category.isType(FOOD_TYPE)) toppingCompatibility.removeForItem(saved.getId());
         if (!category.isOptionGroup()) customizations.save(saved, request.customization());
         if (category.isType("TOPPING") && request.allowedItemIds() != null) {
             toppingCompatibility.replace(saved.getId(), request.allowedItemIds());
         }
-        if (!category.isOptionGroup() && request.allowedToppingIds() != null) {
+        if (category.isType(DRINK_TYPE) && request.allowedToppingIds() != null) {
             toppingCompatibility.replaceForItem(saved.getId(), request.allowedToppingIds());
         }
         return toManagedItemView(saved);
@@ -206,7 +210,7 @@ public class MenuManagementService {
                 item.isSellStandalone(),
                 item.getCategory().isType("TOPPING") ? toppingRules.getOrDefault(item.getId(), List.of()) : List.of(),
                 customizations.get(item),
-                item.getCategory().isOptionGroup() ? List.of() : toppingRules.entrySet().stream()
+                (!item.getCategory().isType(DRINK_TYPE)) ? List.of() : toppingRules.entrySet().stream()
                         .filter(entry -> entry.getValue().contains(item.getId()))
                         .map(Map.Entry::getKey).sorted().toList(),
                 item.getRecipeIngredients(),

@@ -41,6 +41,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +58,9 @@ import java.util.stream.Collectors;
  *
  * Quy tắc:
  * - Mã tồn tại theo cài đặt payment.qr_timeout_minutes (Admin chỉnh, 1..60 phút).
- * - Đóng hộp thanh toán không hủy mã: khách trả lúc nào hệ thống cũng tự xác nhận. Muốn thu cách khác phải hủy mã.
+ * - Đóng hộp thanh toán không hủy mã: khách trả trong thời hạn của mã thì hệ thống tự xác nhận. Muốn thu cách khác phải hủy mã.
+ * - Mã đã hết hạn / đã hủy KHÔNG còn thanh toán được về mặt nghiệp vụ. App ngân hàng vẫn có thể chuyển tiền từ ảnh
+ *   chụp mã cũ (hệ thống không chặn được ngân hàng), nên tiền về muộn không tự ghi hóa đơn mà chuyển MISMATCH để thu ngân xử lý tay.
  * - Đơn tại bàn đang nằm trong mã chờ thì không sửa / hủy được và không nằm trong mã thứ 2.
  * - Mang đi: CHƯA tạo đơn lúc tạo mã (giỏ hàng lưu kèm mã), khách trả xong mới tạo đơn và gửi pha chế.
  * - Điểm khách dùng được tính lúc tạo mã (số tiền trong mã là số sau giảm) và bị giữ đến khi mã xong;
@@ -72,6 +75,13 @@ public class QrPaymentService {
 
     private static final Logger log = LoggerFactory.getLogger(QrPaymentService.class);
     private static final List<String> NOTIFY = List.of(QrPaymentRequest.PAID, QrPaymentRequest.MISMATCH);
+    private static final List<String> CLOSED = List.of(QrPaymentRequest.EXPIRED, QrPaymentRequest.CANCELLED);
+    /**
+     * Mã còn PENDING nhưng tiền về quá chừng này giây sau giờ hết hạn thì coi là về muộn. Lớn hơn thời gian
+     * QrPaymentWatcher chờ giao dịch sát giờ (15 giây + 1 lần hỏi) để giao dịch bấm đúng lúc cuối vẫn được ghi nhận.
+     */
+    static final long PAY_CUTOFF_SECONDS = 60;
+    private static final DateTimeFormatter EXPIRY_TIME = DateTimeFormatter.ofPattern("HH:mm dd/MM");
 
     private final QrPaymentRequestRepository qrRepository;
     private final TableSessionRepository sessionRepository;
@@ -135,6 +145,7 @@ public class QrPaymentService {
         QrPaymentRequest r = newRequest(QrPaymentRequest.TABLE, subtotal, discount, customer, redeem, createdBy);
         r.setTableSession(s);
         r.getOrders().addAll(toPay);
+        r.setPaymentNote(OrderSupportService.blankToNull(req.paymentNote()));
         return open(r);
     }
 
@@ -156,6 +167,7 @@ public class QrPaymentService {
 
         QrPaymentRequest r = newRequest(QrPaymentRequest.TAKEAWAY, subtotal, discount, customer, redeem, createdBy);
         r.setCartJson(writeCart(new QrTakeawayCart(OrderSupportService.blankToNull(req.note()), lines)));
+        r.setPaymentNote(OrderSupportService.blankToNull(req.paymentNote()));
         return open(r);
     }
 
@@ -175,7 +187,7 @@ public class QrPaymentService {
         if (old.isTable()) {
             List<Long> orderIds = old.getOrders().stream().map(Order::getId).toList();
             return createForSession(old.getTableSession().getId(),
-                    new QrSessionRequest(customerId, old.getPointsToRedeem(), orderIds, old.getSubtotal()), createdBy);
+                    new QrSessionRequest(customerId, old.getPointsToRedeem(), orderIds, old.getSubtotal(), old.getPaymentNote()), createdBy);
         }
         requireGateway();
         QrTakeawayCart cart = readCart(old.getCartJson());
@@ -184,6 +196,7 @@ public class QrPaymentService {
         QrPaymentRequest r = newRequest(QrPaymentRequest.TAKEAWAY, subtotal, discount, old.getCustomer(),
                 old.getPointsToRedeem(), createdBy);
         r.setCartJson(old.getCartJson());
+        r.setPaymentNote(old.getPaymentNote());
         return open(r);
     }
 
@@ -360,11 +373,19 @@ public class QrPaymentService {
                 .map(QrPaymentService::snap).toList();
     }
 
+    /** Mã vừa đóng trong khoảng thời gian gần đây: vẫn hỏi payOS để phát hiện khách trả vào mã cũ khi webhook không tới được. */
+    @Transactional(readOnly = true)
+    public List<Snapshot> recentlyClosedSnapshots(Duration within) {
+        return qrRepository.findByStatusInAndStatusChangedAtAfterOrderByStatusChangedAtAsc(CLOSED,
+                        LocalDateTime.now().minus(within)).stream()
+                .map(QrPaymentService::snap).toList();
+    }
+
     /**
      * payOS báo đã nhận đủ tiền -> ghi hóa đơn (PAID), trừ / cộng điểm, đánh dấu đơn đã thanh toán, trả bàn nếu xong;
      * mang đi thì tạo đơn và gửi pha chế. Webhook và lần hỏi định kỳ cùng về thì chỉ ghi 1 lần (khóa dòng).
-     * Nhận cả mã đã hết hạn / đã hủy (tiền về muộn): đơn vẫn y nguyên thì vẫn ghi nhận, không thì MISMATCH
-     * để thu ngân kiểm tra và xử lý tay.
+     * Mã đã hết hạn / đã hủy (khách quét lại ảnh chụp mã cũ, tiền về muộn): KHÔNG ghi hóa đơn dù đơn vẫn y nguyên,
+     * chuyển MISMATCH để thu ngân kiểm tra và xử lý tay.
      */
     @Transactional
     public QrPaymentView applyPaid(Long id, String via, String reference) {
@@ -376,6 +397,10 @@ public class QrPaymentService {
         r.setPaidAt(LocalDateTime.now());
         r.setBankReference(reference);
         r.setConfirmedVia(via);
+        if (!stillPayable(r, r.getPaidAt())) {
+            closeAsLate(r, r.getAmount());
+            return toView(r);
+        }
         String problem = r.isTable() ? settleTable(r) : r.isOnline() ? settleOnline(r) : settleTakeaway(r);
         if (problem == null) {
             r.moveTo(QrPaymentRequest.PAID, null);
@@ -386,6 +411,20 @@ public class QrPaymentService {
             log.warn("Mã QR {} (orderCode {}) đã nhận tiền nhưng không ghi được: {}", r.getId(), r.getOrderCode(), problem);
         }
         qrRepository.save(r);
+        return toView(r);
+    }
+
+    /** Mã đã đóng (hết hạn / đã hủy) mà vẫn có tiền về, kể cả chưa đủ tiền: không ghi hóa đơn, báo thu ngân. */
+    @Transactional
+    public QrPaymentView markLatePayment(Long id, long received, String via, String reference) {
+        QrPaymentRequest r = qrRepository.findWithLockById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã QR id = " + id));
+        if (CLOSED.contains(r.getStatus())) {
+            r.setPaidAt(LocalDateTime.now());
+            r.setBankReference(reference);
+            r.setConfirmedVia(via);
+            closeAsLate(r, received);
+        }
         return toView(r);
     }
 
@@ -413,6 +452,28 @@ public class QrPaymentService {
             log.warn("Mã QR {} (orderCode {}): {}", r.getId(), r.getOrderCode(), reason);
         }
         return toView(r);
+    }
+
+    private static boolean stillPayable(QrPaymentRequest r, LocalDateTime at) {
+        return r.isPending() && !at.isAfter(r.getExpiresAt().plusSeconds(PAY_CUTOFF_SECONDS));
+    }
+
+    private void closeAsLate(QrPaymentRequest r, long received) {
+        r.moveTo(QrPaymentRequest.MISMATCH, lateNote(r, received));
+        qrRepository.save(r);
+        log.warn("Mã QR {} (orderCode {}) nhận tiền sau khi đã đóng, không ghi hóa đơn: {}", r.getId(), r.getOrderCode(), r.getNote());
+    }
+
+    private String lateNote(QrPaymentRequest r, long received) {
+        String state = QrPaymentRequest.CANCELLED.equals(r.getStatus()) ? "đã bị hủy"
+                : "đã hết hạn lúc " + r.getExpiresAt().format(EXPIRY_TIME);
+        StringBuilder note = new StringBuilder("Khách chuyển tiền vào mã QR ").append(state)
+                .append(" nên hệ thống không tự ghi hóa đơn.");
+        if (received < r.getAmount()) {
+            note.append(" Mới nhận ").append(money(received)).append(" trên ").append(money(r.getAmount())).append('.');
+        }
+        if (r.isOnline()) note.append(" SĐT khách: ").append(readOnlineCart(r.getCartJson()).customerPhone()).append('.');
+        return note.toString();
     }
 
     // ===== Ghi hóa đơn khi tiền đã về =====
@@ -444,6 +505,7 @@ public class QrPaymentService {
 
         Payment p = new Payment();
         p.setTableSession(s);
+        p.setNote(r.getPaymentNote());
         cashier.record(p, r.getSubtotal(), r.getSubtotal() - r.getAmount(), r.getPointsToRedeem(),
                 Payment.BANK_TRANSFER, r.getCustomer(), r.getCreatedBy(), s);
         toPay.forEach(o -> o.markPaid(p));
@@ -487,6 +549,7 @@ public class QrPaymentService {
 
         Payment p = new Payment();
         p.setOrder(o);
+        p.setNote(r.getPaymentNote());
         cashier.record(p, r.getSubtotal(), r.getSubtotal() - r.getAmount(), r.getPointsToRedeem(),
                 Payment.BANK_TRANSFER, customer, r.getCreatedBy(), null);
         o.markPaid(p); // trả trước: đơn vào hàng chờ pha với trạng thái Đã thanh toán

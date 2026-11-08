@@ -15,9 +15,9 @@ const METHODS = [
 
 /**
  * Payment Confirmation — UC-C05, C07 (chọn cách trả), C08 (xác nhận), C11 (dùng điểm), C14 (cộng điểm).
- * onSubmit({ method, customerId, pointsToRedeem }) cho Tiền mặt / Chuyển khoản thủ công, trả về Promise axios
+ * onSubmit({ method, customerId, pointsToRedeem, paymentNote }) cho Tiền mặt / Chuyển khoản thủ công, trả về Promise axios
  * ({ data: PaymentResult }).
- * onCreateQr({ customerId, pointsToRedeem }) cho Quét mã QR, trả về Promise axios ({ data: QrPaymentView });
+ * onCreateQr({ customerId, pointsToRedeem, paymentNote }) cho Quét mã QR, trả về Promise axios ({ data: QrPaymentView });
  * không truyền thì ẩn cách này. onQrChange(view): trạng thái mã QR vừa tạo thay đổi.
  * onPaid(PaymentResult) chạy khi thu xong (kể cả QR tự xác nhận).
  * description (không bắt buộc): 1 dòng ngắn phía trên phần tiền, vd các đơn đang được thu.
@@ -28,6 +28,7 @@ export default function PaymentModal({ show, title, subtotal, description, initi
   const [points, setPoints] = useState('')
   const [method, setMethod] = useState('CASH')
   const [cash, setCash] = useState('')
+  const [paymentNote, setPaymentNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [qr, setQr] = useState(null) // mã QR vừa tạo: hộp chuyển sang màn hình mã QR
@@ -38,6 +39,7 @@ export default function PaymentModal({ show, title, subtotal, description, initi
     setPoints('')
     setMethod('CASH')
     setCash('')
+    setPaymentNote('')
     setError('')
     setQr(null)
     cashierApi.getPaymentSettings()
@@ -94,13 +96,14 @@ export default function PaymentModal({ show, title, subtotal, description, initi
     }
     setSaving(true)
     setError('')
+    const note = paymentNote.trim() || null
     try {
       if (method === 'QR') {
-        const res = await onCreateQr({ customerId: customer?.id ?? null, pointsToRedeem: usePoints })
+        const res = await onCreateQr({ customerId: customer?.id ?? null, pointsToRedeem: usePoints, paymentNote: note })
         setQr(res.data)
         onQrChange?.(res.data)
       } else {
-        const res = await onSubmit({ method, customerId: customer?.id ?? null, pointsToRedeem: usePoints })
+        const res = await onSubmit({ method, customerId: customer?.id ?? null, pointsToRedeem: usePoints, paymentNote: note })
         onPaid(res.data)
       }
     } catch (e) {
@@ -163,6 +166,10 @@ export default function PaymentModal({ show, title, subtotal, description, initi
               </button>
             ))}
           </div>
+
+          <label className="form-label mt-3" htmlFor="pay-note">Ghi chú thanh toán (không bắt buộc)</label>
+          <textarea id="pay-note" className="form-control" rows={2} maxLength={300} value={paymentNote}
+                    disabled={saving} onChange={(e) => setPaymentNote(e.target.value)} />
         </div>
 
         <div className="col-md-6">

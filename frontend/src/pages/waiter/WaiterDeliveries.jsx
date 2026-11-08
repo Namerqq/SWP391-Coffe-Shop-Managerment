@@ -4,6 +4,7 @@ import { errorMessage } from '../../api/axiosClient'
 import { formatMoney, formatTime, itemOptionsText } from '../../utils/orderFormat'
 import usePolling from '../../utils/usePolling'
 import CancelOrderModal from './CancelOrderModal'
+import DeliveryPhotoModal from './DeliveryPhotoModal'
 
 const isOut = (o) => o.deliveryStatus === 'OUT_FOR_DELIVERY' || o.deliveryStatus === 'PICKED_UP'
 
@@ -27,6 +28,7 @@ export default function WaiterDeliveries() {
   const [feedback, setFeedback] = useState(null)
   const [processingId, setProcessingId] = useState(null) // đơn đang gửi thao tác, khóa nút tránh bấm 2 lần
   const [failOrder, setFailOrder] = useState(null) // đơn đang mở popup nhập lý do giao lỗi
+  const [deliverOrder, setDeliverOrder] = useState(null) // đơn đang mở popup chụp ảnh giao hàng
 
   const loadOrders = async () => {
     try {
@@ -59,9 +61,16 @@ export default function WaiterDeliveries() {
   const handlePickUp = (o) =>
     runStep(o, () => waiterDeliveryApi.pickUp(o.orderId), `Đã nhận đơn ${o.orderNumber}, bắt đầu đi giao.`)
 
-  const handleDeliver = (o) => {
-    if (!window.confirm(`Xác nhận đã giao đơn ${o.orderNumber} cho khách?`)) return
-    runStep(o, () => waiterDeliveryApi.deliver(o.orderId), `Đơn ${o.orderNumber} đã giao xong.`)
+  /** Gửi ảnh giao hàng. Lỗi thì ném ra để popup giữ nguyên và hiện lỗi. */
+  const handleDeliver = async (photo) => {
+    const o = deliverOrder
+    try {
+      await waiterDeliveryApi.deliver(o.orderId, photo)
+      setDeliverOrder(null)
+      setFeedback({ type: 'success', message: `Đơn ${o.orderNumber} đã giao xong.` })
+    } finally {
+      loadOrders()
+    }
   }
 
   /** Gửi lý do giao lỗi. Lỗi thì ném ra để popup giữ nguyên và hiện lỗi ngay dưới ô nhập. */
@@ -186,7 +195,7 @@ export default function WaiterDeliveries() {
                           type="button"
                           className="btn btn-success btn-sm w-100"
                           disabled={busy}
-                          onClick={() => handleDeliver(o)}
+                          onClick={() => setDeliverOrder(o)}
                         >
                           {busy ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bi bi-check2-circle me-1" />}
                           Đã giao
@@ -209,6 +218,13 @@ export default function WaiterDeliveries() {
           })}
         </div>
       )}
+
+      <DeliveryPhotoModal
+        show={Boolean(deliverOrder)}
+        order={deliverOrder}
+        onClose={() => setDeliverOrder(null)}
+        onConfirm={handleDeliver}
+      />
 
       <CancelOrderModal
         show={Boolean(failOrder)}

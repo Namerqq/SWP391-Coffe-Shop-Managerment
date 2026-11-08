@@ -19,6 +19,8 @@ const inventoryApi = {
   // Barista endpoints (read-only)
   baristaList:     () => axiosClient.get('/barista/inventory'),
   baristaLowStock: () => axiosClient.get('/barista/inventory/low-stock'),
+  baristaStockOut: (id, data) => axiosClient.post(`/barista/inventory/${id}/stock-out`, data),
+  baristaStockOutHistory: (date) => axiosClient.get('/barista/inventory/stock-out-history', { params: date ? { date } : {} }),
 }
 
 export default inventoryApi

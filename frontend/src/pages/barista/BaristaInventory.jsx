@@ -4,6 +4,7 @@ import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 import BaristaShortageModal from './BaristaShortageModal'
 import BaristaWasteModal from './BaristaWasteModal'
+import BaristaStockOutModal from './BaristaStockOutModal'
 
 /**
  * UC-B05 / UC-B06: Quản lý tồn kho quầy pha chế cho Barista.
@@ -32,6 +33,9 @@ export default function BaristaInventory() {
 
   const [wasteModalOpen, setWasteModalOpen] = useState(false)
   const [wasteTargetItem, setWasteTargetItem] = useState(null)
+
+  const [stockOutModalOpen, setStockOutModalOpen] = useState(false)
+  const [stockOutTargetItem, setStockOutTargetItem] = useState(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -129,6 +133,12 @@ export default function BaristaInventory() {
   const handleOpenWaste = (item) => {
     setWasteTargetItem(item)
     setWasteModalOpen(true)
+  }
+
+  // Mở modal xuất dùng ra quầy bar
+  const handleOpenStockOut = (item) => {
+    setStockOutTargetItem(item)
+    setStockOutModalOpen(true)
   }
 
   const isAllFilteredSelected =
@@ -418,6 +428,15 @@ export default function BaristaInventory() {
                         <div className="d-flex justify-content-end gap-1">
                           <button
                             type="button"
+                            className="btn btn-sm btn-outline-primary py-1 px-2 fw-medium"
+                            title="Lấy nguyên liệu ra quầy bar"
+                            onClick={() => handleOpenStockOut(item)}
+                            disabled={isZero}
+                          >
+                            <i className="bi bi-box-arrow-up me-1" /> Xuất dùng
+                          </button>
+                          <button
+                            type="button"
                             className="btn btn-sm btn-outline-warning py-1 px-2 fw-medium"
                             title="Báo thiếu nguyên liệu này"
                             onClick={() => handleOpenSingleShortage(item)}
@@ -493,6 +512,17 @@ export default function BaristaInventory() {
       />
 
       {/* Modal Biên bản sự cố & Báo hao hụt (UC-B06-Advanced) */}
+      {/* Modal Lấy nguyên liệu ra quầy bar (UC-B07) */}
+      <BaristaStockOutModal
+        show={stockOutModalOpen}
+        item={stockOutTargetItem}
+        onClose={() => {
+          setStockOutModalOpen(false)
+          setStockOutTargetItem(null)
+        }}
+        onSuccess={loadData}
+      />
+
       <BaristaWasteModal
         show={wasteModalOpen}
         item={wasteTargetItem}

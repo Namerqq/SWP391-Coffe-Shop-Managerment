@@ -10,7 +10,7 @@ import { hidingQr, markQrAnnounced, mmss, shortNo, showingQr, toPaymentResult } 
 /**
  * Mã QR payOS chờ khách quét (dùng trong hộp thanh toán và hộp "Xem mã QR").
  * Hỏi backend mỗi 2 giây; khách trả xong hiện "Thanh toán thành công" khoảng 2 giây rồi gọi onPaid(PaymentResult),
- * thu ngân không phải bấm xác nhận. Đóng hộp KHÔNG hủy mã: khách trả lúc nào hệ thống cũng tự xác nhận.
+ * thu ngân không phải bấm xác nhận. Đóng hộp KHÔNG hủy mã: khách trả trước khi mã hết hạn thì hệ thống tự xác nhận.
  *  - onChange(view): mỗi lần trạng thái mã cập nhật (kể cả khi tạo mã mới)
  *  - onBack: (không bắt buộc) quay lại chọn cách thanh toán khác; hủy mã xong cũng tự quay lại
  *  - autoContinue = false: thanh toán xong không tự chuyển trang mà hiện nút Mở hóa đơn
@@ -137,6 +137,9 @@ export default function QrPaymentPanel({ qr, onChange, onPaid, onBack, onClose, 
           {expired ? 'Khách chưa chuyển tiền trong thời gian cho phép.' : 'Mã này không dùng được nữa.'}
           {' '}Tạo mã mới với cùng số tiền, hoặc chọn cách thanh toán khác.
         </p>
+        <p className="cell-sub mb-0 mt-1">
+          Khách quét lại ảnh chụp mã cũ thì tiền về sẽ không tự ghi hóa đơn, màn thu ngân sẽ hiện cảnh báo để kiểm tra tay.
+        </p>
         {errorBox}
         <div className="qr-pay-actions">
           {onBack
@@ -196,7 +199,7 @@ export default function QrPaymentPanel({ qr, onChange, onPaid, onBack, onClose, 
         </div>
       )}
       <p className="qr-pay-note">
-        Đóng hộp này mã vẫn còn hiệu lực. Khách trả lúc nào hệ thống cũng tự xác nhận và báo trên màn thu ngân.
+        Đóng hộp này mã vẫn còn hiệu lực đến khi hết giờ. Khách trả trong thời gian đó hệ thống tự xác nhận và báo trên màn thu ngân.
       </p>
     </div>
   )

@@ -15,6 +15,7 @@ import com.example.project.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -42,17 +43,17 @@ public class BaristaService {
     private final OrderItemRepository itemRepository;
     private final MenuItemRepository menuItemRepository;
     private final OrderSupportService support;
-    private final InventoryService inventoryService;
+// Đã lược bỏ inventoryService do không còn auto-deduct kho
 
     public BaristaService(OrderRepository orderRepository, OrderLockRepository lockRepository,
                           OrderItemRepository itemRepository, MenuItemRepository menuItemRepository,
-                          OrderSupportService support, InventoryService inventoryService) {
+                          OrderSupportService support) {
         this.orderRepository = orderRepository;
         this.lockRepository = lockRepository;
         this.itemRepository = itemRepository;
         this.menuItemRepository = menuItemRepository;
         this.support = support;
-        this.inventoryService = inventoryService;
+// this.inventoryService = inventoryService;
     }
 
     /** Đơn còn món chờ pha hoặc chờ mang ra, đơn đến trước nằm trên. Frontend chia món vào 2 cột. */
@@ -82,7 +83,7 @@ public class BaristaService {
             if (o.getAcceptedAt() == null) {
                 o.setAcceptedBy(barista);
                 o.setAcceptedAt(LocalDateTime.now());
-                inventoryService.deductForOrder(o, barista);
+// Đã bỏ tự động trừ kho: Barista chủ động lấy nguyên liệu ra quầy bar (Issue to Bar)
             }
             line.setItemStatus(OrderItem.READY);
         } else {
@@ -113,7 +114,7 @@ public class BaristaService {
             if (o.getAcceptedAt() == null) {
                 o.setAcceptedBy(barista);
                 o.setAcceptedAt(LocalDateTime.now());
-                inventoryService.deductForOrder(o, barista);
+// Đã bỏ tự động trừ kho: Barista chủ động lấy nguyên liệu ra quầy bar (Issue to Bar)
             }
             o.getItems().stream()
                     .filter(i -> wanted.contains(i.getId()) && i.isWaitingForPreparation())
@@ -161,9 +162,13 @@ public class BaristaService {
         return new RecipeView(m.getId(), m.getName(), m.getRecipeIngredients(), m.getRecipeInstructions());
     }
 
-    /** Đơn online còn chờ thu ngân xác nhận thì chưa hiện cho pha chế (dùng ở Iter2). */
+    /**
+     * Đơn online còn chờ thu ngân xác nhận thì chưa hiện cho pha chế (dùng ở Iter2).
+     * Đơn của ngày trước còn dở (đã thu tiền, chờ phục vụ / thu ngân xử lý) thì pha chế không làm nữa.
+     */
     private static boolean visibleToBarista(Order o) {
-        return !(Order.SOURCE_ONLINE.equals(o.getSource()) && Order.PENDING.equals(o.getStatus()));
+        boolean previousDay = o.getCreatedAt() != null && o.getCreatedAt().isBefore(LocalDate.now().atStartOfDay());
+        return !previousDay && !(Order.SOURCE_ONLINE.equals(o.getSource()) && Order.PENDING.equals(o.getStatus()));
     }
 
     private Order find(Long id) {

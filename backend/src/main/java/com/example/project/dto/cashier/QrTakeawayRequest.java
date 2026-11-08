@@ -13,5 +13,6 @@ public record QrTakeawayRequest(
         @NotEmpty(message = "Chưa chọn món nào") List<@Valid OrderItemRequest> items,
         @Size(max = 500, message = "Ghi chú tối đa 500 ký tự") String note,
         Long customerId,
-        @Min(value = 0, message = "Số điểm dùng không hợp lệ") Integer pointsToRedeem
+        @Min(value = 0, message = "Số điểm dùng không hợp lệ") Integer pointsToRedeem,
+        @Size(max = 300, message = "Ghi chú thanh toán tối đa 300 ký tự") String paymentNote
 ) {}

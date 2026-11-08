@@ -186,3 +186,6 @@
   .gx-header-actions { gap: .35rem; max-width: 60%; }
   .gx-assistance-button { font-size: .75rem; padding: .4rem .65rem; }
 }
+
+/* Giữ xuống dòng ghi chú khách gửi, kể cả khi nội dung dài trên điện thoại. */
+.gx-order-note { margin: 12px 0; white-space: pre-wrap; }

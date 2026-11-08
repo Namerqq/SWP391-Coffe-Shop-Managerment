@@ -37,5 +37,7 @@ public record OnlineOrderView(
         long shippingFee,
         // Số tiền phục vụ còn phải thu khi giao: chưa trả = tiền món + ship; đã trả QR (mã gồm cả ship) = 0;
         // đơn trả QR từ trước khi mã gồm ship thì còn thu tiền ship. Đơn đã hủy = 0.
-        long amountToCollect
+        long amountToCollect,
+        // Ảnh phục vụ chụp lúc giao xong (/uploads/deliveries/...). Chưa giao thì null.
+        String deliveryPhotoUrl
 ) {}

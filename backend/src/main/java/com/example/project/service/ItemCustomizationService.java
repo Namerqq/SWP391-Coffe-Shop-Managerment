@@ -40,7 +40,7 @@ public class ItemCustomizationService {
         settings.save(row);
     }
     public static ItemCustomization defaults(MenuItem item) {
-        if (item.getCategory().isType("TOPPING") || item.getCategory().isType("SIZE")) {
+        if (item.getCategory().isType("FOOD") || item.getCategory().isType("TOPPING") || item.getCategory().isType("SIZE")) {
             return new ItemCustomization(List.of(), null, List.of(), null, List.of(), null, false);
         }
         return new ItemCustomization(List.of("M", "L"), "M", LEVELS, "100%", LEVELS, "100%", true);

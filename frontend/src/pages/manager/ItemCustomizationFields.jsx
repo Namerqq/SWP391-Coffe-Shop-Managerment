@@ -2,7 +2,7 @@ import { defaultCustomization, SIZE_OPTIONS, SUGAR_LEVELS, ICE_LEVELS } from '..
 
 /** Empty option lists mean not applicable, not 0%. Only explicitly configured items use new prices. */
 export default function ItemCustomizationFields({ value, onChange, disabled,
-  toppings = [], allowedToppingIds = [], onToppingsChange = () => {} }) {
+  showDrinkOptions = true, toppings = [], allowedToppingIds = [], onToppingsChange = () => {} }) {
   const legacy = !value || value.legacy
   const toggleTopping = (id) => onToppingsChange(allowedToppingIds.includes(id)
     ? allowedToppingIds.filter((selected) => selected !== id) : [...allowedToppingIds, id])
@@ -37,7 +37,7 @@ export default function ItemCustomizationFields({ value, onChange, disabled,
   }
   return <fieldset className="mm-customization">
     <legend className="fs-6 float-none w-auto px-1">Lựa chọn khi gọi món</legend>
-    {legacy ? <>
+    {showDrinkOptions && (legacy ? <>
       <p className="cf-muted">Chưa cấu hình riêng: giữ M theo giá niêm yết, L +10.000đ và các mức đường/đá cũ.</p>
       <button type="button" className="btn btn-light-soft mb-3" disabled={disabled}
         onClick={() => onChange(defaultCustomization())}>Thiết lập riêng size, đường, đá</button>
@@ -49,7 +49,8 @@ export default function ItemCustomizationFields({ value, onChange, disabled,
       {group('Đá', 'iceLevels', 'defaultIce', ICE_LEVELS)}
       </div>
       <p className="cf-muted">0% là lựa chọn không đường/không đá. Bỏ áp dụng nghĩa là món không có tuỳ chọn đó.</p>
-    </>}
+    </>)}
+    {!showDrinkOptions && <p className="cf-muted">Bánh không áp dụng size, đường và đá.</p>}
     <section className="mt-3">
       <label className="d-flex align-items-center gap-2">
         <input type="checkbox" className="form-check-input m-0" disabled={disabled || toppings.length === 0}
