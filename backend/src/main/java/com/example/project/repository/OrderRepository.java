@@ -19,6 +19,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     boolean existsByTableSession_IdAndStatusNot(Long tableSessionId, String status);
     long countByOrderNumberStartingWith(String prefix);
 
+    /** Id các đơn còn dở tạo trước mốc before (job cuối ngày). */
+    @Query("select o.id from Order o where o.status in :statuses and o.createdAt < :before order by o.id")
+    List<Long> findIdsByStatusInAndCreatedAtBefore(@Param("statuses") Collection<String> statuses,
+                                                   @Param("before") LocalDateTime before);
+
     /** Danh sách đơn giao hàng (DELIVERY) mới nhất lên đầu cho màn hình Thu ngân. */
     List<Order> findByFulfillmentTypeOrderByCreatedAtDesc(String fulfillmentType);
 

@@ -49,6 +49,13 @@ export function elapsedLabel(value) {
   return `${Math.floor(m / 60)} giờ ${m % 60} phút`
 }
 
+/** Đơn tạo từ ngày trước (backend đã xử lý cuối ngày, còn lại là đơn cần nhân viên xử lý). */
+export function isFromPreviousDay(order) {
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  return Boolean(order.createdAt) && new Date(order.createdAt) < startOfToday
+}
+
 export function formatTime(value) {
   if (!value) return '—'
   const d = new Date(value)

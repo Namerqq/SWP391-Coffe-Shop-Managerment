@@ -3,14 +3,17 @@ import servingApi from '../../api/servingApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
 import { ON_BOARD, isItemReady, isItemWaiting } from '../../utils/itemStatus'
+import { isFromPreviousDay } from '../../utils/orderFormat'
 import OrderTicket from '../serving/OrderTicket'
 import IncidentModal from './IncidentModal'
 import '../../styles/danmt.css'
 
 // Order Ready to Serve (Waiter) — SRS 1.4.2, UC-W08. Bảng 2 cột giống pha chế, chỉ đơn tại bàn:
 //   Chờ pha (chỉ xem: biết món nào sắp xong)   |   Chờ mang ra (mang ra bàn, tích từng món; đủ món thì đơn tự xong)
+// Đơn của ngày trước không còn trên bảng pha chế nên không hiện ở Chờ pha, chỉ báo ở dòng cảnh báo đầu trang.
+const waitingItems = (o) => (isFromPreviousDay(o) ? [] : o.items.filter(isItemWaiting))
 const COLUMNS = [
-  { key: 'pending', label: 'Chờ pha', tone: 'pending', pick: (o) => o.items.filter(isItemWaiting), empty: 'Không có món nào đang pha' },
+  { key: 'pending', label: 'Chờ pha', tone: 'pending', pick: waitingItems, empty: 'Không có món nào đang pha' },
   { key: 'ready', label: 'Chờ mang ra', tone: 'ready', pick: (o) => o.items.filter(isItemReady), empty: 'Không có món chờ mang ra' },
 ]
 
@@ -61,7 +64,7 @@ export default function WaiterBoard() {
   }
 
   const renderCard = (o, items, col) => {
-    const waitingLeft = o.items.filter(isItemWaiting).length
+    const waitingLeft = waitingItems(o).length
     if (col.key === 'pending') {
       return (
         <OrderTicket key={o.id} order={o} items={items} tone={col.tone}>
@@ -99,6 +102,8 @@ export default function WaiterBoard() {
       .filter((x) => ON_BOARD.includes(x.status)))
   }
 
+  const previousDayOrders = orders.filter(isFromPreviousDay)
+
   return (
     <>
       <div className="mb-4">
@@ -109,6 +114,14 @@ export default function WaiterBoard() {
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
+
+      {previousDayOrders.length > 0 && (
+        <div className="alert alert-warning">
+          <i className="bi bi-exclamation-triangle-fill me-1" />
+          Đơn ngày trước chưa hoàn thành: {previousDayOrders.map((o) => `${o.displayNumber} (${o.tableNumber})`).join(', ')}.
+          Món khách đã nhận thì tích đã mang ra, món khách chưa nhận thì báo thu ngân hoàn tiền.
+        </div>
+      )}
 
       <div className="kds-columns two">
         {COLUMNS.map((col) => {
