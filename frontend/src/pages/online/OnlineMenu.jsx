@@ -5,6 +5,7 @@ import { formatMoney } from '../../utils/orderFormat'
 import { plainText } from '../../utils/guestSession'
 import { assetUrl } from '../../utils/assetUrl'
 import publicApi from '../../api/publicApi'
+import onlineOrderApi from '../../api/onlineOrderApi'
 
 export default function OnlineMenu() {
   const { openModal, totalCount, totalPrice } = useOnline()
@@ -14,11 +15,13 @@ export default function OnlineMenu() {
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [search, setSearch] = useState('')
 
-  // Tải thực đơn từ Public API của backend
+  // Tải thực đơn từ Public API của backend, kèm các món đang tạm hết (hiện xám, không bấm được)
   const loadMenu = () => {
-    publicApi
-      .getMenu()
-      .then((res) => {
+    Promise.all([
+      publicApi.getMenu(),
+      onlineOrderApi.getSoldOut().catch(() => ({ data: [] })), // lỗi thì chỉ không hiện món hết
+    ])
+      .then(([res, soldOutRes]) => {
         // Chuẩn hóa dữ liệu trả về từ backend: name -> category, description -> desc
         const formatted = (res.data || []).map((cat) => ({
           id: cat.id,
@@ -33,6 +36,17 @@ export default function OnlineMenu() {
             customization: item.customization,
           })),
         }))
+        // Gắn món tạm hết vào đúng danh mục (danh mục chỉ còn món hết thì tạo nhóm mới ở cuối)
+        for (const s of soldOutRes.data || []) {
+          let group = formatted.find((g) => g.id === s.categoryId)
+          if (!group) {
+            group = { id: s.categoryId, category: s.categoryName, items: [] }
+            formatted.push(group)
+          }
+          group.items.push({
+            id: s.id, name: s.name, desc: s.description || '', price: s.price, imageUrl: s.imageUrl, soldOut: true,
+          })
+        }
         setMenu(formatted)
       })
       .catch(() => {
@@ -142,7 +156,7 @@ export default function OnlineMenu() {
           <h2>{group.category}</h2>
           <div className="gx-list">
             {group.items.map((item) => (
-              <article key={item.id} className="gx-item">
+              <article key={item.id} className="gx-item" style={item.soldOut ? { opacity: 0.55 } : undefined}>
                 {item.imageUrl ? (
                   <img src={assetUrl(item.imageUrl)} alt={item.name} />
                 ) : (
@@ -154,15 +168,22 @@ export default function OnlineMenu() {
                   <h3>{item.name}</h3>
                   {item.desc && <p>{item.desc}</p>}
                   <span className="gx-price">{formatMoney(item.price)}</span>
+                  {item.soldOut && <span className="badge bg-secondary ms-2">Hết món</span>}
                 </div>
-                <button
-                  type="button"
-                  className="gx-add"
-                  title="Chọn món"
-                  onClick={() => openModal(item)}
-                >
-                  <i className="bi bi-plus-lg" />
-                </button>
+                {item.soldOut ? (
+                  <button type="button" className="gx-add" title="Món đang tạm hết" disabled style={{ filter: 'grayscale(1)' }}>
+                    <i className="bi bi-slash-circle" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="gx-add"
+                    title="Chọn món"
+                    onClick={() => openModal(item)}
+                  >
+                    <i className="bi bi-plus-lg" />
+                  </button>
+                )}
               </article>
             ))}
           </div>

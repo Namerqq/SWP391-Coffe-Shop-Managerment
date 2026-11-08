@@ -3,12 +3,14 @@ package com.example.project.controller;
 import com.example.project.dto.guest.GuestCancelRequest;
 import com.example.project.dto.online.OnlineOrderRequest;
 import com.example.project.dto.online.OnlineOrderView;
+import com.example.project.dto.online.SoldOutItemView;
 import com.example.project.service.OnlineOrderService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,6 +31,12 @@ public class OnlineOrderController {
      * Phí ship (Admin chỉnh ở Cài đặt hệ thống) để trang thanh toán hiện trước khi đặt.
      * GET /api/public/online/shipping-fee -> { "shippingFee": 25000 }
      */
+    /** Món đang tạm hết, menu online hiện xám. GET /api/public/online/sold-out */
+    @GetMapping("/sold-out")
+    public List<SoldOutItemView> soldOut() {
+        return onlineOrderService.soldOutItems();
+    }
+
     @GetMapping("/shipping-fee")
     public Map<String, Long> shippingFee() {
         return Map.of("shippingFee", onlineOrderService.shippingFee());

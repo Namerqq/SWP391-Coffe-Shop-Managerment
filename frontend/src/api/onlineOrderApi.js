@@ -6,6 +6,8 @@ const onlineOrderApi = {
   placeOrder: (data) => axiosClient.post('/public/online/orders', data),
 
   // Xem 1 đơn bằng mã đơn (dạng 261023-0008). Không còn tra theo id hay số điện thoại.
+  // Món đang tạm hết: menu online hiện xám, không bấm được.
+  getSoldOut: () => axiosClient.get('/public/online/sold-out'),
   getOrderByCode: (code) => axiosClient.get(`/public/online/orders/code/${encodeURIComponent(code)}`),
 
   // Phí ship cố định (backend giữ số tiền): { shippingFee: 25000 }

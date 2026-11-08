@@ -93,7 +93,7 @@ export default function DeliveryPhotoModal({ show, order, onClose, onConfirm }) 
         </>
       }
     >
-      <p className="cf-muted small">Chụp ảnh món lúc giao cho khách để làm bằng chứng. Thu ngân và khách sẽ xem được ảnh này.</p>
+      <p className="cf-muted small">Chụp ảnh món lúc giao cho khách để làm bằng chứng.</p>
       <label className="btn btn-outline-primary w-100" htmlFor="delivery-photo">
         <i className="bi bi-camera me-1" />
         {file ? 'Chụp / chọn lại ảnh' : 'Chụp / chọn ảnh'}

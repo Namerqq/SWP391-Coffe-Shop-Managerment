@@ -2,6 +2,10 @@ package com.example.project.service;
 
 import com.example.project.dto.online.OnlineOrderRequest;
 import com.example.project.dto.online.OnlineOrderView;
+import com.example.project.dto.online.SoldOutItemView;
+import com.example.project.entity.Category;
+import com.example.project.entity.MenuItem;
+import com.example.project.repository.MenuItemRepository;
 import com.example.project.entity.Delivery;
 import com.example.project.entity.Order;
 import com.example.project.entity.OrderItem;
@@ -38,6 +42,7 @@ public class OnlineOrderService {
     private final OrderLockRepository lockRepository;
     private SystemSettingService settings;
     private DeliveryPhotoService photos;
+    private MenuItemRepository menuItemRepository;
 
     public OnlineOrderService(OrderRepository orderRepository,
                               DeliveryRepository deliveryRepository,
@@ -317,6 +322,26 @@ public class OnlineOrderService {
     @Autowired
     void setPhotos(DeliveryPhotoService photos) {
         this.photos = photos;
+    }
+
+    @Autowired
+    void setMenuItemRepository(MenuItemRepository menuItemRepository) {
+        this.menuItemRepository = menuItemRepository;
+    }
+
+    /**
+     * Món quán bấm "Tạm hết" (còn trong thực đơn, danh mục đang bán) để menu online hiện xám, không bấm được.
+     * Đặt món này vẫn bị chặn ở OrderSupportService.buildItem ("hiện đang ngừng bán").
+     */
+    @Transactional(readOnly = true)
+    public List<SoldOutItemView> soldOutItems() {
+        return menuItemRepository.findAllByOrderByNameAsc().stream()
+                .filter(MenuItem::isSellStandalone)
+                .filter(i -> MenuItem.UNAVAILABLE.equals(i.getAvailabilityStatus()))
+                .filter(i -> Category.ACTIVE.equals(i.getCategory().getStatus()))
+                .map(i -> new SoldOutItemView(i.getId(), i.getCategory().getId(), i.getCategory().getName(),
+                        i.getName(), i.getDescription(), i.getBasePrice() == null ? 0 : i.getBasePrice(), i.getImageUrl()))
+                .toList();
     }
 
     /** Phí ship hiện tại (VND), không âm. */

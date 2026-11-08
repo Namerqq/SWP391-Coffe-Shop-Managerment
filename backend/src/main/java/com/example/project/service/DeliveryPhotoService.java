@@ -1,13 +1,14 @@
 package com.example.project.service;
 
 import com.example.project.exception.ApiException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -21,6 +22,8 @@ import java.util.Locale;
  */
 @Service
 public class DeliveryPhotoService {
+
+    private static final Logger log = LoggerFactory.getLogger(DeliveryPhotoService.class);
 
     static final String FOLDER = "deliveries";
     private static final List<String> EXTENSIONS = List.of("jpg", "jpeg", "png", "webp");
@@ -45,11 +48,18 @@ public class DeliveryPhotoService {
     public void save(Long deliveryId, MultipartFile photo) {
         String original = photo.getOriginalFilename() == null ? "" : photo.getOriginalFilename().toLowerCase(Locale.ROOT);
         String ext = original.substring(original.lastIndexOf('.') + 1);
-        try (InputStream in = photo.getInputStream()) {
+        if (!EXTENSIONS.contains(ext)) ext = "jpg";
+        Path target = dir.resolve(fileName(deliveryId, ext));
+        try {
+            byte[] bytes = photo.getBytes(); // đọc hết ảnh vào bộ nhớ trước (ảnh đã thu nhỏ, chỉ vài trăm KB)
             Files.createDirectories(dir);
-            for (String e : EXTENSIONS) Files.deleteIfExists(dir.resolve(fileName(deliveryId, e)));
-            Files.copy(in, dir.resolve(fileName(deliveryId, ext)), StandardCopyOption.REPLACE_EXISTING);
+            for (String e : EXTENSIONS) {
+                Path old = dir.resolve(fileName(deliveryId, e));
+                if (!old.equals(target)) Files.deleteIfExists(old);
+            }
+            Files.write(target, bytes);
         } catch (IOException e) {
+            log.error("Không lưu được ảnh giao hàng vào {}", target, e); // in lý do thật ra console backend
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Không lưu được ảnh giao hàng, vui lòng thử lại.");
         }
     }
