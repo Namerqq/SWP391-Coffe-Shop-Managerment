@@ -4,9 +4,13 @@ import { useAuth } from '../context/AuthContext'
 import { roleNav } from '../routes/registry'
 import { initials, roleLabel } from '../utils/format'
 import WaiterNotificationBell from '../pages/waiter/WaiterNotificationBell'
+import NavCount from '../components/NavCount'
 import '../styles/staff.css'
 
-/** Khung chung cho màn hình nhân viên (Pha chế, Phục vụ, Thu ngân...). Menu trái lấy theo vai trò từ src/routes/*Nav.js. */
+/**
+ * Khung chung cho màn hình nhân viên (Pha chế, Phục vụ, Thu ngân...). Menu trái lấy theo vai trò từ src/routes/*Nav.js.
+ * Mục menu có `count` (hàm trả về Promise<number>) sẽ hiện chấm đỏ có số trên icon.
+ */
 export default function StaffLayout() {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
@@ -32,7 +36,10 @@ export default function StaffLayout() {
           <div className="nav-label cf-section-title">Chức năng</div>
           {nav.items.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end}>
-              <i className={`bi ${n.icon}`} />
+              <span className="nav-icon">
+                <i className={`bi ${n.icon}`} />
+                {n.count && <NavCount fetchCount={n.count} label={n.countLabel} />}
+              </span>
               {n.label}
             </NavLink>
           ))}

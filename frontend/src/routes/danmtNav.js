@@ -1,3 +1,8 @@
+import servingApi from '../api/servingApi'
+
+// Thu ngân: số đơn mang đi đã pha xong, đang chờ giao tại quầy (chấm đỏ trên chuông).
+const countPickupReady = () => servingApi.getReady('PICKUP').then((res) => res.data.length)
+
 // DanMT: menu trái + trang mặc định sau đăng nhập cho Pha chế, Phục vụ (và 1 mục trong menu Thu ngân).
 export const danmtNav = {
   BARISTA: {
@@ -16,7 +21,7 @@ export const danmtNav = {
     ],
   },
   CASHIER: {
-    items: [{ to: '/cashier/pickup-ready', label: 'Mang đi chờ giao', icon: 'bi-bell' }],
+    items: [{ to: '/cashier/pickup-ready', label: 'Mang đi chờ giao', icon: 'bi-bell', count: countPickupReady, countLabel: 'đơn mang đi chờ giao' }],
   },
 }
 
