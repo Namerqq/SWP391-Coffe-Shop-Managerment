@@ -296,9 +296,6 @@ export default function BillDetail() {
                   Bàn tự trả về trống khi mọi đơn đã phục vụ và đã thanh toán.
                 </div>
               )}
-              {session.customer && (
-                <p className="small mb-3"><i className="bi bi-person-check me-1" />Khách: {session.customer.fullName || session.customer.phoneNumber}</p>
-              )}
               <button type="button" className="btn btn-primary w-100 py-2" disabled={selected.length === 0} onClick={openPay}>
                 Thanh toán {formatMoney(selectedTotal)}
               </button>
@@ -319,7 +316,7 @@ export default function BillDetail() {
       </div>
 
       <PaymentModal show={!!payTarget} title={`Thanh toán ${session.tableNumber}`} subtotal={payTarget?.subtotal ?? 0}
-                    description={payTarget?.label} initialCustomer={session.customer}
+                    description={payTarget?.label}
                     transferNote={`${session.sessionCode} ${session.tableNumber}`}
                     onClose={() => { setPayTarget(null); load() }}
                     onSubmit={(payload) => cashierApi.paySession(session.sessionId,
