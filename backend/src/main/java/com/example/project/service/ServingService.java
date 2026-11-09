@@ -158,7 +158,9 @@ public class ServingService {
         o.syncStatusFromItems();
         o.recalcTotal();
         if (o.isCancelled()) o.setCancelReason(CUSTOMER_NOT_REMAKE); // lý do khách nhìn thấy, không nhắc tới sự cố
-        orderRepository.saveAndFlush(o);
+        // Dùng flush (không dùng saveAndFlush): saveAndFlush merge đơn nên dòng vừa tách được lưu bằng bản sao,
+        // biến broken vẫn chưa có id và biên bản bên dưới sẽ lỗi. Đơn đang được quản lý trong transaction nên flush là đủ.
+        orderRepository.flush();
 
         // Lưu biên bản sự cố (nội bộ) để quản lý xem xét và quyết định mức phạt
         incidentService.create(broken, waiter, action, reason);
