@@ -3,7 +3,7 @@ import Modal from '../../components/Modal'
 import servingApi from '../../api/servingApi'
 import { errorMessage } from '../../api/axiosClient'
 import { useToast } from '../../context/ToastContext'
-import { placeLabel } from '../../utils/orderFormat'
+import { isFromPreviousDay, placeLabel } from '../../utils/orderFormat'
 
 const QUICK_REASONS = [
   'Vấp ngã / trượt chân khi mang ra',
@@ -21,13 +21,25 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
   const [quantity, setQuantity] = useState(1) // số ly bị đổ / vỡ trong dòng (vd 1 trong 2× Latte)
   const [loading, setLoading] = useState(false)
 
-  // Mở cho món khác thì đặt lại số ly về 1 (thường chỉ đổ / vỡ 1 ly)
-  useEffect(() => { setQuantity(1) }, [item?.id])
+  // Đơn đã thanh toán: không hủy món ở đây được (cần thu ngân hoàn tiền).
+  // Đơn của ngày trước: pha chế không còn thấy đơn nên không gửi làm lại được.
+  const paid = order?.paymentStatus === 'PAID'
+  const previousDay = order ? isFromPreviousDay(order) : false
+  const canRemake = !previousDay
+  const canCancel = !paid
+  const nothingAllowed = !canRemake && !canCancel
+
+  // Mở cho món khác thì đặt lại số ly về 1 (thường chỉ đổ / vỡ 1 ly) và chọn sẵn hướng xử lý còn được phép
+  useEffect(() => {
+    setQuantity(1)
+    setAction(canRemake ? 'REMAKE' : 'CANCEL')
+  }, [item?.id, canRemake])
 
   if (!show || !order || !item) return null
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if ((action === 'REMAKE' && !canRemake) || (action === 'CANCEL' && !canCancel)) return
     setLoading(true)
 
     const finalReason = quickReason === 'Lý do khác'
@@ -66,7 +78,7 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
           <button type="button" className="btn btn-light-soft" onClick={onClose} disabled={loading}>
             Đóng
           </button>
-          <button type="button" className="btn btn-danger" onClick={handleSubmit} disabled={loading}>
+          <button type="button" className="btn btn-danger" onClick={handleSubmit} disabled={loading || nothingAllowed}>
             {loading && <span className="spinner-border spinner-border-sm me-2" />}
             Xác nhận báo cáo
           </button>
@@ -98,6 +110,14 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
           </div>
         )}
 
+        {nothingAllowed && (
+          <div className="alert alert-danger py-2 px-3 mb-3">
+            <i className="bi bi-x-octagon me-1" />
+            Đơn của ngày trước và đã thanh toán: pha chế không làm lại được, cũng không hủy món ở đây được.
+            Vui lòng <strong>báo Thu ngân hoàn tiền</strong> món này.
+          </div>
+        )}
+
         {/* Hướng xử lý */}
         <div className="mb-3">
           <label className="form-label fw-semibold">1. Hướng xử lý tiếp theo</label>
@@ -109,14 +129,17 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
               name="incidentAction"
               value="REMAKE"
               checked={action === 'REMAKE'}
+              disabled={!canRemake}
               onChange={() => setAction('REMAKE')}
             />
-            <label className="form-check-label fw-medium text-primary" htmlFor="actionRemake">
+            <label className={`form-check-label fw-medium ${canRemake ? 'text-primary' : 'text-body-secondary'}`} htmlFor="actionRemake">
               <i className="bi bi-arrow-repeat me-1" />
               Khách muốn làm lại (gửi lại pha chế làm gấp)
             </label>
             <div className="form-text ms-1">
-              Khách chỉ thanh toán 1 ly ban đầu, cốc làm lại <strong>tuyệt đối không tính thêm tiền</strong>.
+              {canRemake
+                ? <>Khách chỉ thanh toán 1 ly ban đầu, cốc làm lại <strong>tuyệt đối không tính thêm tiền</strong>.</>
+                : <>Đơn của ngày trước: pha chế không còn thấy đơn này nên <strong>không làm lại được</strong>.</>}
             </div>
           </div>
 
@@ -128,14 +151,17 @@ export default function IncidentModal({ show, order, item, onClose, onSuccess })
               name="incidentAction"
               value="CANCEL"
               checked={action === 'CANCEL'}
+              disabled={!canCancel}
               onChange={() => setAction('CANCEL')}
             />
-            <label className="form-check-label fw-medium text-danger" htmlFor="actionCancel">
+            <label className={`form-check-label fw-medium ${canCancel ? 'text-danger' : 'text-body-secondary'}`} htmlFor="actionCancel">
               <i className="bi bi-x-circle me-1" />
               Khách không muốn làm lại (hủy món)
             </label>
             <div className="form-text ms-1">
-              Hệ thống sẽ <strong>tự động trừ tiền món này</strong> khỏi hóa đơn của khách.
+              {canCancel
+                ? <>Hệ thống sẽ <strong>tự động trừ tiền món này</strong> khỏi hóa đơn của khách.</>
+                : <>Đơn đã thanh toán: không hủy món ở đây được, cần <strong>Thu ngân hoàn tiền</strong>.</>}
             </div>
           </div>
         </div>

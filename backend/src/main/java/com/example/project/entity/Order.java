@@ -2,6 +2,7 @@ package com.example.project.entity;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.DynamicUpdate;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -153,6 +154,11 @@ public class Order {
         line.recalcSubtotal();
         addItem(part);
         return part;
+    }
+
+    /** Đơn tạo trước 0h hôm nay: đơn của ngày trước còn dở, pha chế không còn thấy / làm nữa. */
+    public boolean isFromPreviousDay() {
+        return createdAt != null && createdAt.isBefore(LocalDate.now().atStartOfDay());
     }
 
     /** Đơn đang chờ pha (chưa bắt đầu pha). */
