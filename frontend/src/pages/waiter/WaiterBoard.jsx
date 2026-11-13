@@ -17,6 +17,26 @@ const COLUMNS = [
   { key: 'ready', label: 'Chờ mang ra', tone: 'ready', pick: (o) => o.items.filter(isItemReady), empty: 'Không có món chờ mang ra' },
 ]
 
+// Nhớ các đơn đã tắt thông báo trên trình duyệt này, để chuyển trang hay tải lại không hiện lại.
+const DISMISSED_KEY = 'waiter.dismissedPreviousDayOrders'
+
+function loadDismissedIds() {
+  try {
+    const ids = JSON.parse(localStorage.getItem(DISMISSED_KEY))
+    return Array.isArray(ids) ? ids : []
+  } catch {
+    return []
+  }
+}
+
+function saveDismissedIds(ids) {
+  try {
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids))
+  } catch {
+    // Không lưu được thì thông báo chỉ tắt đến khi tải lại trang.
+  }
+}
+
 export default function WaiterBoard() {
   const toast = useToast()
   const [orders, setOrders] = useState([])
@@ -24,6 +44,7 @@ export default function WaiterBoard() {
   const [error, setError] = useState('')
   const [busyItemId, setBusyItemId] = useState(null)
   const [incidentTarget, setIncidentTarget] = useState(null) // { order, item } khi bấm báo sự cố vỡ ly
+  const [dismissedIds, setDismissedIds] = useState(loadDismissedIds)
 
   const load = async () => {
     try {
@@ -103,6 +124,14 @@ export default function WaiterBoard() {
   }
 
   const previousDayOrders = orders.filter(isFromPreviousDay)
+  const warnedOrders = previousDayOrders.filter((o) => !dismissedIds.includes(o.id))
+
+  // Tắt cho các đơn đang báo; có đơn ngày trước mới thì thông báo hiện lại cho đơn đó.
+  const dismissWarning = () => {
+    const ids = previousDayOrders.map((o) => o.id)
+    setDismissedIds(ids)
+    saveDismissedIds(ids)
+  }
 
   return (
     <>
@@ -115,11 +144,13 @@ export default function WaiterBoard() {
 
       {error && <div className="alert alert-danger">{error}</div>}
 
-      {previousDayOrders.length > 0 && (
-        <div className="alert alert-warning">
+      {warnedOrders.length > 0 && (
+        <div className="alert alert-warning alert-dismissible">
           <i className="bi bi-exclamation-triangle-fill me-1" />
-          Đơn ngày trước chưa hoàn thành: {previousDayOrders.map((o) => `${o.displayNumber} (${o.tableNumber})`).join(', ')}.
+          Đơn ngày trước chưa hoàn thành: {warnedOrders.map((o) => `${o.displayNumber} (${o.tableNumber})`).join(', ')}.
           Món khách đã nhận thì tích đã mang ra, món khách chưa nhận thì báo thu ngân hoàn tiền.
+          <button type="button" className="btn-close" aria-label="Tắt thông báo" title="Tắt thông báo"
+                  onClick={dismissWarning} />
         </div>
       )}
 
