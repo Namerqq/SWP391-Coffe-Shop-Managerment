@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Chạy với RUN_MENU_DB_TESTS=true trên MySQL local có đủ schema FREEZE + hai cột Menu Iter 2.
  * Mỗi test rollback transaction; không thay đổi menu hay đơn hiện có. */
-@SpringBootTest
+@SpringBootTest(properties = "app.order.end-of-day.enabled=false") // không để job cuối ngày đổi đơn trong DB local
 @AutoConfigureMockMvc
 @Transactional
 @EnabledIfEnvironmentVariable(named="RUN_MENU_DB_TESTS", matches="true")
@@ -110,6 +110,22 @@ class MenuManagementIntegrationTest {
         Path path=Path.of("uploads",url.substring("/uploads/".length()));uploaded.add(path);assertTrue(Files.exists(path));
         var data=item(category("DRINK"),"TEST-"+UUID.randomUUID(),35000);data.put("imageUrl",url);create(data);
         mvc.perform(multipart("/api/manager/menu/images").file(new MockMultipartFile("file","fake.png","image/png","fake".getBytes())).header("Authorization",auth)).andExpect(status().isBadRequest());
+    }
+    // Công thức Manager lưu ở Menu món phải hiện đúng ở màn Pha chế; để trống thì xoá công thức.
+    @Test void recipeSavedByManagerIsShownToBarista() throws Exception {
+        var data=item(category("DRINK"),"TEST-"+UUID.randomUUID(),30000);
+        data.put("recipeIngredients","  Cà phê hạt 0.02\nNước nóng 0.1  ");data.put("recipeInstructions","Chiết xuất espresso\nThêm nước nóng");
+        long id=create(data);
+        String barista="Bearer "+tokens.create(testUser("BARISTA").getId(),30);
+        mvc.perform(get("/api/barista/recipes/"+id).header("Authorization",barista)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.ingredients").value("Cà phê hạt 0.02\nNước nóng 0.1"))
+            .andExpect(jsonPath("$.instructions").value("Chiết xuất espresso\nThêm nước nóng"));
+        data.put("recipeIngredients","   ");data.remove("recipeInstructions");
+        mvc.perform(put("/api/manager/menu/items/"+id).header("Authorization",auth).contentType("application/json").content(json.writeValueAsString(data)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.recipeIngredients").doesNotExist());
+        mvc.perform(get("/api/barista/recipes/"+id).header("Authorization",barista)).andExpect(jsonPath("$.ingredients").doesNotExist());
+        data.put("recipeInstructions","x".repeat(16001));
+        mvc.perform(put("/api/manager/menu/items/"+id).header("Authorization",auth).contentType("application/json").content(json.writeValueAsString(data))).andExpect(status().isBadRequest());
     }
     @Test void unauthorizedAndInvalidPriceAreRejected() throws Exception {
         mvc.perform(get("/api/manager/menu")).andExpect(status().isUnauthorized());

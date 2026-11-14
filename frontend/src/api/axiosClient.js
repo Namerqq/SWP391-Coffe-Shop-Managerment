@@ -3,7 +3,9 @@ import { getToken } from '../utils/authStorage'
 
 // Cấu hình axios DÙNG CHUNG: địa chỉ backend nằm ở 1 chỗ duy nhất.
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+  // Mặc định '/api' (cùng địa chỉ với trang web): Vite dev server chuyển tiếp sang backend (xem vite.config.js),
+  // nên điện thoại trong cùng Wi-Fi gọi được API mà không cần sửa IP hay CORS.
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
 })
 

@@ -1,0 +1,12 @@
+name: Cafe local
+values:
+  - key: ''
+    value: ''
+  - key: baseUrl
+    value: ''
+  - key: tokenCashier
+    value: ''
+  - key: tokenWaiter
+    value: ''
+  - key: tokenBarista
+    value: ''

@@ -8,12 +8,32 @@ import '../../styles/table-management.css'
 const labels = { AVAILABLE: 'Trống', OCCUPIED: 'Có khách', UNAVAILABLE: 'Tạm ngưng' }
 // Chỉ lưu địa chỉ gốc website trên trình duyệt này; không lưu cấu hình vào database.
 const originKey = 'cafe.tableQrOrigin'
-/** Khôi phục địa chỉ QR đã lưu; nếu chưa có hoặc bị chặn storage thì dùng website hiện tại. */
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+// Các địa chỉ LAN của máy chạy Vite (dò lúc "npm run dev"), IP hotspot 192.168.137.x đứng đầu.
+const LAN_ORIGINS = typeof __LAN_ORIGINS__ !== 'undefined' && Array.isArray(__LAN_ORIGINS__) ? __LAN_ORIGINS__ : []
+const PRIVATE_IP = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/
+/** Mở trang bằng localhost thì QR phải dùng IP LAN/hotspot của máy (Vite tự dò lúc chạy), nếu không điện thoại không vào được. */
+function defaultOrigin() {
+  const lan = typeof __LAN_ORIGIN__ === 'string' ? __LAN_ORIGIN__ : ''
+  if (lan && LOCAL_HOSTS.includes(window.location.hostname)) return lan
+  return window.location.origin
+}
+/**
+ * Khôi phục địa chỉ QR đã lưu; nếu chưa có hoặc bị chặn storage thì dùng địa chỉ dò được.
+ * Bỏ địa chỉ đã lưu nếu là localhost, hoặc là IP LAN cũ mà máy hiện KHÔNG còn (đổi Wi-Fi / bật hotspot -> IP đổi),
+ * vì QR in ra sẽ trỏ tới máy không tồn tại.
+ */
 function initialOrigin() {
   try {
-    return localStorage.getItem(originKey) || window.location.origin
+    const saved = localStorage.getItem(originKey)
+    if (saved) {
+      const host = new URL(saved).hostname
+      const staleIp = PRIVATE_IP.test(host) && LAN_ORIGINS.length > 0 && !LAN_ORIGINS.includes(new URL(saved).origin)
+      if (!LOCAL_HOSTS.includes(host) && !staleIp) return saved
+    }
+    return defaultOrigin()
   } catch {
-    return window.location.origin
+    return defaultOrigin()
   }
 }
 /** Trang quản lý bàn: tải dữ liệu → lọc/chọn bàn → chỉnh sửa hoặc xem, tải và in QR. */
@@ -141,10 +161,10 @@ export default function TableManagement() {
   }
 
   /** Chỉ nhận origin HTTP/HTTPS, không kèm path/query/hash hay thông tin đăng nhập. */
-  function saveOrigin(e) {
+  function saveOrigin(e, value = originDraft) {
     e.preventDefault()
     try {
-      const url = new URL(originDraft.trim())
+      const url = new URL(value.trim())
       if (
         !['http:', 'https:'].includes(url.protocol) ||
         url.username ||
@@ -435,14 +455,34 @@ export default function TableManagement() {
             />
             <button className="btn btn-primary">Lưu địa chỉ</button>
           </div>
+          {LAN_ORIGINS.length > 0 && (
+            <div className="d-flex flex-wrap gap-2 my-2">
+              <span className="small text-muted align-self-center">Địa chỉ của máy này:</span>
+              {LAN_ORIGINS.map((o) => (
+                <button
+                  key={o}
+                  type="button"
+                  className={`btn btn-sm ${o === origin ? 'btn-success' : 'btn-outline-secondary'}`}
+                  onClick={(e) => {
+                    setOriginDraft(o)
+                    saveOrigin(e, o)
+                  }}
+                >
+                  {o}
+                  {o.includes('//192.168.137.') ? ' (hotspot)' : ''}
+                </button>
+              ))}
+            </div>
+          )}
           {originError && (
             <p className="text-danger" role="alert">
               {originError}
             </p>
           )}
           <p>
-            Đang dùng: <strong>{origin}</strong>. Địa chỉ được nhớ trên trình duyệt này. Dùng tên
-            miền hoặc IP máy chủ trong Wi-Fi của quán để điện thoại quét được.
+            Đang dùng: <strong>{origin}</strong>. Địa chỉ được nhớ trên trình duyệt này. Điện thoại
+            bắt hotspot phát từ máy tính thì chọn IP <strong>192.168.137.1</strong>; điện thoại và máy
+            cùng Wi-Fi thì chọn IP Wi-Fi của máy.
           </p>
         </form>
       </details>
