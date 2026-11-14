@@ -20,9 +20,14 @@ import java.util.List;
 /**
  * Biên bản sự cố làm đổ / vỡ món.
  * Phục vụ báo sự cố -> tạo biên bản (PENDING). Quản lý xem và quyết định mức phạt -> REVIEWED.
+ * Thu ngân bỏ / hoàn món đã pha và job cuối ngày cũng tạo biên bản (ghi nhận hao hụt): loại này không phạt người báo.
  */
 @Service
 public class IncidentReportService {
+
+    static final String SOURCE_WAITER = "WAITER";
+    static final String SOURCE_CASHIER = "CASHIER";
+    static final String SOURCE_SYSTEM = "SYSTEM";
 
     private final IncidentReportRepository repository;
 
@@ -64,6 +69,11 @@ public class IncidentReportService {
         if (req.penaltyAmount() == null || req.penaltyAmount() < 0) {
             throw ApiException.badRequest("Mức phạt không hợp lệ.");
         }
+        // Biên bản do thu ngân / job cuối ngày tạo chỉ ghi nhận hao hụt món, người báo không có lỗi nên không phạt.
+        if (!SOURCE_WAITER.equals(sourceOf(report)) && req.penaltyAmount() > 0) {
+            throw ApiException.badRequest("Biên bản này do thu ngân / hệ thống tạo để ghi nhận hao hụt món, "
+                    + "người báo không có lỗi nên không phạt được. Vui lòng nhập 0.");
+        }
         String note = req.managerNote() == null ? null : req.managerNote().trim();
         if (note != null && note.isEmpty()) note = null;
 
@@ -83,8 +93,20 @@ public class IncidentReportService {
         long itemValue = line.getSubtotal() == null ? 0 : line.getSubtotal();
         return new IncidentReportView(r.getId(), o.getId(), OrderSupportService.displayNumber(o.getOrderNumber()),
                 tableNumber, line.getMenuItem().getName(), line.getQuantity(), itemValue,
-                r.getAction(), r.getReason(), staffName(r.getReportedBy()), r.getCreatedAt(),
+                r.getAction(), r.getReason(), staffName(r.getReportedBy()), sourceOf(r), r.getCreatedAt(),
                 r.getStatus(), r.getPenaltyAmount(), r.getManagerNote(), staffName(r.getReviewedBy()), r.getReviewedAt());
+    }
+
+    /**
+     * Nguồn biên bản theo vai trò người báo: phục vụ báo đổ / vỡ (WAITER), thu ngân bỏ / hoàn món (CASHIER),
+     * còn lại là job cuối ngày ghi bằng tài khoản Admin (SYSTEM).
+     */
+    static String sourceOf(IncidentReport r) {
+        User u = r.getReportedBy();
+        String role = u == null || u.getRole() == null ? null : u.getRole().getName();
+        if (SOURCE_WAITER.equals(role)) return SOURCE_WAITER;
+        if (SOURCE_CASHIER.equals(role)) return SOURCE_CASHIER;
+        return SOURCE_SYSTEM;
     }
 
     private static String staffName(User u) {

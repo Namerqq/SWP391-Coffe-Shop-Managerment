@@ -4,6 +4,7 @@ import { errorMessage } from '../../api/axiosClient'
 import { formatMoney } from '../../utils/orderFormat'
 import { formatDateTime } from '../../utils/format'
 import IncidentReviewModal from './IncidentReviewModal'
+import { isWaiterReport, reporterLabel, sourceLabel } from './incidentSource'
 
 const TABS = [
   { key: 'PENDING', label: 'Chờ xử lý' },
@@ -15,7 +16,6 @@ const ACTION_LABEL = {
   REMAKE: 'Khách muốn làm lại',
   CANCEL: 'Khách không làm lại',
 }
-
 // Quản lý: xem biên bản sự cố đổ / vỡ món của phục vụ và quyết định mức phạt.
 export default function IncidentReportList() {
   const [tab, setTab] = useState('PENDING')
@@ -57,7 +57,8 @@ export default function IncidentReportList() {
         <div>
           <h1 className="page-title">Sự cố đổ / vỡ món</h1>
           <p className="page-subtitle">
-            Biên bản do phục vụ báo khi làm đổ / vỡ món. Xem xét và nhập mức phạt phù hợp (nhập 0 nếu không phạt).
+            Biên bản do phục vụ báo khi làm đổ / vỡ món: xem xét và nhập mức phạt phù hợp (nhập 0 nếu không phạt).
+            Biên bản do thu ngân / hệ thống tạo chỉ để ghi nhận hao hụt món đã pha, không phạt người báo.
           </p>
         </div>
         <button className="btn btn-light-soft btn-sm" onClick={load} disabled={loading}>
@@ -91,7 +92,7 @@ export default function IncidentReportList() {
               <thead>
                 <tr>
                   <th>Thời gian</th>
-                  <th>Phục vụ</th>
+                  <th>Người báo / Nguồn</th>
                   <th>Món</th>
                   <th>Nguyên nhân</th>
                   <th>Hướng xử lý</th>
@@ -103,7 +104,10 @@ export default function IncidentReportList() {
                 {reports.map((r) => (
                   <tr key={r.id}>
                     <td className="text-nowrap">{formatDateTime(r.createdAt)}</td>
-                    <td className="fw-semibold">{r.reporterName}</td>
+                    <td>
+                      <div className="fw-semibold">{reporterLabel(r)}</div>
+                      <span className={`badge ${sourceLabel(r).badge}`}>{sourceLabel(r).text}</span>
+                    </td>
                     <td>
                       <div className="fw-semibold">{r.quantity}× {r.itemName}</div>
                       <div className="cell-sub">
@@ -119,7 +123,9 @@ export default function IncidentReportList() {
                     <td className="text-end text-nowrap">
                       {r.status === 'REVIEWED' ? (
                         <>
-                          <div className="fw-semibold">{r.penaltyAmount > 0 ? formatMoney(r.penaltyAmount) : 'Không phạt'}</div>
+                          <div className="fw-semibold">
+                            {r.penaltyAmount > 0 ? formatMoney(r.penaltyAmount) : (isWaiterReport(r) ? 'Không phạt' : 'Đã ghi nhận hao hụt')}
+                          </div>
                           {r.managerNote && <div className="cell-sub">{r.managerNote}</div>}
                           <div className="cell-sub">{r.reviewerName}, {formatDateTime(r.reviewedAt)}</div>
                         </>

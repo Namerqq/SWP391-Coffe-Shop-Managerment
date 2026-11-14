@@ -111,6 +111,7 @@ public class ServingService {
      * Báo cáo sự cố làm đổ/vỡ ly khi đang mang ra cho khách (UC-W08).
      * - Khách muốn làm lại (action = REMAKE): món chuyển về PENDING (Chờ pha) để pha chế làm lại.
      *   Tổng tiền đơn GIỮ NGUYÊN (khách chỉ trả tiền 1 ly ban đầu).
+     *   Đơn của ngày trước không làm lại được (pha chế không còn thấy đơn đó).
      * - Khách không muốn làm lại (action = CANCEL): món chuyển sang CANCELLED, không tính tiền món này.
      * - Lưu 1 biên bản vào bảng incident_reports để quản lý xem xét, quyết định mức phạt.
      *   Thông tin sự cố là nội bộ: KHÔNG ghi vào ghi chú món nên khách không thấy.
@@ -139,6 +140,14 @@ public class ServingService {
         if (IncidentReport.CANCEL.equals(action) && o.isPaid()) {
             throw ApiException.badRequest("Đơn này đã thanh toán. Vui lòng chọn 'Khách muốn làm lại' hoặc liên hệ Thu ngân hoàn tiền trước khi hủy món.");
         }
+        // Đơn ngày trước đã ẩn khỏi bảng pha chế (và cột Chờ pha của phục vụ): gửi lại pha thì không ai thấy để làm,
+        // món sẽ kẹt mãi ở Chờ pha. Chỉ cho hủy món (chưa thanh toán) hoặc báo thu ngân hoàn tiền (đã thanh toán).
+        if (IncidentReport.REMAKE.equals(action) && o.isFromPreviousDay()) {
+            String num = OrderSupportService.displayNumber(o.getOrderNumber());
+            throw ApiException.badRequest(o.isPaid()
+                    ? "Đơn " + num + " là đơn của ngày trước, pha chế không làm lại được nữa. Đơn đã thanh toán: vui lòng báo Thu ngân hoàn tiền món này."
+                    : "Đơn " + num + " là đơn của ngày trước, pha chế không làm lại được nữa. Vui lòng chọn 'Khách không muốn làm lại' (hủy món).");
+        }
         String reason = (req.reason() == null || req.reason().isBlank()) ? "Làm đổ/vỡ khi mang ra" : req.reason().trim();
         if (!IncidentReport.REMAKE.equals(action) && !IncidentReport.CANCEL.equals(action)) {
             throw ApiException.badRequest("Hướng xử lý chỉ được chọn REMAKE (Làm lại) hoặc CANCEL (Không làm lại).");
@@ -158,7 +167,9 @@ public class ServingService {
         o.syncStatusFromItems();
         o.recalcTotal();
         if (o.isCancelled()) o.setCancelReason(CUSTOMER_NOT_REMAKE); // lý do khách nhìn thấy, không nhắc tới sự cố
-        orderRepository.saveAndFlush(o);
+        // Dùng flush (không dùng saveAndFlush): saveAndFlush merge đơn nên dòng vừa tách được lưu bằng bản sao,
+        // biến broken vẫn chưa có id và biên bản bên dưới sẽ lỗi. Đơn đang được quản lý trong transaction nên flush là đủ.
+        orderRepository.flush();
 
         // Lưu biên bản sự cố (nội bộ) để quản lý xem xét và quyết định mức phạt
         incidentService.create(broken, waiter, action, reason);

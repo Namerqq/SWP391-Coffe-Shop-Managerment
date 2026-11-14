@@ -15,7 +15,6 @@ import com.example.project.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -167,8 +166,7 @@ public class BaristaService {
      * Đơn của ngày trước còn dở (đã thu tiền, chờ phục vụ / thu ngân xử lý) thì pha chế không làm nữa.
      */
     private static boolean visibleToBarista(Order o) {
-        boolean previousDay = o.getCreatedAt() != null && o.getCreatedAt().isBefore(LocalDate.now().atStartOfDay());
-        return !previousDay && !(Order.SOURCE_ONLINE.equals(o.getSource()) && Order.PENDING.equals(o.getStatus()));
+        return !o.isFromPreviousDay() && !(Order.SOURCE_ONLINE.equals(o.getSource()) && Order.PENDING.equals(o.getStatus()));
     }
 
     private Order find(Long id) {
