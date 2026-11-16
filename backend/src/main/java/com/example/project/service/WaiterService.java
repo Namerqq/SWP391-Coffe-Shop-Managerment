@@ -39,11 +39,14 @@ public class WaiterService {
     private final TableBoardService tableBoardService;
     private final OrderItemRepository itemRepository;
     private final IncidentReportRepository incidentRepository;
+    private final GuestSessionStore guests;
 
     public WaiterService(OrderRepository orderRepository, OrderLockRepository lockRepository,
                          OrderSupportService support, CafeTableRepository tableRepository,
                          TableSessionRepository sessionRepository, TableBoardService tableBoardService,
-                         OrderItemRepository itemRepository, IncidentReportRepository incidentRepository) {
+                         OrderItemRepository itemRepository, IncidentReportRepository incidentRepository,
+                         GuestSessionStore guests) {
+        this.guests = guests;
         this.orderRepository = orderRepository;
         this.lockRepository = lockRepository;
         this.support = support;
@@ -204,6 +207,9 @@ public class WaiterService {
         // 3. Gắn session sang bàn mới
         session.setTable(targetTable);
         sessionRepository.save(session);
+
+        // 4. Điện thoại của khách (phiên gọi món qua QR) đang gắn với lượt này cũng chuyển sang bàn mới
+        guests.moveTableSession(session.getId(), targetTableId);
 
         return tableBoardService.toSessionView(session);
     }

@@ -1,13 +1,14 @@
 package com.example.project.service;
 
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.project.dto.order.OrderView;
 import com.example.project.entity.Order;
 import com.example.project.exception.ResourceNotFoundException;
 import com.example.project.repository.OrderLockRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 /** UC-CU03 Track Order Status + hủy đơn còn Chờ pha (trạng thái hiển thị giống màn Pha chế / Phục vụ). */
 @Service
@@ -26,11 +27,21 @@ public class GuestTrackingService {
         this.support = support;
     }
 
-    /** Các đơn chưa thanh toán khách đã gửi trong phiên này, mới nhất trước. */
+    /**
+     * Các đơn khách đã gửi trong phiên này, mới nhất trước. Đơn chỉ ẩn khi đã xong cả 2 phía:
+     * đã thanh toán VÀ (đã phục vụ hoặc đã hủy / hoàn hết). Trả trước mà món chưa ra thì vẫn hiện để khách theo dõi.
+     */
     public List<OrderView> myOrders(String token) {
         return tableOrders.views(guests.require(token).orderIds()).stream()
-                .filter(order -> !Order.PAID.equals(order.paymentStatus()))
+                .filter(order -> !isSettled(order))
                 .toList();
+    }
+
+    private static boolean isSettled(OrderView order) {
+        boolean paid = Order.PAID.equals(order.paymentStatus());
+        boolean finished = Order.SERVED.equals(order.status())
+                || Order.CANCELLED.equals(order.status()) || Order.REJECTED.equals(order.status());
+        return paid && finished;
     }
 
     /** Khách chỉ hủy được đơn của mình khi đơn còn Chờ pha. Hủy hết đơn thì bàn tự trả về trống. */

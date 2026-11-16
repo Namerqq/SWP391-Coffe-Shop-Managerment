@@ -80,7 +80,7 @@ export default function GuestOrders() {
       {!loading && !error && orders.length === 0 && (
         <div className="gx-empty">
           <i className="bi bi-receipt gx-empty-icon" />
-          <p>Bạn không có đơn nào chưa thanh toán.</p>
+          <p>Bạn không có đơn nào đang chờ phục vụ hoặc chưa thanh toán.</p>
           <Link to="/menu" className="btn btn-primary">Xem thực đơn</Link>
         </div>
       )}
@@ -132,7 +132,12 @@ export default function GuestOrders() {
             <footer>
               {cancelled
                 ? <span className="gx-muted">{o.cancelReason || 'Đơn đã hủy'}</span>
-                : <strong>{formatMoney(o.totalAmount)}</strong>}
+                : (
+                  <span>
+                    <strong>{formatMoney(o.totalAmount)}</strong>
+                    {o.paymentStatus === 'PAID' && <span className="gx-muted"> · Đã thanh toán</span>}
+                  </span>
+                )}
               {isWaiting(o.status) && o.paymentStatus !== 'PAID' && (
                 <button type="button" className="gx-link danger" onClick={() => setCancelling(o)}>Hủy đơn</button>
               )}

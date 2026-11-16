@@ -72,6 +72,7 @@ export default function CashierDashboard() {
           return (
             <button type="button" key={t.tableId} className="cf-card bill-card" onClick={() => navigate(`/cashier/bill/${t.tableId}`)}>
               <div className="d-flex justify-content-between align-items-start gap-2">
+                
                 <span className="bill-table">{t.tableNumber}</span>
                 <span className={`pay-pill ${allPaid ? 'is-paid' : 'is-unpaid'}`}>
                   <i className={`bi ${allPaid ? 'bi-check2-circle' : 'bi-wallet2'}`} aria-hidden="true" />

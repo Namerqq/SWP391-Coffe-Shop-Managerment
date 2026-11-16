@@ -1,14 +1,15 @@
 package com.example.project.dto.cashier;
 
+import java.util.List;
+
 import com.example.project.dto.order.OrderItemRequest;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-
-import java.util.List;
 
 /** Bán mang đi: khách trả tiền trước, tạo đơn + thanh toán cùng lúc. note = ghi chú đơn, paymentNote = ghi chú thanh toán. */
 public record TakeawayRequest(
@@ -19,5 +20,6 @@ public record TakeawayRequest(
         String method,
         Long customerId,
         @Min(value = 0, message = "Số điểm dùng không hợp lệ") Integer pointsToRedeem,
-        @Size(max = 300, message = "Ghi chú thanh toán tối đa 300 ký tự") String paymentNote
+        @Size(max = 300, message = "Ghi chú thanh toán tối đa 300 ký tự") String paymentNote,
+        @Min(value = 0, message = "Số tiền không hợp lệ") Long expectedSubtotal 
 ) {}

@@ -91,7 +91,7 @@ export default function QrPaymentPanel({ qr, onChange, onPaid, onBack, onClose, 
     ? `${view.tableNumber}, đơn ${view.orderNumbers}`
     : `Mang đi, ${view.itemCount} món`
   const errorBox = error && <div className="alert alert-danger small mt-3 mb-0 text-start">{error}</div>
-
+  //PAID
   if (view.status === 'PAID') {
     return (
       <div className="qr-pay qr-pay-result" role="status">
@@ -113,7 +113,7 @@ export default function QrPaymentPanel({ qr, onChange, onPaid, onBack, onClose, 
       </div>
     )
   }
-
+  //MISMATCH
   if (view.status === 'MISMATCH') {
     return (
       <div className="qr-pay">
@@ -126,7 +126,7 @@ export default function QrPaymentPanel({ qr, onChange, onPaid, onBack, onClose, 
       </div>
     )
   }
-
+  //EXPIRED / CANCELLED
   if (view.status === 'EXPIRED' || view.status === 'CANCELLED') {
     const expired = view.status === 'EXPIRED'
     return (

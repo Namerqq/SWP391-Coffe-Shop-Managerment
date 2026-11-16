@@ -269,7 +269,7 @@ export default function TakeawayPOS() {
                         onClose={() => setPicking(null)} onConfirm={confirmLine} />
       <PaymentModal show={paying} title="Thanh toán đơn mang đi" subtotal={subtotal} transferNote="Mang di"
                     onClose={() => { setPaying(false); loadPending() }}
-                    onSubmit={(payload) => cashierApi.takeaway({ ...payload, items: cart.map(toItemRequest), note: note.trim() || null })}
+                    onSubmit={(payload) => cashierApi.takeaway({ ...payload, items: cart.map(toItemRequest), note: note.trim() || null, expectedSubtotal: subtotal })}
                     onCreateQr={(payload) => cashierApi.createTakeawayQr({ ...payload, items: cart.map(toItemRequest), note: note.trim() || null })}
                     onQrChange={(v) => setCartQr(v)}
                     onPaid={paid} />
