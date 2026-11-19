@@ -1,5 +1,17 @@
 package com.example.project.service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.project.dto.cashier.CustomerCreateRequest;
 import com.example.project.dto.cashier.PayRequest;
 import com.example.project.dto.cashier.PaymentResult;
@@ -25,17 +37,6 @@ import com.example.project.repository.OrderRepository;
 import com.example.project.repository.PaymentRepository;
 import com.example.project.repository.QrPaymentRequestRepository;
 import com.example.project.repository.TableSessionRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Thu ngân: UC-C01..C04 bán mang đi, UC-C05/C07/C08 thanh toán, UC-C09 hóa đơn,
@@ -174,6 +175,10 @@ public class CashierService {
         }
         req.items().forEach(i -> o.addItem(support.buildItem(i)));
         o.recalcTotal();
+        if (req.expectedSubtotal() != null && !req.expectedSubtotal().equals(o.getTotalAmount())) {
+            throw ApiException.conflict("Giá món vừa thay đổi, tổng bây giờ là " + money(o.getTotalAmount())
+                + ". Vui lòng tải lại trang Bán mang đi và kiểm tra giỏ hàng.");
+        }
         orderRepository.save(o);
 
         Payment p = new Payment();
@@ -190,6 +195,7 @@ public class CashierService {
     @Transactional(readOnly = true)
     public ReceiptView receipt(Long paymentId) {
         Payment found = paymentRepository.findById(paymentId)
+        //Tìm hoá đơn theo id
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hóa đơn id = " + paymentId));
         // Mở bằng mã phiếu hoàn (vd. từ lịch sử điểm) -> hiện hóa đơn gốc của phiếu hoàn đó.
         Payment p = found.isRefund() && found.getOrder() != null && found.getOrder().getPayment() != null
@@ -207,6 +213,8 @@ public class CashierService {
             String kind = single != null && Order.DELIVERY.equals(single.getFulfillmentType()) ? "Giao hàng" : "Mang đi";
             place = single == null ? kind : kind + " " + OrderSupportService.displayNumber(single.getOrderNumber());
         }
+
+
         long subtotal = orders.stream().mapToLong(Order::activeTotal).sum();
 
         int redeemed = 0;
@@ -214,6 +222,7 @@ public class CashierService {
         Customer customer = null;
         for (LoyaltyTransaction t : loyaltyRepository.findByPayment_Id(p.getId())) {
             customer = t.getCustomer();
+            //dòng REDEEM là điểm khách đã dùng (lưu số âm nên đổi dấu), dòng EARN là điểm được cộng
             if (LoyaltyTransaction.REDEEM.equals(t.getTransactionType())) redeemed += -t.getPointsChange();
             else if (LoyaltyTransaction.EARN.equals(t.getTransactionType())) earned += t.getPointsChange();
         }

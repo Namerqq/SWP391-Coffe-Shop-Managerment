@@ -31,7 +31,7 @@ public class GuestSessionStore {
 
     /** 1 phiên khách: bàn đang ngồi, lượt khách đang gắn, các đơn đã gửi, requestKey -> orderId để chống gửi trùng. */
     public static final class Guest {
-        private final long tableId;
+        private volatile long tableId; // đổi được khi phục vụ chuyển lượt khách sang bàn khác
         private final Set<Long> orderIds = ConcurrentHashMap.newKeySet();
         private final Map<String, Long> requests = new ConcurrentHashMap<>();
         private volatile Long tableSessionId;
@@ -127,6 +127,25 @@ public class GuestSessionStore {
             });
         } else {
             endAll.run();
+        }
+    }
+
+    /**
+     * Phục vụ đổi bàn cho khách: mọi phiên khách đang gắn với lượt này chuyển sang bàn mới,
+     * để khách gọi tiếp trên điện thoại thì đơn vào đúng lượt ở bàn mới (không mở lượt mới ở bàn cũ).
+     * Chạy sau commit giống endTableSession (rollback thì phiên khách vẫn ở bàn cũ).
+     */
+    public void moveTableSession(Long tableSessionId, Long newTableId) {
+        if (tableSessionId == null || newTableId == null) return;
+        Runnable moveAll = () -> guests.values().forEach(g -> {
+            if (tableSessionId.equals(g.tableSessionId())) g.tableId = newTableId;
+        });
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { moveAll.run(); }
+            });
+        } else {
+            moveAll.run();
         }
     }
 

@@ -1,5 +1,25 @@
 package com.example.project.service;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.project.dto.cashier.QrEventsView;
 import com.example.project.dto.cashier.QrPaymentView;
 import com.example.project.dto.cashier.QrSessionRequest;
@@ -31,25 +51,6 @@ import com.example.project.repository.OrderRepository;
 import com.example.project.repository.QrPaymentRequestRepository;
 import com.example.project.repository.TableSessionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Thanh toán QR tự xác nhận qua payOS (BF-03): thu ngân tạo mã, khách quét bằng app ngân hàng, payOS báo
@@ -128,7 +129,7 @@ public class QrPaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt khách id = " + sessionId));
         if (!s.isActive()) throw ApiException.badRequest("Lượt khách này đã xong, bàn đã trả về trống.");
 
-        // Khóa các đơn của bàn: thu tiền mặt / tạo mã khác / sửa đơn cùng lúc phải chờ.
+        // Khoá đơn, chọn đơn cần thu, kiểm tra QR trùng: thu tiền mặt / tạo mã khác / sửa đơn cùng lúc phải chờ.
         List<Order> sessionOrders = lockRepository.findWithLockByTableSession_IdOrderByCreatedAtAsc(sessionId);
         List<Order> toPay = CashierService.pickOrdersToPay(sessionOrders, req.orderIds());
         cashier.ensureNoPendingQr(toPay);
@@ -272,10 +273,10 @@ public class QrPaymentService {
             log.warn("Không tạo được link payOS (orderCode {}): [{}] {}", r.getOrderCode(), e.getCode(), e.getMessage());
             throw new ApiException(HttpStatus.BAD_GATEWAY, "Không tạo được mã QR: " + e.getMessage());
         }
-        r.setPaymentLinkId(link.paymentLinkId());
-        r.setQrCode(link.qrCode());
+        r.setPaymentLinkId(link.paymentLinkId()); //// ← nhận CreatedLink
+        r.setQrCode(link.qrCode());                //// chép từng trường vào entity QrPaymentRequest
         r.setCheckoutUrl(link.checkoutUrl());
-        qrRepository.save(r);
+        qrRepository.save(r);              // INSERT qr_payment_requests (PENDING) + qr_payment_request_orders
         return toView(r);
     }
 

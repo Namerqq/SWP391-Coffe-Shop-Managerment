@@ -73,7 +73,7 @@ export default function HomePage() {
   const c = (k) => content[k] || ''
   const brand = c('home.brand.name') || 'Gạch Coffee'
   const address = c('home.store.address')
-  const mapUrl = address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : ''
+  
 
   // Đến từ trang khác qua menu "Về ..." -> cuộn tới khu được chọn.
   useEffect(() => {
@@ -135,7 +135,7 @@ export default function HomePage() {
               <h2>{c('home.store.title')}</h2>
               <p className="gc-line"><i className="bi bi-geo-alt" /> {address || 'Địa chỉ đang được cập nhật.'}</p>
               {c('home.store.hours') && <p className="gc-line"><i className="bi bi-clock" /> {c('home.store.hours')}</p>}
-              {mapUrl && <a className="gc-link" href={mapUrl} target="_blank" rel="noreferrer">Mở bản đồ chỉ đường</a>}
+              
             </div>
             <div id="lien-he" className="gc-anchor gc-contact">
               <h3>{c('home.contact.title')}</h3>

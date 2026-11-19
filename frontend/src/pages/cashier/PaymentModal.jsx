@@ -81,7 +81,7 @@ export default function PaymentModal({ show, title, subtotal, description, initi
     Math.ceil(amount / 100000) * 100000, 500000])].filter((v) => v >= amount && v > 0).slice(0, 4)
   const methods = METHODS.filter((m) => m.key !== 'QR' || onCreateQr)
 
-  const submit = async () => {
+  const   submit = async () => {
     if (wanted > maxPoints) {
       setError(`Hóa đơn này dùng tối đa ${maxPoints} điểm.`)
       return

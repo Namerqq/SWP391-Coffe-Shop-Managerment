@@ -188,7 +188,7 @@
 .gc-line { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 10px; color: var(--gc-ink); text-decoration: none; }
 .gc-line .bi { color: var(--cf-primary); margin-top: 2px; }
 a.gc-line:hover { color: var(--cf-primary-hover); }
-.gc-link { color: var(--cf-primary-hover); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
+
 
 @media (max-width: 991.98px) {
   .gc-section { padding: 64px 0; }

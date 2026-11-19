@@ -36,6 +36,7 @@ export default function RefundQueueModal({ show, date, isToday, onClose, onCreat
   const load = useCallback(async () => {
     const no = ++requestNo.current
     try {
+      
       const [a, b, c] = await Promise.all([
         cashierApi.getOrdersToRefund(), cashierApi.getPendingRefunds(), cashierApi.getRefunds(date),
       ])
